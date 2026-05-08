@@ -1,0 +1,25 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Video {
+  id        String   @id @default(cuid())
+  title     String?
+  source    String   // 'bilibili' | 'youtube' | 'local'
+  url       String?
+  localPath String?
+  duration  Int?
+  thumbnail String?
+  status    String   @default("pending") // 'pending' | 'downloading' | 'done' | 'error'
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
