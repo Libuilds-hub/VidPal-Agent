@@ -4,10 +4,6 @@ import { VideoIcon, BrainIcon, MessageSquareIcon, TrendingUpIcon, ClockIcon, Che
 export default function DashboardPage() {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">仪表盘</h1>
-        <p className="text-muted-foreground">欢迎使用视频总结分析工具</p>
-      </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>

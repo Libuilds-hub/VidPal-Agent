@@ -1,34 +1,30 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { VideoIcon, SearchIcon, FilterIcon } from "lucide-react"
+import { VideoIcon, SearchIcon, PlusIcon, FolderIcon } from "lucide-react"
 
-export default function VideosPage() {
+export default function CollectionsPage() {
   return (
     <>
       <div className="flex flex-col gap-4">
         <div className="flex gap-2">
           <div className="relative flex-1 max-w-sm">
             <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="搜索视频..." className="pl-9" />
+            <Input placeholder="搜索合集..." className="pl-9" />
           </div>
-          <Button variant="outline">
-            <FilterIcon className="mr-2 h-4 w-4" />
-            筛选
-          </Button>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>视频列表</CardTitle>
-          <CardDescription>您添加的所有视频将显示在这里</CardDescription>
+          <CardTitle>我的合集</CardTitle>
+          <CardDescription>管理您的视频合集</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-            <VideoIcon className="h-12 w-12 mb-4" />
-            <p>暂无视频</p>
-            <p className="text-sm">点击上方的"添加视频"开始</p>
+            <FolderIcon className="h-12 w-12 mb-4" />
+            <p>暂无合集</p>
+            <p className="text-sm">创建合集来整理您的视频</p>
           </div>
         </CardContent>
       </Card>
