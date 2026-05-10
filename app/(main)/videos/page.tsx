@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { VideoIcon, SearchIcon, FilterIcon } from "lucide-react"
 
@@ -17,6 +18,7 @@ interface Video {
 export default function VideosPage() {
   const [videos, setVideos] = useState<Video[]>([])
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     fetchVideos()
@@ -90,7 +92,8 @@ export default function VideosPage() {
               {videos.map((video) => (
                 <div
                   key={video.id}
-                  className="flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                  onClick={() => router.push(`/videos/${video.id}`)}
+                  className="flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
                 >
                   <VideoIcon className="h-8 w-8 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">

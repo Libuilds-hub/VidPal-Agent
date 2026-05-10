@@ -3,7 +3,7 @@ import { VideoIcon, BrainIcon, MessageSquareIcon, TrendingUpIcon, ClockIcon, Che
 
 export default function DashboardPage() {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 min-h-0">
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
