@@ -13,6 +13,8 @@ import {
   GripVertical,
   PlayCircle
 } from "lucide-react"
+import { MindMap } from "@/components/video-detail/mind-map/MindMap"
+import { QAAssistant } from "@/components/video-detail/assistant/QAAssistant"
 
 interface Video {
   id: string
@@ -286,8 +288,8 @@ function RightPanel({ video }: { video: Video }) {
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {activeTab === "summary" && <SummaryContent video={video} />}
-        {activeTab === "mindmap" && <MindMapPlaceholder />}
-        {activeTab === "assistant" && <AssistantPlaceholder />}
+        {activeTab === "mindmap" && <MindMap />}
+        {activeTab === "assistant" && <QAAssistant />}
       </div>
     </>
   )
@@ -366,28 +368,6 @@ function SummaryContent({ video }: { video: Video }) {
             ))}
           </div>
         </section>
-      </div>
-    </div>
-  )
-}
-
-function MindMapPlaceholder() {
-  return (
-    <div className="w-full h-full flex items-center justify-center">
-      <div className="text-center text-muted-foreground">
-        <MapIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
-        <p>思维导图功能开发中...</p>
-      </div>
-    </div>
-  )
-}
-
-function AssistantPlaceholder() {
-  return (
-    <div className="w-full h-full flex items-center justify-center">
-      <div className="text-center text-muted-foreground">
-        <MessageCircleIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
-        <p>问答助手功能开发中...</p>
       </div>
     </div>
   )
