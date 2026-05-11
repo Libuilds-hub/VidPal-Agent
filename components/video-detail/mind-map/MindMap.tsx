@@ -1,7 +1,15 @@
 "use client"
 
-import { Excalidraw } from "@excalidraw/excalidraw"
-import "@excalidraw/excalidraw/index.css"
+import dynamic from "next/dynamic"
+
+const Excalidraw = dynamic(() => import("@excalidraw/excalidraw").then((mod) => mod.Excalidraw), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-[#fafafa]">
+      <div className="text-muted-foreground">加载中...</div>
+    </div>
+  ),
+})
 
 const INITIAL_ELEMENTS = [
   {
