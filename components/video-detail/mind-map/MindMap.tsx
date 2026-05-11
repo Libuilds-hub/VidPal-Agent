@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import dynamic from "next/dynamic"
 import "@excalidraw/excalidraw/index.css"
 
@@ -414,6 +415,34 @@ const INITIAL_ELEMENTS = [
 ]
 
 export function MindMap() {
+  useEffect(() => {
+    const moveButton = () => {
+      const mainMenuBtn = document.querySelector('[data-testid="main-menu-trigger"]')
+      const mobileMiscTools = document.querySelector(".mobile-misc-tools-container")
+      console.log("Looking for elements:", { mainMenuBtn, mobileMiscTools })
+      if (mainMenuBtn && mobileMiscTools && !mobileMiscTools.contains(mainMenuBtn)) {
+        mobileMiscTools.appendChild(mainMenuBtn)
+        console.log("Button moved successfully")
+      }
+    }
+
+    // Try immediately and also set up a timer to retry
+    moveButton()
+    const intervalId = setInterval(moveButton, 1000)
+
+    // Use MutationObserver to watch for changes
+    const observer = new MutationObserver(() => {
+      moveButton()
+    })
+
+    observer.observe(document.body, { childList: true, subtree: true })
+
+    return () => {
+      observer.disconnect()
+      clearInterval(intervalId)
+    }
+  }, [])
+
   return (
     <div className="relative w-full h-full bg-[#fafafa]">
       <Excalidraw
