@@ -185,13 +185,6 @@ export default function VideoDetailPage() {
               className="w-full h-full"
               style={{ objectFit: 'contain' }}
             />
-          ) : video.url ? (
-            <iframe
-              src={getEmbedUrl(video.url, video.source)}
-              className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               <PlayIcon className="h-12 w-12" />
