@@ -2,11 +2,12 @@ import { exec } from "child_process"
 import { promisify } from "util"
 import path from "path"
 import fs from "fs"
-import { existsSync, mkdirSync } from "fs"
+import { existsSync, mkdirSync, writeFileSync } from "fs"
 
 const execAsync = promisify(exec)
 
 const VIDEOS_DIR = path.join(process.cwd(), "public", "videos")
+const COOKIES_FILE = path.join(process.cwd(), "cookies.txt")
 
 export interface VideoInfo {
   id: string
@@ -16,6 +17,23 @@ export interface VideoInfo {
   extractor: string
 }
 
+// 设置 Bilibili Cookie（从环境变量或直接设置）
+export function setBilibiliCookie(cookie: string): void {
+  writeFileSync(COOKIES_FILE, cookie, "utf-8")
+}
+
+// 清除 Cookie
+export function clearCookie(): void {
+  if (existsSync(COOKIES_FILE)) {
+    fs.unlinkSync(COOKIES_FILE)
+  }
+}
+
+// 获取 Cookie 参数
+function getCookieArg(): string {
+  return existsSync(COOKIES_FILE) ? `--cookies "${COOKIES_FILE}"` : ""
+}
+
 export async function ensureVideosDir(): Promise<void> {
   if (!existsSync(VIDEOS_DIR)) {
     mkdirSync(VIDEOS_DIR, { recursive: true })
@@ -23,7 +41,8 @@ export async function ensureVideosDir(): Promise<void> {
 }
 
 export async function getVideoInfo(url: string): Promise<VideoInfo> {
-  const command = `yt-dlp --dump-json --no-download --no-warnings -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" "${url}"`
+  const cookieArg = getCookieArg()
+  const command = `yt-dlp --dump-json --no-download --no-warnings -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" ${cookieArg} "${url}"`
 
   try {
     const { stdout } = await execAsync(command, { encoding: "utf-8" })
@@ -50,7 +69,8 @@ export async function downloadVideo(
   await ensureVideosDir()
 
   const outputPath = path.join(VIDEOS_DIR, `${videoId}.mp4`)
-  const command = `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "${outputPath}" --no-warnings "${url}"`
+  const cookieArg = getCookieArg()
+  const command = `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "${outputPath}" --no-warnings ${cookieArg} "${url}"`
 
   try {
     await execAsync(command, { encoding: "utf-8" })
@@ -68,7 +88,8 @@ export async function downloadAudio(
   await ensureVideosDir()
 
   const outputPath = path.join(VIDEOS_DIR, `${videoId}.mp3`)
-  const command = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" --no-warnings "${url}"`
+  const cookieArg = getCookieArg()
+  const command = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" --no-warnings ${cookieArg} "${url}"`
 
   try {
     await execAsync(command, { encoding: "utf-8" })
