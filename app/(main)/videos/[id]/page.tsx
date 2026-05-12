@@ -48,7 +48,7 @@ export default function VideoDetailPage() {
   const [video, setVideo] = useState<Video | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [leftWidth, setLeftWidth] = useState(40)
+  const [leftWidth, setLeftWidth] = useState(50)
   const [isDragging, setIsDragging] = useState(false)
   const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -84,7 +84,7 @@ export default function VideoDetailPage() {
       if (!isDragging || !containerRef.current) return
       const rect = containerRef.current.getBoundingClientRect()
       const newLeftWidth = ((e.clientX - rect.left) / rect.width) * 100
-      if (newLeftWidth >= 20 && newLeftWidth <= 80) {
+      if (newLeftWidth >= 33.33 && newLeftWidth <= 66.67) {
         setLeftWidth(newLeftWidth)
       }
     }
@@ -178,7 +178,7 @@ export default function VideoDetailPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
+          <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {video.status === "done" ? (
               // Show transcripts when video is processed
               <div className="space-y-4">
@@ -286,7 +286,7 @@ function RightPanel({ video }: { video: Video }) {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {activeTab === "summary" && <SummaryContent video={video} />}
         {activeTab === "mindmap" && <MindMap />}
         {activeTab === "assistant" && <QAAssistant />}
