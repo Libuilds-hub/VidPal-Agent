@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useParams } from "next/navigation"
+import "plyr/dist/plyr.css"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import {
@@ -52,10 +53,39 @@ export default function VideoDetailPage() {
   const [isDragging, setIsDragging] = useState(false)
   const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const plyrRef = useRef<Plyr | null>(null)
 
   useEffect(() => {
     fetchVideo()
   }, [videoId])
+
+  // Initialize Plyr when video element is available
+  useEffect(() => {
+    let plyrInstance: Plyr | null = null
+
+    const initPlyr = async () => {
+      if (videoRef.current && video?.localPath && !plyrRef.current) {
+        const PlyrModule = await import("plyr")
+        const PlyrClass = PlyrModule.default || PlyrModule
+        plyrInstance = new PlyrClass(videoRef.current, {
+          controls: ['play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'fullscreen'],
+          settings: ['quality', 'speed'],
+          ratio: '16:9',
+        })
+        plyrRef.current = plyrInstance
+      }
+    }
+
+    initPlyr()
+
+    return () => {
+      if (plyrRef.current) {
+        plyrRef.current.destroy()
+        plyrRef.current = null
+      }
+    }
+  }, [video?.localPath])
 
   const fetchVideo = async () => {
     try {
@@ -147,16 +177,21 @@ export default function VideoDetailPage() {
         style={{ width: `${leftWidth}%` }}
       >
         {/* Video Player */}
-        <div className="relative aspect-video bg-black shrink-0">
-          {video.url ? (
+        <div className="relative aspect-[16/9] bg-black shrink-0">
+          {video.localPath ? (
+            <video
+              ref={videoRef}
+              src={video.localPath}
+              className="w-full h-full"
+              style={{ objectFit: 'contain' }}
+            />
+          ) : video.url ? (
             <iframe
               src={getEmbedUrl(video.url, video.source)}
               className="w-full h-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
-          ) : video.localPath ? (
-            <video src={video.localPath} controls className="w-full h-full" />
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               <PlayIcon className="h-12 w-12" />

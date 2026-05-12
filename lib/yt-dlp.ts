@@ -2,12 +2,13 @@ import { exec } from "child_process"
 import { promisify } from "util"
 import path from "path"
 import fs from "fs"
-import { existsSync, mkdirSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, writeFileSync, unlinkSync, renameSync } from "fs"
 
 const execAsync = promisify(exec)
 
 const VIDEOS_DIR = path.join(process.cwd(), "public", "videos")
 const COOKIES_FILE = path.join(process.cwd(), "cookies.txt")
+const FFMPEG_PATH = "D:\\python3.10\\Scripts\\ffmpeg.exe"
 
 export interface VideoInfo {
   id: string
@@ -25,7 +26,7 @@ export function setBilibiliCookie(cookie: string): void {
 // 清除 Cookie
 export function clearCookie(): void {
   if (existsSync(COOKIES_FILE)) {
-    fs.unlinkSync(COOKIES_FILE)
+    unlinkSync(COOKIES_FILE)
   }
 }
 
@@ -61,6 +62,18 @@ export async function getVideoInfo(url: string): Promise<VideoInfo> {
   }
 }
 
+// 转码为 H.264（因为 HEVC 在很多浏览器不支持）
+async function transcodeToH264(inputPath: string, outputPath: string): Promise<void> {
+  const command = `"${FFMPEG_PATH}" -i "${inputPath}" -c:v libx264 -c:a aac -strict experimental "${outputPath}"`
+
+  try {
+    await execAsync(command)
+  } catch (error) {
+    console.error("Transcode failed:", error)
+    throw error
+  }
+}
+
 export async function downloadVideo(
   url: string,
   videoId: string,
@@ -68,15 +81,28 @@ export async function downloadVideo(
 ): Promise<string> {
   await ensureVideosDir()
 
+  const tempPath = path.join(VIDEOS_DIR, `${videoId}_temp.mp4`)
   const outputPath = path.join(VIDEOS_DIR, `${videoId}.mp4`)
   const cookieArg = getCookieArg()
-  const command = `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "${outputPath}" --no-warnings ${cookieArg} "${url}"`
+  const command = `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "${tempPath}" --no-warnings ${cookieArg} "${url}"`
 
   try {
     await execAsync(command, { encoding: "utf-8" })
+
+    // 转码为 H.264（兼容浏览器）
+    await transcodeToH264(tempPath, outputPath)
+
+    // 删除临时文件
+    unlinkSync(tempPath)
+
     return `/videos/${videoId}.mp4`
   } catch (error) {
     console.error("Download failed:", error)
+    // 如果转码失败，尝试直接使用原文件
+    if (existsSync(tempPath)) {
+      renameSync(tempPath, outputPath)
+      return `/videos/${videoId}.mp4`
+    }
     throw new Error("Failed to download video")
   }
 }
