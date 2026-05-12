@@ -11,8 +11,7 @@ import {
   MapIcon,
   MessageCircleIcon,
   Search,
-  GripVertical,
-  PlayCircle
+  GripVertical
 } from "lucide-react"
 import { MindMap } from "@/components/video-detail/mind-map/MindMap"
 import { QAAssistant } from "@/components/video-detail/assistant/QAAssistant"
@@ -209,7 +208,7 @@ export default function VideoDetailPage() {
           <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {video.status === "done" ? (
               // Show transcripts when video is processed
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {TRANSCRIPT_ITEMS.map((item, index) => {
                   const isActive = currentPlaybackTime >= item.startTime &&
                     (index === TRANSCRIPT_ITEMS.length - 1 || currentPlaybackTime < TRANSCRIPT_ITEMS[index + 1].startTime)
@@ -217,29 +216,22 @@ export default function VideoDetailPage() {
                     <div
                       key={index}
                       className={cn(
-                        "flex gap-4 group hover:bg-muted/30 p-2 -mx-2 rounded-lg transition-all cursor-pointer",
-                        isActive && "bg-blue-50/50 dark:bg-blue-900/20 border-l-2 border-blue-500"
+                        "flex gap-3 group cursor-pointer py-1 px-2 rounded-lg",
+                        isActive && ["font-medium", "bg-blue-50"]
                       )}
                     >
                       <span className={cn(
-                        "text-xs font-mono font-medium shrink-0 mt-0.5 transition-opacity",
-                        isActive
-                          ? "text-blue-600 dark:text-blue-400"
-                          : "text-primary opacity-70 group-hover:opacity-100"
+                        "text-xs font-mono shrink-0 w-10 leading-5",
+                        isActive ? "text-blue-600" : "text-gray-400"
                       )}>
                         {item.time}
                       </span>
                       <p className={cn(
-                        "text-sm leading-relaxed transition-colors",
-                        isActive
-                          ? "text-foreground font-medium"
-                          : "text-muted-foreground group-hover:text-foreground"
+                        "text-sm leading-5",
+                        isActive ? "text-black" : "text-gray-400"
                       )}>
                         {item.text}
                       </p>
-                      {isActive && (
-                        <PlayCircle className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                      )}
                     </div>
                   )
                 })}
