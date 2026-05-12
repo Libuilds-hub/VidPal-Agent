@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 import "@excalidraw/excalidraw/index.css"
 
@@ -414,46 +414,240 @@ const INITIAL_ELEMENTS = [
   },
 ]
 
+const EXCALIDRAW_OVERRIDES_CSS = `
+  .excalidraw-mindmap .excalidraw .App-bottom-bar {
+    left: auto !important;
+    right: 0 !important;
+    width: auto !important;
+    align-items: flex-start !important;
+    padding-top: calc(5rem - var(--editor-container-padding, 1rem)) !important;
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-bottom-bar > .Island {
+    width: auto !important;
+    min-width: auto !important;
+    max-width: none !important;
+    border-radius: 0 !important;
+    border-top-left-radius: var(--border-radius-lg, 8px) !important;
+    border-bottom-left-radius: var(--border-radius-lg, 8px) !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-right: 0 !important;
+    border-left: 1px solid var(--sidebar-border-color, #e9ecef) !important;
+    border-top: 1px solid var(--sidebar-border-color, #e9ecef) !important;
+    border-bottom: 1px solid var(--sidebar-border-color, #e9ecef) !important;
+    pointer-events: auto !important;
+    box-shadow: none !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-toolbar {
+    width: auto !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-toolbar-content {
+    flex-direction: column !important;
+    padding: 4px !important;
+    gap: 0 !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-toolbar-content .dropdown-menu-button {
+    position: relative !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-toolbar-content .ToolIcon,
+  .excalidraw-mindmap .excalidraw .App-toolbar-content button {
+    width: 2rem !important;
+    height: 2rem !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-toolbar-content .ToolIcon__icon {
+    width: 2rem !important;
+    height: 2rem !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-toolbar__divider {
+    display: none !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-toolbar-content > div {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .mobile-misc-tools-container {
+    top: auto !important;
+    bottom: 0 !important;
+    right: 0 !important;
+    border-radius: 0 !important;
+    border-top-left-radius: var(--border-radius-lg, 8px) !important;
+    border-top: 0 !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .dropdown-menu-button .dropdown-menu {
+    left: auto !important;
+    right: 100% !important;
+    top: 0 !important;
+    margin-top: 0 !important;
+    margin-right: 0.375rem !important;
+    min-width: max-content !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .dropdown-menu-button .dropdown-menu .dropdown-menu-container {
+    max-height: 50vh !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .dropdown-menu--mobile {
+    left: auto !important;
+    right: 100% !important;
+    width: auto !important;
+    min-width: 16rem !important;
+    max-height: 50vh !important;
+    top: 0 !important;
+    bottom: auto !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .dropdown-menu--mobile .dropdown-menu-container {
+    max-height: 50vh !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .Island .dropdown-menu {
+    left: auto !important;
+    right: 100% !important;
+    top: 0 !important;
+    margin-top: 0 !important;
+    margin-right: 0.375rem !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .dropdown-menu .dropdown-menu-item {
+    padding: 0.25rem 0.5rem !important;
+    min-height: auto !important;
+    font-size: 0.75rem !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .dropdown-menu .dropdown-menu-item-base {
+    font-size: 0.75rem !important;
+    column-gap: 0.5rem !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .dropdown-menu .dropdown-menu-item__text {
+    overflow: visible !important;
+    text-overflow: unset !important;
+    white-space: nowrap !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .dropdown-menu .dropdown-menu-item__shortcut {
+    font-size: 0.625rem !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-bottom-bar > .Island {
+    overflow: visible !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-mobile-menu {
+    position: relative !important;
+    width: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    margin-bottom: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-bottom-bar > .Island .panelColumn {
+    position: absolute !important;
+    right: 100% !important;
+    top: 0 !important;
+    width: max-content !important;
+    min-width: 200px !important;
+    max-height: 50vh !important;
+    overflow-y: auto !important;
+    padding: 8px !important;
+    margin-right: 2px !important;
+    background: var(--island-bg-color) !important;
+    box-shadow: var(--shadow-island) !important;
+    border-radius: var(--border-radius-lg) !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .panelColumn .color-picker-container {
+    min-width: 200px !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .panelColumn .popover {
+    position: absolute !important;
+    right: 100% !important;
+    left: auto !important;
+    top: -12px !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .panelColumn .color-picker {
+    left: auto !important;
+    right: 0 !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .panelColumn .color-picker-popover-container {
+    margin-left: 0 !important;
+    margin-right: 0.5rem !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .panelColumn .color-picker-triangle {
+    left: auto !important;
+    right: -14px !important;
+    transform: rotate(90deg) !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .panelColumn .color-picker-triangle-shadow {
+    left: auto !important;
+    right: -16px !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .panelColumn .dropdown-menu {
+    left: auto !important;
+    right: 100% !important;
+    top: 0 !important;
+    margin-top: 0 !important;
+    margin-right: 0.375rem !important;
+  }
+
+  .excalidraw-mindmap .excalidraw [aria-label="Delete"],
+  .excalidraw-mindmap .excalidraw [aria-label="Duplicate"],
+  .excalidraw-mindmap .excalidraw [aria-label="Edit"] {
+    display: inline-flex !important;
+  }
+`.trim()
+
 export function MindMap() {
+  const [mounted, setMounted] = useState(false)
+
   useEffect(() => {
-    const moveButton = () => {
-      const mainMenuBtn = document.querySelector('[data-testid="main-menu-trigger"]')
-      const mobileMiscTools = document.querySelector(".mobile-misc-tools-container")
-      console.log("Looking for elements:", { mainMenuBtn, mobileMiscTools })
-      if (mainMenuBtn && mobileMiscTools && !mobileMiscTools.contains(mainMenuBtn)) {
-        mobileMiscTools.appendChild(mainMenuBtn)
-        console.log("Button moved successfully")
-      }
-    }
-
-    // Try immediately and also set up a timer to retry
-    moveButton()
-    const intervalId = setInterval(moveButton, 1000)
-
-    // Use MutationObserver to watch for changes
-    const observer = new MutationObserver(() => {
-      moveButton()
-    })
-
-    observer.observe(document.body, { childList: true, subtree: true })
-
-    return () => {
-      observer.disconnect()
-      clearInterval(intervalId)
-    }
+    setMounted(true)
   }, [])
 
+  if (!mounted) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-[#fafafa]">
+        <div className="text-muted-foreground">加载中...</div>
+      </div>
+    )
+  }
+
   return (
-    <div className="relative w-full h-full bg-[#fafafa]">
-      <Excalidraw
-        initialData={{
-          elements: INITIAL_ELEMENTS as any,
-          appState: {
-            viewBackgroundColor: "#fafafa",
-          },
-        }}
-        onChange={() => {}}
-      />
-    </div>
+    <>
+      <style>{EXCALIDRAW_OVERRIDES_CSS}</style>
+      <div className="relative w-full h-full bg-[#fafafa] excalidraw-container excalidraw-mindmap overflow-hidden">
+        <Excalidraw
+          initialData={{
+            elements: INITIAL_ELEMENTS as any,
+            appState: {
+              viewBackgroundColor: "#fafafa",
+            },
+          }}
+          onChange={() => {}}
+        />
+      </div>
+    </>
   )
 }
