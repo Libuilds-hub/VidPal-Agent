@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getVideoInfo, downloadVideo, downloadAudio } from "@/lib/yt-dlp"
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,9 +25,12 @@ export async function POST(request: NextRequest) {
       data: {
         source,
         url,
-        status: "pending",
+        status: "downloading",
       },
     })
+
+    // 异步下载视频（不等待完成）
+    downloadVideoAsync(video.id, url)
 
     return NextResponse.json({
       id: video.id,
@@ -38,5 +42,43 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Parse video error:", error)
     return NextResponse.json({ error: "Failed to parse video" }, { status: 500 })
+  }
+}
+
+async function downloadVideoAsync(videoId: string, url: string) {
+  try {
+    // 获取视频信息
+    const info = await getVideoInfo(url)
+
+    // 更新视频信息
+    await prisma.video.update({
+      where: { id: videoId },
+      data: {
+        title: info.title,
+        duration: info.duration,
+        thumbnail: info.thumbnail,
+      },
+    })
+
+    // 下载视频
+    const localPath = await downloadVideo(url, videoId)
+
+    // 更新为已完成
+    await prisma.video.update({
+      where: { id: videoId },
+      data: {
+        localPath,
+        status: "done",
+      },
+    })
+  } catch (error) {
+    console.error("Download error:", error)
+    await prisma.video.update({
+      where: { id: videoId },
+      data: {
+        status: "error",
+        error: error instanceof Error ? error.message : "Download failed",
+      },
+    })
   }
 }

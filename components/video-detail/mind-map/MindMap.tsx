@@ -751,7 +751,7 @@ export function MindMap() {
     const findAndInsertContainer = () => {
       const menuTrigger = mindmapEl.querySelector(".main-menu-trigger")
       if (menuTrigger?.parentElement) {
-        let container = menuTrigger.parentElement.querySelector(".mindmap-shapes-toggle-container")
+        let container: HTMLElement | null = menuTrigger.parentElement.querySelector(".mindmap-shapes-toggle-container")
         if (!container) {
           container = document.createElement("div")
           container.className = "mindmap-shapes-toggle-container"
