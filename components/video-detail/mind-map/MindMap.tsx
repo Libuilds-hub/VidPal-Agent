@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
+import { createPortal } from "react-dom"
 import dynamic from "next/dynamic"
 import "@excalidraw/excalidraw/index.css"
 
@@ -479,12 +480,7 @@ const EXCALIDRAW_OVERRIDES_CSS = `
   }
 
   .excalidraw-mindmap .excalidraw .mobile-misc-tools-container {
-    top: auto !important;
-    bottom: 0 !important;
-    right: 0 !important;
-    border-radius: 0 !important;
-    border-top-left-radius: var(--border-radius-lg, 8px) !important;
-    border-top: 0 !important;
+    display: none !important;
   }
 
   .excalidraw-mindmap .excalidraw .dropdown-menu-button .dropdown-menu {
@@ -498,6 +494,24 @@ const EXCALIDRAW_OVERRIDES_CSS = `
 
   .excalidraw-mindmap .excalidraw .dropdown-menu-button .dropdown-menu .dropdown-menu-container {
     max-height: 50vh !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .main-menu-trigger + .dropdown-menu,
+  .excalidraw-mindmap .excalidraw .main-menu-trigger.dropdown-menu-button--mobile + .dropdown-menu,
+  .excalidraw-mindmap .excalidraw .main-menu-trigger.dropdown-menu-button--mobile > .dropdown-menu {
+    left: auto !important;
+    right: 100% !important;
+    width: auto !important;
+    min-width: 15rem !important;
+    max-height: 50vh !important;
+    top: 0 !important;
+    bottom: auto !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .main-menu-trigger + .dropdown-menu.dropdown-menu--mobile,
+  .excalidraw-mindmap .excalidraw .main-menu-trigger.dropdown-menu-button--mobile + .dropdown-menu.dropdown-menu--mobile,
+  .excalidraw-mindmap .excalidraw .main-menu-trigger.dropdown-menu-button--mobile > .dropdown-menu.dropdown-menu--mobile {
+    min-width: 15rem !important;
   }
 
   .excalidraw-mindmap .excalidraw .dropdown-menu--mobile {
@@ -612,18 +626,158 @@ const EXCALIDRAW_OVERRIDES_CSS = `
     margin-right: 0.375rem !important;
   }
 
+  .excalidraw-mindmap .excalidraw .App-toolbar__extra-tools-trigger,
+  .excalidraw-mindmap .excalidraw .App-toolbar-content .dropdown-menu-button {
+    position: relative !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-toolbar__extra-tools-trigger + .dropdown-menu {
+    left: 0 !important;
+    right: auto !important;
+    top: 100% !important;
+    bottom: auto !important;
+    margin-top: 0.375rem !important;
+    margin-right: 0 !important;
+    min-width: max-content !important;
+    max-height: 50vh !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-toolbar-content .dropdown-menu-button + .dropdown-menu {
+    left: auto !important;
+    right: 100% !important;
+    top: 0 !important;
+    bottom: auto !important;
+    margin-top: 0 !important;
+    margin-right: 0.375rem !important;
+    min-width: max-content !important;
+    max-height: 50vh !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .App-toolbar__extra-tools-trigger.dropdown-menu-button--mobile + .dropdown-menu,
+  .excalidraw-mindmap .excalidraw .App-toolbar__extra-tools-trigger.dropdown-menu-button--mobile > .dropdown-menu {
+    left: 0 !important;
+    right: auto !important;
+    top: 100% !important;
+    bottom: auto !important;
+    margin-top: 0.375rem !important;
+    margin-right: 0 !important;
+    max-height: 50vh !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .dropdown-menu-button--mobile + .dropdown-menu,
+  .excalidraw-mindmap .excalidraw .dropdown-menu-button--mobile > .dropdown-menu {
+    left: auto !important;
+    right: 100% !important;
+    top: 0 !important;
+    bottom: auto !important;
+    margin-top: 0 !important;
+    margin-right: 0.375rem !important;
+    max-height: 50vh !important;
+  }
+
   .excalidraw-mindmap .excalidraw [aria-label="Delete"],
   .excalidraw-mindmap .excalidraw [aria-label="Duplicate"],
   .excalidraw-mindmap .excalidraw [aria-label="Edit"] {
     display: inline-flex !important;
   }
+
+  .excalidraw-mindmap .excalidraw .Island.App-toolbar {
+    display: none !important;
+  }
+
+  .excalidraw-mindmap.shapes-toolbar-visible .excalidraw .Island.App-toolbar {
+    display: flex !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .main-menu-trigger {
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .excalidraw-mindmap .excalidraw .main-menu-trigger:active {
+    box-shadow: 0 0 0 1px var(--button-active-border, var(--color-primary-darkest)) inset !important;
+    background-color: var(--button-hover-bg) !important;
+  }
+
+  .mindmap-shapes-toggle-container {
+    display: contents;
+  }
+
+  .mindmap-shapes-toggle-btn {
+    width: 2rem !important;
+    height: 2rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: transparent !important;
+    border: 0 !important;
+    color: var(--icon-fill-color, #1c1c1c) !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    border-radius: var(--border-radius-default, 4px) !important;
+    box-shadow: none !important;
+  }
+
+  .mindmap-shapes-toggle-btn:hover {
+    background: var(--button-hover-bg, #f5f5f5) !important;
+  }
+
+  .mindmap-shapes-toggle-btn.active {
+    background: var(--color-primary-light, #e3f2fd) !important;
+    color: var(--color-primary, #1971c2) !important;
+  }
+
+  .mindmap-shapes-toggle-btn svg {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+  }
 `.trim()
 
 export function MindMap() {
   const [mounted, setMounted] = useState(false)
+  const [shapesToolbarVisible, setShapesToolbarVisible] = useState(false)
+  const [toolbarContainer, setToolbarContainer] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const mindmapEl = document.querySelector(".excalidraw-mindmap")
+    if (!mindmapEl) return
+
+    const findAndInsertContainer = () => {
+      const menuTrigger = mindmapEl.querySelector(".main-menu-trigger")
+      if (menuTrigger?.parentElement) {
+        let container = menuTrigger.parentElement.querySelector(".mindmap-shapes-toggle-container")
+        if (!container) {
+          container = document.createElement("div")
+          container.className = "mindmap-shapes-toggle-container"
+          menuTrigger.parentElement.insertBefore(container, menuTrigger.nextSibling)
+        }
+        setToolbarContainer(container)
+        return true
+      }
+      return false
+    }
+
+    if (findAndInsertContainer()) return
+
+    const observer = new MutationObserver(() => {
+      if (findAndInsertContainer()) {
+        observer.disconnect()
+      }
+    })
+
+    observer.observe(mindmapEl, { childList: true, subtree: true })
+
+    return () => observer.disconnect()
+  }, [mounted])
+
+  const toggleShapesToolbar = useCallback(() => {
+    setShapesToolbarVisible((prev) => !prev)
   }, [])
 
   if (!mounted) {
@@ -637,7 +791,7 @@ export function MindMap() {
   return (
     <>
       <style>{EXCALIDRAW_OVERRIDES_CSS}</style>
-      <div className="relative w-full h-full bg-[#fafafa] excalidraw-container excalidraw-mindmap overflow-hidden">
+      <div className={`relative w-full h-full bg-[#fafafa] excalidraw-container excalidraw-mindmap overflow-hidden${shapesToolbarVisible ? " shapes-toolbar-visible" : ""}`}>
         <Excalidraw
           initialData={{
             elements: INITIAL_ELEMENTS as any,
@@ -647,6 +801,21 @@ export function MindMap() {
           }}
           onChange={() => {}}
         />
+        {toolbarContainer && createPortal(
+          <button
+            type="button"
+            className={`mindmap-shapes-toggle-btn${shapesToolbarVisible ? " active" : ""}`}
+            title="绘图工具"
+            onClick={toggleShapesToolbar}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3l-4 7h8z"></path>
+              <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+              <circle cx="18.5" cy="17.5" r="3.5"></circle>
+            </svg>
+          </button>,
+          toolbarContainer
+        )}
       </div>
     </>
   )
