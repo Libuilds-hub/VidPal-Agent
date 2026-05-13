@@ -25,22 +25,19 @@ interface Video {
   duration: number | null
   thumbnail: string | null
   status: string
+  transcripts: TranscriptItem[] | null
   createdAt: string
   updatedAt: string
 }
 
-type TabId = "summary" | "mindmap" | "assistant"
+interface TranscriptItem {
+  start: string
+  startTime: number
+  end: string
+  text: string
+}
 
-// Mock transcript data for demo
-const TRANSCRIPT_ITEMS = [
-  { time: "00:00", startTime: 0, text: "欢迎大家来到本期视频，今天我们将深入探讨一个非常重要的话题。" },
-  { time: "00:15", startTime: 15, text: "首先，让我们了解一下这个主题的背景和现状。" },
-  { time: "00:32", startTime: 32, text: "在过去的几年里，这个领域发生了巨大的变化和发展。" },
-  { time: "01:05", startTime: 65, text: "接下来我会为大家详细介绍几个关键的概念和原理。" },
-  { time: "01:28", startTime: 88, text: "通过实际案例的分析，我们可以更好地理解这些理论知识。" },
-  { time: "02:10", startTime: 130, text: "现在让我们来看一看具体的应用场景和使用方法。" },
-  { time: "02:45", startTime: 165, text: "总结一下今天的内容，我们学到了很多实用的技巧。" },
-]
+type TabId = "summary" | "mindmap" | "assistant"
 
 export default function VideoDetailPage() {
   const params = useParams()
@@ -88,10 +85,13 @@ export default function VideoDetailPage() {
 
   const fetchVideo = async () => {
     try {
-      const res = await fetch("/api/video")
-      const videos = await res.json()
-      const found = videos.find((v: Video) => v.id === videoId)
-      if (found) {
+      const res = await fetch(`/api/video/${videoId}`)
+      const found = await res.json()
+      if (found && found.id) {
+        // Parse transcripts from JSON string
+        if (found.transcripts && typeof found.transcripts === 'string') {
+          found.transcripts = JSON.parse(found.transcripts)
+        }
         setVideo(found)
       } else {
         setError("视频未找到")
@@ -206,12 +206,16 @@ export default function VideoDetailPage() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {video.status === "done" ? (
-              // Show transcripts when video is processed
+            {video.status === "transcribing" ? (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                转录中，请稍候...
+              </div>
+            ) : video.transcripts && video.transcripts.length > 0 ? (
+              // Show real transcripts
               <div className="space-y-2">
-                {TRANSCRIPT_ITEMS.map((item, index) => {
+                {video.transcripts.map((item, index) => {
                   const isActive = currentPlaybackTime >= item.startTime &&
-                    (index === TRANSCRIPT_ITEMS.length - 1 || currentPlaybackTime < TRANSCRIPT_ITEMS[index + 1].startTime)
+                    (index === video.transcripts!.length - 1 || currentPlaybackTime < video.transcripts![index + 1].startTime)
                   return (
                     <div
                       key={index}
@@ -224,7 +228,7 @@ export default function VideoDetailPage() {
                         "text-xs font-mono shrink-0 w-10 leading-5",
                         isActive ? "text-blue-600" : "text-gray-400"
                       )}>
-                        {item.time}
+                        {item.start}
                       </span>
                       <p className={cn(
                         "text-sm leading-5",
@@ -237,10 +241,10 @@ export default function VideoDetailPage() {
                 })}
               </div>
             ) : (
-              // Show placeholder when video is not yet processed
+              // Show placeholder when no transcripts
               <div className="text-center py-8 text-sm text-muted-foreground">
                 {video.status === "done"
-                  ? "转录内容加载中..."
+                  ? "暂无转录内容"
                   : "视频处理完成后将显示转录内容"}
               </div>
             )}

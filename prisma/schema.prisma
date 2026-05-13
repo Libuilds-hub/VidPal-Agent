@@ -18,8 +18,9 @@ model Video {
   localPath String?
   duration  Int?
   thumbnail String?
-  status    String   @default("pending") // 'pending' | 'downloading' | 'done' | 'error'
+  status    String   @default("pending") // 'pending' | 'downloading' | 'transcribing' | 'done' | 'error'
   error     String?
+  transcripts String? // JSON string of transcription segments
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
