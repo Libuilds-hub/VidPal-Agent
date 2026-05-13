@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { VideoIcon, SearchIcon, FilterIcon } from "lucide-react"
+import { VideoIcon, SearchIcon, FilterIcon, TrashIcon } from "lucide-react"
 
 interface Video {
   id: string
@@ -11,6 +11,7 @@ interface Video {
   source: string
   url: string | null
   localPath: string | null
+  thumbnail: string | null
   status: string
   createdAt: string
 }
@@ -51,6 +52,18 @@ export default function VideosPage() {
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("zh-CN")
+  }
+
+  const handleDelete = async (e: React.MouseEvent, videoId: string) => {
+    e.stopPropagation()
+    if (!confirm("确定要删除这个视频吗？")) return
+
+    try {
+      await fetch(`/api/video/${videoId}`, { method: "DELETE" })
+      setVideos(videos.filter((v) => v.id !== videoId))
+    } catch (error) {
+      console.error("Failed to delete video:", error)
+    }
   }
 
   return (
@@ -95,7 +108,15 @@ export default function VideosPage() {
                   onClick={() => router.push(`/videos/${video.id}`)}
                   className="flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
                 >
-                  <VideoIcon className="h-8 w-8 text-muted-foreground shrink-0" />
+                  {video.thumbnail ? (
+                    <img
+                      src={video.thumbnail}
+                      alt={video.title || "视频封面"}
+                      className="h-12 w-20 rounded object-cover shrink-0 bg-muted"
+                    />
+                  ) : (
+                    <VideoIcon className="h-8 w-8 text-muted-foreground shrink-0" />
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{video.title || "无标题"}</p>
                     <p className="text-sm text-muted-foreground">
@@ -119,6 +140,13 @@ export default function VideosPage() {
                       ? "已完成"
                       : "错误"}
                   </span>
+                  <button
+                    onClick={(e) => handleDelete(e, video.id)}
+                    className="p-1 hover:bg-red-100 rounded transition-colors"
+                    title="删除"
+                  >
+                    <TrashIcon className="h-4 w-4 text-red-500" />
+                  </button>
                 </div>
               ))}
             </div>

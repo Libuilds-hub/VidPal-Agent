@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
-import { getVideoInfo, downloadVideo } from "@/lib/yt-dlp"
+import { getVideoInfo, downloadVideo, downloadThumbnail } from "@/lib/yt-dlp"
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,13 +50,16 @@ async function downloadVideoAsync(videoId: string, url: string) {
     // 获取视频信息
     const info = await getVideoInfo(url)
 
+    // 下载封面到本地
+    const localThumbnail = info.thumbnail ? await downloadThumbnail(info.thumbnail, videoId) : null
+
     // 更新视频信息
     await prisma.video.update({
       where: { id: videoId },
       data: {
         title: info.title,
         duration: info.duration,
-        thumbnail: info.thumbnail,
+        thumbnail: localThumbnail,
       },
     })
 
@@ -93,25 +96,16 @@ async function transcribeAsync(videoId: string, localPath: string) {
     const path = await import("path")
     const fs = await import("fs")
 
-    const videoPath = path.join(process.cwd(), "public", localPath)
-    const audioDir = path.join(process.cwd(), "public", "audio")
+    // 视频路径：/videos/{videoId}/video.mp4
+    const videoDir = path.join(process.cwd(), "public", "videos", videoId)
+    const audioPath = path.join(videoDir, "audio.mp3")
 
-    if (!fs.existsSync(audioDir)) {
-      fs.mkdirSync(audioDir, { recursive: true })
-    }
-
-    const audioPath = path.join(audioDir, `${videoId}.mp3`)
-
-    // 提取音频
+    // 提取音频到视频目录
+    const videoPath = path.join(videoDir, "video.mp4")
     await extractAudio(videoPath, audioPath)
 
     // 转录
     const transcripts = await transcribeAudio(audioPath, "base", "zh")
-
-    // 删除临时音频
-    if (fs.existsSync(audioPath)) {
-      fs.unlinkSync(audioPath)
-    }
 
     // 更新为完成，保存转录结果
     await prisma.video.update({
