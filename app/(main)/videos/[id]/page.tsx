@@ -239,6 +239,12 @@ export default function VideoDetailPage() {
                     <div
                       key={index}
                       ref={isActive ? (el: HTMLDivElement | null) => { activeTranscriptRef.current = el } : null}
+                      onClick={() => {
+                        if (plyrRef.current) {
+                          plyrRef.current.currentTime = item.startTime
+                          setCurrentPlaybackTime(item.startTime)
+                        }
+                      }}
                       className={cn(
                         "flex gap-3 group cursor-pointer py-1 px-2 rounded-lg",
                         isActive && ["font-medium", "bg-blue-50"]
