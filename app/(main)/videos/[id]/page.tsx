@@ -51,6 +51,8 @@ export default function VideoDetailPage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const plyrRef = useRef<Plyr | null>(null)
+  const transcriptListRef = useRef<HTMLDivElement>(null)
+  const activeTranscriptRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     fetchVideo()
@@ -89,6 +91,16 @@ export default function VideoDetailPage() {
       }
     }
   }, [video?.localPath])
+
+  // Scroll active transcript into view
+  useEffect(() => {
+    if (activeTranscriptRef.current && transcriptListRef.current) {
+      activeTranscriptRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }
+  }, [currentPlaybackTime])
 
   const fetchVideo = async () => {
     try {
@@ -212,7 +224,7 @@ export default function VideoDetailPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div ref={transcriptListRef} className="flex-1 overflow-y-auto py-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {video.status === "transcribing" ? (
               <div className="text-center py-8 text-sm text-muted-foreground">
                 转录中，请稍候...
@@ -226,6 +238,7 @@ export default function VideoDetailPage() {
                   return (
                     <div
                       key={index}
+                      ref={isActive ? (el: HTMLDivElement | null) => { activeTranscriptRef.current = el } : null}
                       className={cn(
                         "flex gap-3 group cursor-pointer py-1 px-2 rounded-lg",
                         isActive && ["font-medium", "bg-blue-50"]
