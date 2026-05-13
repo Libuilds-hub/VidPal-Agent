@@ -70,6 +70,13 @@ export default function VideoDetailPage() {
           ratio: '16:9',
         })
         plyrRef.current = plyrInstance
+
+        // Listen to timeupdate event to sync transcript
+        plyrInstance.on('timeupdate', () => {
+          if (plyrInstance) {
+            setCurrentPlaybackTime(plyrInstance.currentTime)
+          }
+        })
       }
     }
 
