@@ -41,7 +41,8 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error("Parse video error:", error)
-    return NextResponse.json({ error: "Failed to parse video" }, { status: 500 })
+    const message = error instanceof Error ? error.message : "Failed to parse video"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 

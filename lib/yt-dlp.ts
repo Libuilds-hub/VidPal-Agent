@@ -81,7 +81,18 @@ export async function getVideoInfo(url: string): Promise<VideoInfo> {
   const command = `yt-dlp --dump-json --no-download --no-warnings -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" ${cookieArg} "${url}"`
 
   try {
-    const { stdout } = await execAsync(command, { encoding: "utf-8" })
+    const { stdout, stderr } = await execAsync(command, { encoding: "utf-8" })
+
+    // yt-dlp outputs errors to stderr, check for errors first
+    if (stderr && stderr.includes("ERROR")) {
+      throw new Error(stderr.trim())
+    }
+
+    // Ensure we have valid JSON output
+    if (!stdout || !stdout.trim()) {
+      throw new Error("No output from yt-dlp")
+    }
+
     const data = JSON.parse(stdout)
 
     return {
@@ -93,6 +104,16 @@ export async function getVideoInfo(url: string): Promise<VideoInfo> {
     }
   } catch (error) {
     console.error("Failed to get video info:", error)
+    // Re-throw with user-friendly message
+    if (error instanceof Error) {
+      if (error.message.includes("HTTP Error 403") || error.message.includes("Forbidden")) {
+        throw new Error("B站视频需要登录Cookie才能下载。请先设置Cookie。")
+      }
+      if (error.message.includes("HTTP Error 404") || error.message.includes("Not Found")) {
+        throw new Error("视频不存在或链接无效")
+      }
+      throw error
+    }
     throw new Error("Failed to fetch video information")
   }
 }

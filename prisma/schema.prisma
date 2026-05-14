@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
 model Video {
@@ -23,4 +23,10 @@ model Video {
   transcripts String? // JSON string of transcription segments
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
 }
