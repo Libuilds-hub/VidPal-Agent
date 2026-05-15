@@ -5,6 +5,7 @@ import os
 
 try:
     from faster_whisper import WhisperModel
+    import opencc
 
     audio_path = sys.argv[1]
     model_size = sys.argv[2] if len(sys.argv) > 2 else "base"
@@ -22,12 +23,17 @@ try:
 
     print(f"Detected language: {info.language}", file=sys.stderr)
 
+    # 初始化 OpenCC繁简转换器（繁体→简体）
+    converter = opencc.OpenCC('t2s')
+
     results = []
     for segment in segments:
+        # 将转录文本从繁体转换为简体
+        simplified_text = converter.convert(segment.text.strip())
         results.append({
             "start": segment.start,
             "end": segment.end,
-            "text": segment.text.strip()
+            "text": simplified_text
         })
 
     print(json.dumps(results))

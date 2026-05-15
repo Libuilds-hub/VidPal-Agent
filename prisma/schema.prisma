@@ -21,7 +21,8 @@ model Video {
   status    String   @default("pending") // 'pending' | 'downloading' | 'transcribing' | 'done' | 'error'
   error     String?
   transcripts String? // JSON string of transcription segments
-  createdAt DateTime @default(now())
+  summary     String? // JSON string of generated summary
+  createdAt   DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 

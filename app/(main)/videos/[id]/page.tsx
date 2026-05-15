@@ -346,34 +346,91 @@ function RightPanel({ video }: { video: Video }) {
 }
 
 function SummaryContent({ video }: { video: Video }) {
+  const [summary, setSummary] = useState<{
+    overview: string
+    keyPoints: string[]
+    segments: { time: string; title: string; content: string }[]
+  } | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (video.status !== "done") return
+
+    async function fetchSummary() {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch(`/api/video/${video.id}/summary`)
+        const data = await res.json()
+        if (res.ok && data.summary) {
+          setSummary(JSON.parse(data.summary))
+        }
+      } catch {
+        setError("摘要加载失败")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchSummary()
+  }, [video.id, video.status])
+
+  if (video.status !== "done") {
+    return (
+      <div className="max-w-4xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <h1 className="text-2xl font-bold mb-8">{video.title || "视频分析"}</h1>
+        <div className="space-y-8">
+          <section>
+            <h2 className="text-lg font-bold mb-4">全文概述</h2>
+            <div className="text-muted-foreground leading-relaxed space-y-4 text-sm">
+              <p>视频处理完成后将显示完整的视频概述内容。</p>
+            </div>
+          </section>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <h1 className="text-2xl font-bold mb-8">{video.title || "视频分析"}</h1>
+        <div className="space-y-8">
+          <div className="h-32 bg-muted/50 rounded-xl animate-pulse" />
+          <div className="h-48 bg-muted/50 rounded-xl animate-pulse" />
+          <div className="h-64 bg-muted/50 rounded-xl animate-pulse" />
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !summary) {
+    return (
+      <div className="max-w-4xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <h1 className="text-2xl font-bold mb-8">{video.title || "视频分析"}</h1>
+        <div className="text-muted-foreground text-sm">{error || "暂无摘要内容"}</div>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <h1 className="text-2xl font-bold mb-8">{video.title || "视频分析"}</h1>
 
       <div className="space-y-8">
-        {/* Overview Section */}
         <section>
           <h2 className="text-lg font-bold mb-4">全文概述</h2>
           <div className="text-muted-foreground leading-relaxed space-y-4 text-sm">
-            <p>
-              视频分析完成后将显示完整的视频概述内容。这里将展示视频的主要内容和核心要点，
-              帮助用户快速了解视频的主题和关键信息。
-            </p>
+            <p>{summary.overview}</p>
           </div>
         </section>
 
-        {/* Key Points Section */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold">关键要点</h2>
           </div>
           <div className="bg-muted/30 rounded-xl p-6 space-y-3">
-            {[
-              "视频内容已完成分析和处理",
-              "相关要点将在分析完成后显示",
-              "思维导图将帮助理解知识点关联",
-              "支持点击跳转至相关时间点"
-            ].map((point, i) => (
+            {summary.keyPoints.map((point, i) => (
               <div key={i} className="flex gap-3 text-sm text-muted-foreground">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0 mt-2" />
                 <span>{point}</span>
@@ -382,27 +439,10 @@ function SummaryContent({ video }: { video: Video }) {
           </div>
         </section>
 
-        {/* Segments Section - Timeline Style */}
         <section>
           <h2 className="text-lg font-bold mb-6">段落总结</h2>
           <div className="relative pl-4 space-y-6 before:absolute before:left-[5px] before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-blue-200 before:via-blue-100 before:to-transparent before:content-['']">
-            {[
-              {
-                time: "00:00",
-                title: "视频导入",
-                content: "视频已成功导入系统，开始进行分析处理流程。"
-              },
-              {
-                time: "02:30",
-                title: "内容提取",
-                content: "正在提取视频中的音频内容和视觉关键帧信息。"
-              },
-              {
-                time: "05:00",
-                title: "AI 分析",
-                content: "利用 AI 技术对视频内容进行深入分析和理解。"
-              }
-            ].map((item, i) => (
+            {summary.segments.map((item, i) => (
               <div key={i} className="flex gap-4 relative">
                 <div className="absolute -left-[15px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-500 ring-4 ring-white dark:ring-background z-10" />
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300 shrink-0 mt-0.5 min-w-[3rem]">{item.time}</span>
