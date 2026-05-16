@@ -77,7 +77,7 @@ async function downloadVideoAsync(videoId: string, url: string) {
     })
 
     // 异步转录（不等待完成）
-    transcribeAsync(videoId, localPath)
+    transcribeAsync(videoId, localPath, info.title)
 
   } catch (error) {
     console.error("Download error:", error)
@@ -91,7 +91,7 @@ async function downloadVideoAsync(videoId: string, url: string) {
   }
 }
 
-async function transcribeAsync(videoId: string, localPath: string) {
+async function transcribeAsync(videoId: string, localPath: string, videoTitle: string | null) {
   try {
     const { extractAudio, transcribeAudio } = await import("@/lib/whisper")
     const path = await import("path")
@@ -108,15 +108,19 @@ async function transcribeAsync(videoId: string, localPath: string) {
     // 转录
     const transcripts = await transcribeAudio(audioPath, "base", "zh")
 
+    // 纠错
+    const correctedTranscripts = await correctTranscripts(transcripts, videoTitle)
+    console.log("Transcription and correction complete for video:", videoId)
+
     // 生成摘要
-    const summary = await generateSummary(transcripts)
+    const summary = await generateSummary(correctedTranscripts)
 
     // 更新为完成，保存转录结果和摘要
     await prisma.video.update({
       where: { id: videoId },
       data: {
         status: "done",
-        transcripts: JSON.stringify(transcripts),
+        transcripts: JSON.stringify(correctedTranscripts),
         summary: JSON.stringify(summary),
       },
     })
@@ -139,6 +143,116 @@ interface SummaryResult {
   overview: string
   keyPoints: string[]
   segments: { time: string; title: string; content: string }[]
+}
+
+interface TranscriptItem {
+  start: string
+  startTime: number
+  end: string
+  text: string
+}
+
+async function correctTranscripts(transcripts: TranscriptItem[], videoTitle: string | null): Promise<TranscriptItem[]> {
+  // 读取 LLM 设置
+  const settings = await prisma.setting.findMany()
+  const settingMap: Record<string, string> = {}
+  settings.forEach((s) => { settingMap[s.key] = s.value })
+
+  const provider = settingMap.llmProvider || "minimax"
+  const apiKey = settingMap.llmApiKey
+  const model = settingMap.llmModel || (provider === "deepseek" ? "deepseek-v4-flash" : "MiniMax-M2.7")
+
+  if (!apiKey) {
+    console.warn("LLM API key not configured, skipping transcript correction")
+    return transcripts
+  }
+
+  const baseUrl = provider === "deepseek"
+    ? "https://api.deepseek.com"
+    : "https://api.minimaxi.com/v1"
+
+  // 构建字幕文本
+  const transcriptText = transcripts
+    .map((t, i) => `[${i}] [${t.start}] ${t.text}`)
+    .join("\n")
+
+  const prompt = `你是一个专业的字幕纠错助手。请对以下${videoTitle ? `关于"${videoTitle}"的` : ''}视频字幕进行纠错：
+1. 修正错别字
+2. 修正标点符号
+3. 修正语气词和不流畅的表达
+4. 根据视频主题上下文修正专有名词和技术术语
+5. 保持原意、时间不变
+
+视频主题：${videoTitle || "未知"}
+
+字幕：
+${transcriptText}
+
+请以 JSON 数组格式输出，格式与输入相同：start（时间字符串）, startTime（数字）, end（时间字符串）, text（纠错后的文本）
+只输出 JSON 数组，不要有其他内容。`
+
+  try {
+    console.log("Correcting transcripts...")
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 4000,
+      }),
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error?.message || `LLM API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    const content = data.choices?.[0]?.message?.content
+
+    if (!content) {
+      throw new Error("LLM returned empty response")
+    }
+
+    // 解析 JSON（处理 thinking tags 和 markdown）
+    // 移除 <thinking>...</thinking> 块内容（包含 [] 会被误匹配为 JSON）
+    const withoutThinking = content
+      .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
+      .replace(/<think>[\s\S]*?<\/think>/gi, "")
+
+    const jsonStr = withoutThinking
+      .replace(/^```json\n?/, "")
+      .replace(/\n?```$/, "")
+      .trim()
+
+    // 提取 JSON 数组
+    const jsonMatch = jsonStr.match(/\[[\s\S]*?\]/)
+    if (!jsonMatch) {
+      throw new Error("No JSON array found in response")
+    }
+    // 验证 JSON 是否完整
+    try {
+      return JSON.parse(jsonMatch[0])
+    } catch {
+      // fallback：找最后一个 ] 之前的完整数组
+      const lastBracket = jsonStr.lastIndexOf(']')
+      if (lastBracket > 0) {
+        const start = jsonStr.lastIndexOf('[', lastBracket)
+        if (start >= 0) {
+          return JSON.parse(jsonStr.substring(start, lastBracket + 1))
+        }
+      }
+      throw new Error("Invalid JSON array in response")
+    }
+  } catch (error) {
+    console.error("Correct transcripts error:", error)
+    // 纠错失败返回原始 transcripts
+    return transcripts
+  }
 }
 
 async function generateSummary(transcripts: { start: string; startTime: number; text: string }[]): Promise<SummaryResult> {
