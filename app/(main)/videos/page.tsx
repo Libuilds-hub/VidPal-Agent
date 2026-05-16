@@ -23,6 +23,22 @@ export default function VideosPage() {
 
   useEffect(() => {
     fetchVideos()
+
+    // 页面可见性变化时刷新（从其他页面返回时）
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchVideos()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // 定时刷新（每10秒）
+    const interval = setInterval(fetchVideos, 10000)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      clearInterval(interval)
+    }
   }, [])
 
   const fetchVideos = async () => {
@@ -68,28 +84,26 @@ export default function VideosPage() {
   }
 
   return (
-    <>
-      <div className="flex flex-col gap-4">
-        <div className="flex gap-2">
-          <div className="relative flex-1 max-w-sm">
-            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              placeholder="搜索视频..."
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pl-9 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1"
-            />
-          </div>
-          <button className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted">
-            <FilterIcon className="h-4 w-4" />
-            筛选
-          </button>
+    <div className="flex flex-col h-[calc(100vh-8rem)]">
+      <div className="flex gap-2 mb-4">
+        <div className="relative flex-1 max-w-sm">
+          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            placeholder="搜索视频..."
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pl-9 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1"
+          />
         </div>
+        <button className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted">
+          <FilterIcon className="h-4 w-4" />
+          筛选
+        </button>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="flex flex-col flex-1 min-h-0">
+        <CardHeader className="shrink-0">
           <CardTitle>视频列表</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
               <VideoIcon className="h-12 w-12 mb-4 animate-pulse" />
@@ -103,61 +117,71 @@ export default function VideosPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {videos.map((video) => (
-                <div
-                  key={video.id}
-                  onClick={() => router.push(`/videos/${video.id}`)}
-                  className="flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                >
-                  {video.thumbnail ? (
-                    <img
-                      src={video.thumbnail}
-                      alt={video.title || "视频封面"}
-                      className="h-12 w-20 rounded object-cover shrink-0 bg-muted"
-                    />
-                  ) : (
-                    <VideoIcon className="h-8 w-8 text-muted-foreground shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{video.title || "无标题"}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {getSourceLabel(video.source)} · {formatDate(video.createdAt)}
-                    </p>
-                  </div>
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${
+              {videos
+                .filter((v) => v.title)
+                .map((video) => (
+                  <div
+                    key={video.id}
+                    onClick={() => {
+                      if (video.status === "done") {
+                        router.push(`/videos/${video.id}`)
+                      }
+                    }}
+                    className={`flex items-center gap-4 p-3 rounded-lg border transition-colors cursor-pointer ${
                       video.status === "done"
-                        ? "bg-green-100 text-green-800"
-                        : video.status === "error"
-                        ? "bg-red-100 text-red-800"
-                        : video.status === "transcribing"
-                        ? "bg-blue-100 text-blue-800"
-                        : "bg-yellow-100 text-yellow-800"
+                        ? "hover:bg-muted/50"
+                        : "opacity-50 cursor-not-allowed"
                     }`}
                   >
-                    {video.status === "pending"
-                      ? "待处理"
-                      : video.status === "downloading"
-                      ? "下载中"
-                      : video.status === "transcribing"
-                      ? "转录中"
-                      : video.status === "done"
-                      ? "已完成"
-                      : "错误"}
-                  </span>
-                  <button
-                    onClick={(e) => handleDelete(e, video.id)}
-                    className="p-1 hover:bg-red-100 rounded transition-colors"
-                    title="删除"
-                  >
-                    <TrashIcon className="h-4 w-4 text-red-500" />
-                  </button>
-                </div>
-              ))}
+                    {video.thumbnail ? (
+                      <img
+                        src={video.thumbnail}
+                        alt={video.title || "视频封面"}
+                        className="h-12 w-20 rounded object-cover shrink-0 bg-muted"
+                      />
+                    ) : (
+                      <VideoIcon className="h-8 w-8 text-muted-foreground shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{video.title || "无标题"}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {getSourceLabel(video.source)} · {formatDate(video.createdAt)}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-xs px-2 py-1 rounded ${
+                        video.status === "done"
+                          ? "bg-green-100 text-green-800"
+                          : video.status === "error"
+                          ? "bg-red-100 text-red-800"
+                          : video.status === "transcribing"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      {video.status === "pending"
+                        ? "待处理"
+                        : video.status === "downloading"
+                        ? "下载中"
+                        : video.status === "transcribing"
+                        ? "转录中"
+                        : video.status === "done"
+                        ? "已完成"
+                        : "错误"}
+                    </span>
+                    <button
+                      onClick={(e) => handleDelete(e, video.id)}
+                      className="p-1 hover:bg-red-100 rounded transition-colors"
+                      title="删除"
+                    >
+                      <TrashIcon className="h-4 w-4 text-red-500" />
+                    </button>
+                  </div>
+                ))}
             </div>
           )}
         </CardContent>
       </Card>
-    </>
+    </div>
   )
 }
