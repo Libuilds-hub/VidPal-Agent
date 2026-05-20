@@ -115,6 +115,9 @@ async function transcribeAsync(videoId: string, localPath: string, videoTitle: s
     // 生成摘要
     const summary = await generateSummary(correctedTranscripts)
 
+    // 生成思维导图
+    const mindmap = await generateMindmap(correctedTranscripts, videoTitle)
+
     // 更新为完成，保存转录结果和摘要
     await prisma.video.update({
       where: { id: videoId },
@@ -122,10 +125,11 @@ async function transcribeAsync(videoId: string, localPath: string, videoTitle: s
         status: "done",
         transcripts: JSON.stringify(correctedTranscripts),
         summary: JSON.stringify(summary),
+        mindmap,
       },
     })
 
-    console.log("Transcription and summary complete for video:", videoId)
+    console.log("Transcription, summary and mindmap complete for video:", videoId)
 
   } catch (error) {
     console.error("Transcription error:", error)
@@ -351,5 +355,88 @@ ${transcriptText}
     console.error("Generate summary error:", error)
     // 摘要生成失败不中断流程，返回空摘要
     return { overview: "", keyPoints: [], segments: [] }
+  }
+}
+
+async function generateMindmap(transcripts: { start: string; startTime: number; text: string }[], videoTitle: string | null): Promise<string | null> {
+  // 读取 LLM 设置
+  const settings = await prisma.setting.findMany()
+  const settingMap: Record<string, string> = {}
+  settings.forEach((s) => { settingMap[s.key] = s.value })
+
+  const provider = settingMap.llmProvider || "minimax"
+  const apiKey = settingMap.llmApiKey
+  const model = settingMap.llmModel || (provider === "deepseek" ? "deepseek-v4-flash" : "MiniMax-M2.7")
+
+  if (!apiKey) {
+    console.warn("LLM API key not configured, skipping mindmap generation")
+    return null
+  }
+
+  const baseUrl = provider === "deepseek"
+    ? "https://api.deepseek.com"
+    : "https://api.minimaxi.com/v1"
+
+  // 构建字幕文本
+  const transcriptText = transcripts
+    .map((t) => `[${t.start}] ${t.text}`)
+    .join("\n")
+
+  const prompt = `你是一个视频内容分析助手。根据以下视频字幕，生成思维导图的 Mermaid flowchart 代码：
+
+视频主题：${videoTitle || "未知"}
+
+字幕内容：
+${transcriptText}
+
+请生成一个思维导图的 Mermaid flowchart 代码，使用 TB（从上到下）布局：
+- 主节点：视频主题（用圆角矩形）
+- 分支：背景与现状、关键概念、案例分析、方法与技巧（用方框）
+- 每个分支下有 2-3 个子节点
+- 用箭头连接节点
+
+只输出 Mermaid 代码，不要有其他内容。
+格式要求：
+1. 使用 flowchart 语法，方向从左到右 LR 或 从上到下 TB
+2. 节点文字用中文，不超过 20 字
+3. 节点 ID 不能重复`
+
+  try {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 2000,
+      }),
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error?.message || `LLM API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    const content = data.choices?.[0]?.message?.content
+
+    if (!content) {
+      throw new Error("LLM returned empty response")
+    }
+
+    // 提取 Mermaid 代码（去除 markdown 代码块）
+    const mermaidCode = content
+      .replace(/^```mermaid\n?/, "")
+      .replace(/^```\n?/, "")
+      .replace(/\n?```$/, "")
+      .trim()
+
+    return mermaidCode || null
+  } catch (error) {
+    console.error("Generate mindmap error:", error)
+    return null
   }
 }

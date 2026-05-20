@@ -22,6 +22,7 @@ model Video {
   error     String?
   transcripts String? // JSON string of transcription segments
   summary     String? // JSON string of generated summary
+  mindmap     String? // Mermaid diagram code for mind map
   createdAt   DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

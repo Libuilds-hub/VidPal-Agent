@@ -26,6 +26,7 @@ interface Video {
   thumbnail: string | null
   status: string
   transcripts: TranscriptItem[] | null
+  mindmap: string | null
   createdAt: string
   updatedAt: string
 }
@@ -291,13 +292,13 @@ export default function VideoDetailPage() {
 
       {/* Right Panel: Content Tabs */}
       <div className="flex-1 flex flex-col bg-[#F8F9FA] dark:bg-background min-w-0 border-t">
-        <RightPanel video={video} />
+        <RightPanel video={video} videoId={videoId} />
       </div>
     </div>
   )
 }
 
-function RightPanel({ video }: { video: Video }) {
+function RightPanel({ video, videoId }: { video: Video; videoId: string }) {
   const [activeTab, setActiveTab] = useState<TabId>("summary")
 
   const tabs = [
@@ -338,7 +339,7 @@ function RightPanel({ video }: { video: Video }) {
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {activeTab === "summary" && <SummaryContent video={video} />}
-        {activeTab === "mindmap" && <MindMap />}
+        {activeTab === "mindmap" && <MindMap videoId={videoId} mermaidCode={video?.mindmap} />}
         {activeTab === "assistant" && <QAAssistant />}
       </div>
     </>
