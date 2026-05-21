@@ -12,8 +12,6 @@ import {
   ZoomInIcon,
   ZoomOutIcon,
   MaximizeIcon,
-  MoonIcon,
-  SunIcon,
   UnfoldHorizontalIcon,
 } from "lucide-react"
 import {
@@ -32,16 +30,10 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
   const [model, setModel] = useState<MindmapModel>(initialModel)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [draftLabel, setDraftLabel] = useState("")
-  const [dark, setDark] = useState<boolean | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const svgRef = useRef<SVGSVGElement>(null)
   const mmRef = useRef<Markmap | null>(null)
-
-  // Restore dark preference from localStorage on mount
-  useEffect(() => {
-    setDark(localStorage.getItem("mindmap-dark") === "1")
-  }, [])
 
   useEffect(() => {
     const nextModel = createMindmapModel(mermaidCode, "视频主题")
@@ -250,14 +242,6 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
     mmRef.current?.fit()
   }, [])
 
-  const handleToggleDark = useCallback(() => {
-    setDark((prev) => {
-      const next = !prev
-      localStorage.setItem("mindmap-dark", next ? "1" : "0")
-      return next
-    })
-  }, [])
-
   const handleToggleAll = useCallback(() => {
     const mm = mmRef.current
     if (!mm?.state.data) return
@@ -265,7 +249,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
   }, [])
 
   return (
-    <div className={["relative h-full w-full overflow-hidden", dark ? "markmap-dark bg-[#1a1b26]" : "bg-[#f8fafc]"].join(" ")}>
+    <div className="relative h-full w-full overflow-hidden bg-[#f8fafc]">
       <svg
         ref={svgRef}
         className="w-full h-full"
@@ -297,15 +281,6 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
         >
           <MaximizeIcon className="h-4 w-4" />
         </button>
-        <button
-          type="button"
-          title={dark ? "切换亮色主题" : "切换暗色主题"}
-          className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
-          onClick={handleToggleDark}
-        >
-          {dark ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
-        </button>
-        <div className="mx-1 h-4 w-px bg-slate-200" />
         <button
           type="button"
           title="展开/折叠全部"
