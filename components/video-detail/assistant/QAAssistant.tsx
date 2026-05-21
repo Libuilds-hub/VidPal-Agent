@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Mic, PlusIcon, SearchIcon, Send, SparklesIcon, EllipsisIcon, Trash2Icon, ChevronLeftIcon } from "lucide-react"
+import { Mic, PlusIcon, SearchIcon, Send, SparklesIcon, EllipsisIcon, Trash2Icon, ChevronLeftIcon, XIcon, MessageSquareIcon } from "lucide-react"
 import { ChatMessage } from "./types"
 import { ChatMessageBubble } from "./ChatMessage"
 import { TypingIndicator } from "./TypingIndicator"
@@ -44,12 +44,44 @@ export function QAAssistant() {
   const [inputValue, setInputValue] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const activeConv = conversations.find((c) => c.id === activeId) ?? null
   const messages = activeConv?.messages ?? []
+
+  const searchResults = searchQuery.trim()
+    ? conversations.filter((c) => c.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    : []
+
+  const handleOpenSearch = useCallback(() => {
+    setSearchOpen(true)
+    setSearchQuery("")
+    setTimeout(() => searchInputRef.current?.focus(), 100)
+  }, [])
+
+  const handleCloseSearch = useCallback(() => {
+    setSearchOpen(false)
+    setSearchQuery("")
+  }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault()
+        searchOpen ? handleCloseSearch() : handleOpenSearch()
+      }
+      if (e.key === "Escape" && searchOpen) {
+        handleCloseSearch()
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [searchOpen, handleOpenSearch, handleCloseSearch])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -119,6 +151,8 @@ export function QAAssistant() {
     setConversations((prev) => [conv, ...prev])
     setActiveId(conv.id)
     setSidebarOpen(false)
+    setSearchOpen(false)
+    setSearchQuery("")
     setTimeout(() => textareaRef.current?.focus(), 150)
   }
 
@@ -140,11 +174,11 @@ export function QAAssistant() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full relative">
       {/* Conversation Sidebar */}
       <div className={cn(
-        "shrink-0 border-r border-border/30 flex flex-col bg-[#F8F7F5] transition-all duration-300 overflow-hidden",
-        sidebarOpen ? "w-[180px]" : "w-0 border-r-0"
+        "absolute left-0 top-0 bottom-0 z-20 border-r border-border/30 flex flex-col bg-[#F8F7F5] transition-all duration-300 overflow-hidden shadow-lg",
+        sidebarOpen ? "w-[180px]" : "w-0 border-r-0 shadow-none"
       )}>
         {sidebarOpen && (
           <>
@@ -153,6 +187,7 @@ export function QAAssistant() {
               <span className="text-[12px] font-semibold tracking-wide text-muted-foreground/45">对话</span>
               <div className="flex items-center gap-1">
                 <button
+                  onClick={handleOpenSearch}
                   className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-muted/80 text-muted-foreground/35 hover:text-muted-foreground/70 transition-all duration-200"
                   title="搜索对话"
                 >
@@ -193,7 +228,7 @@ export function QAAssistant() {
                 {conversations.map((conv) => (
                   <div
                     key={conv.id}
-                    onClick={() => { setActiveId(conv.id); setConfirmDelete(null) }}
+                    onClick={() => { setActiveId(conv.id); setConfirmDelete(null); setSearchOpen(false); setSearchQuery("") }}
                     className={cn(
                       "group flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg cursor-pointer transition-all duration-200",
                       activeId === conv.id
@@ -233,6 +268,11 @@ export function QAAssistant() {
           </>
         )}
       </div>
+
+      {/* Overlay to close sidebar when clicking chat area */}
+      {sidebarOpen && (
+        <div className="absolute left-[180px] top-0 right-0 bottom-0 z-10" onClick={() => setSidebarOpen(false)} />
+      )}
 
       {/* Chat Area */}
       <div className="flex-1 flex flex-col min-w-0 relative">
@@ -317,6 +357,54 @@ export function QAAssistant() {
           </div>
         </div>
       </div>
+
+      {/* Search modal */}
+      {searchOpen && (
+        <div className="absolute inset-0 z-30 flex items-start justify-center pt-20">
+          <div className="absolute inset-0 bg-black/15" onClick={handleCloseSearch} />
+          <div className="relative w-[320px] max-h-[400px] bg-white rounded-2xl shadow-xl border border-border/30 flex flex-col overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border/20">
+              <SearchIcon className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索对话内容..."
+                className="flex-1 bg-transparent border-0 outline-none text-[13px] placeholder:text-muted-foreground/40"
+              />
+              <button
+                onClick={handleCloseSearch}
+                className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted/60 text-muted-foreground/40 hover:text-muted-foreground/70 transition-all duration-200 shrink-0"
+              >
+                <XIcon className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-1.5">
+              {!searchQuery.trim() ? (
+                <div className="py-8 text-center text-[12px] text-muted-foreground/40">
+                  输入关键词搜索对话
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div className="py-8 text-center text-[12px] text-muted-foreground/40">
+                  未找到匹配的对话
+                </div>
+              ) : (
+                searchResults.map((conv) => (
+                  <button
+                    key={conv.id}
+                    onClick={() => { setActiveId(conv.id); handleCloseSearch() }}
+                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-left hover:bg-muted/60 transition-all duration-150"
+                  >
+                    <MessageSquareIcon className="h-4 w-4 shrink-0 text-muted-foreground/35" />
+                    <span className="text-[13px] text-foreground/75 truncate">{conv.title}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
