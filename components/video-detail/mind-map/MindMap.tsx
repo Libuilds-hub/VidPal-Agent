@@ -6,6 +6,14 @@ import type { IPureNode } from "markmap-common"
 import {
   FocusIcon,
   PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+  ZoomInIcon,
+  ZoomOutIcon,
+  MaximizeIcon,
+  MoonIcon,
+  SunIcon,
+  UnfoldHorizontalIcon,
 } from "lucide-react"
 import {
   createMindmapModel,
@@ -22,8 +30,14 @@ export function MindMap({ videoId, mermaidCode }: MindMapProps) {
   const [model, setModel] = useState<MindmapModel>(initialModel)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [draftLabel, setDraftLabel] = useState("")
+  const [dark, setDark] = useState<boolean | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const mmRef = useRef<Markmap | null>(null)
+
+  // Restore dark preference from localStorage on mount
+  useEffect(() => {
+    setDark(localStorage.getItem("mindmap-dark") === "1")
+  }, [])
 
   useEffect(() => {
     const nextModel = createMindmapModel(mermaidCode, "视频主题")
@@ -35,11 +49,15 @@ export function MindMap({ videoId, mermaidCode }: MindMapProps) {
     const childrenMap = new Map<string, IPureNode[]>()
     const nodeMap = new Map<string, IPureNode>()
 
-    // Initialize all nodes
+    const escapeHtml = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+
+    // Initialize all nodes — embed id in content as data attribute for click targeting
     for (const node of model.nodes) {
       nodeMap.set(node.id, {
-        content: node.label,
+        content: `<span data-node-id="${node.id}">${escapeHtml(node.label)}</span>`,
         children: [],
+        payload: { id: node.id },
       })
       childrenMap.set(node.id, [])
     }
@@ -82,7 +100,7 @@ export function MindMap({ videoId, mermaidCode }: MindMapProps) {
         paddingX: 12,
         spacingHorizontal: 24,
         spacingVertical: 12,
-        initialExpandLevel: 2,
+        initialExpandLevel: 99,
         pan: true,
         zoom: true,
       })
@@ -94,16 +112,18 @@ export function MindMap({ videoId, mermaidCode }: MindMapProps) {
     // Set up click handler for node selection
     const svg = svgRef.current
     const handleClick = (e: MouseEvent) => {
-      const target = e.target as SVGElement
-      const nodeElement = target.closest("g[data-id]")
+      const target = e.target as Element
+      // Look for data-node-id on the clicked element or its ancestors
+      const nodeElement = target.closest("[data-node-id]")
       if (nodeElement) {
-        const dataId = nodeElement.getAttribute("data-id")
-        if (dataId) {
-          setSelectedNodeId(dataId)
+        const nodeId = nodeElement.getAttribute("data-node-id")
+        if (nodeId) {
+          setSelectedNodeId(nodeId)
+          e.stopPropagation()
+          return
         }
-      } else {
-        setSelectedNodeId(null)
       }
+      setSelectedNodeId(null)
     }
 
     svg.addEventListener("click", handleClick)
@@ -134,13 +154,139 @@ export function MindMap({ videoId, mermaidCode }: MindMapProps) {
     setSelectedNodeId(null)
   }, [draftLabel, model, selectedNode])
 
+  const addChildNode = useCallback(() => {
+    if (!selectedNode) return
+
+    // Generate a unique ID: find max numeric suffix + 1
+    const maxNum = model.nodes.reduce((max, node) => {
+      const match = node.id.match(/^n(\d+)$/)
+      return match ? Math.max(max, parseInt(match[1], 10)) : max
+    }, 0)
+    const newId = `n${maxNum + 1}`
+    const newEdgeId = `${selectedNode.id}-${newId}`
+
+    setModel((prev) => ({
+      ...prev,
+      nodes: [...prev.nodes, { id: newId, label: "新节点", kind: "branch" }],
+      edges: [...prev.edges, { id: newEdgeId, source: selectedNode.id, target: newId }],
+    }))
+    setSelectedNodeId(newId)
+  }, [model.nodes, selectedNode])
+
+  const deleteNode = useCallback(() => {
+    if (!selectedNode) return
+
+    // Collect all descendant IDs recursively
+    const descendants = new Set<string>()
+    const collect = (nodeId: string) => {
+      descendants.add(nodeId)
+      for (const edge of model.edges) {
+        if (edge.source === nodeId && !descendants.has(edge.target)) {
+          collect(edge.target)
+        }
+      }
+    }
+    collect(selectedNode.id)
+
+    setModel((prev) => ({
+      ...prev,
+      nodes: prev.nodes.filter((node) => !descendants.has(node.id)),
+      edges: prev.edges.filter((edge) => !descendants.has(edge.source) && !descendants.has(edge.target)),
+    }))
+    setSelectedNodeId(null)
+  }, [model.edges, selectedNode])
+
+  const getCurrentScale = useCallback((): number => {
+    const mm = mmRef.current
+    if (!mm) return 2
+    const g = mm.g.node()
+    if (!g) return 2
+    const t = g.getAttribute("transform") || ""
+    const m = t.match(/scale\(([^)]+)\)/)
+    return m ? parseFloat(m[1]) : 2
+  }, [])
+
+  const handleZoomIn = useCallback(() => {
+    const currentScale = getCurrentScale()
+    if (currentScale >= 8) return
+    mmRef.current?.rescale(1.25)
+  }, [getCurrentScale])
+
+  const handleZoomOut = useCallback(() => {
+    const currentScale = getCurrentScale()
+    if (currentScale <= 0.25) return
+    mmRef.current?.rescale(0.8)
+  }, [getCurrentScale])
+
+  const handleFit = useCallback(() => {
+    mmRef.current?.fit()
+  }, [])
+
+  const handleToggleDark = useCallback(() => {
+    setDark((prev) => {
+      const next = !prev
+      localStorage.setItem("mindmap-dark", next ? "1" : "0")
+      return next
+    })
+  }, [])
+
+  const handleToggleAll = useCallback(() => {
+    const mm = mmRef.current
+    if (!mm?.state.data) return
+    mm.toggleNode(mm.state.data, true)
+  }, [])
+
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#f8fafc]">
+    <div className={["relative h-full w-full overflow-hidden", dark ? "markmap-dark bg-[#1a1b26]" : "bg-[#f8fafc]"].join(" ")}>
       <svg
         ref={svgRef}
         className="w-full h-full"
         style={{ cursor: "grab" }}
       />
+
+      <div className="absolute bottom-4 right-4 z-10 flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/90 p-1 shadow-sm backdrop-blur">
+        <button
+          type="button"
+          title="放大"
+          className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          onClick={handleZoomIn}
+        >
+          <ZoomInIcon className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          title="缩小"
+          className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          onClick={handleZoomOut}
+        >
+          <ZoomOutIcon className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          title="适应窗口"
+          className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          onClick={handleFit}
+        >
+          <MaximizeIcon className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          title={dark ? "切换亮色主题" : "切换暗色主题"}
+          className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          onClick={handleToggleDark}
+        >
+          {dark ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
+        </button>
+        <div className="mx-1 h-4 w-px bg-slate-200" />
+        <button
+          type="button"
+          title="展开/折叠全部"
+          className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          onClick={handleToggleAll}
+        >
+          <UnfoldHorizontalIcon className="h-4 w-4" />
+        </button>
+      </div>
 
       {selectedNode && (
         <aside className="absolute bottom-4 left-1/2 z-10 w-[min(520px,calc(100%-2rem))] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
@@ -152,6 +298,7 @@ export function MindMap({ videoId, mermaidCode }: MindMapProps) {
             <input
               value={draftLabel}
               onChange={(event) => setDraftLabel(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Enter") applyNodeLabel() }}
               className="h-10 flex-1 rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
             <button
@@ -161,6 +308,24 @@ export function MindMap({ videoId, mermaidCode }: MindMapProps) {
               <FocusIcon className="h-4 w-4" />
               应用
             </button>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-200 px-3 text-sm text-slate-600 transition hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
+              onClick={addChildNode}
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+              添加子节点
+            </button>
+            {selectedNode.id !== "root" && (
+              <button
+                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-200 px-3 text-sm text-slate-600 transition hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+                onClick={deleteNode}
+              >
+                <Trash2Icon className="h-3.5 w-3.5" />
+                删除节点
+              </button>
+            )}
           </div>
           {selectedNode.summary && <p className="mt-3 text-xs leading-5 text-slate-500">{selectedNode.summary}</p>}
         </aside>
