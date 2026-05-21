@@ -318,84 +318,77 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
 
       <div
         className={[
-          "absolute bottom-4 left-1/2 z-10 w-[min(460px,calc(100%-2rem))] -translate-x-1/2 transition-all duration-300",
+          "absolute bottom-4 left-1/2 z-10 w-[min(400px,calc(100%-2rem))] -translate-x-1/2 transition-all duration-200",
           selectedNode
             ? "opacity-100 translate-y-0 pointer-events-auto"
             : "opacity-0 translate-y-2 pointer-events-none",
         ].join(" ")}
       >
         {selectedNode && (
-          <aside className="rounded-2xl border border-slate-200/80 bg-white/95 p-5 shadow-xl shadow-slate-200/50 backdrop-blur">
-            {/* Header: path breadcrumb + close hit area */}
-            <div className="mb-4 flex items-center gap-2.5">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
-                <PencilIcon className="h-3.5 w-3.5 text-blue-600" />
-              </span>
-              <span className="text-xs font-medium text-slate-400">{selectedNode.id === "root" ? "根节点" : "子节点"}</span>
-              <span className="text-xs text-slate-300">/</span>
-              <span className="text-xs font-semibold text-slate-700 truncate">{selectedNode.label}</span>
+          <aside className="rounded-xl border border-slate-200 bg-white p-3 shadow-lg shadow-slate-200/50">
+            {/* Header */}
+            <div className="mb-2.5 flex items-center gap-1.5 text-xs text-slate-400">
+              <PencilIcon className="h-3 w-3 text-blue-500" />
+              <span>{selectedNode.id === "root" ? "根节点" : "编辑节点"}</span>
             </div>
 
-            {/* Main input row */}
-            <div className="flex gap-2.5">
+            {/* Input row */}
+            <div className="flex gap-2">
               <input
                 value={draftLabel}
                 onChange={(event) => setDraftLabel(event.target.value)}
                 onKeyDown={(event) => { if (event.key === "Enter") applyNodeLabel() }}
                 autoFocus
-                className="h-11 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm outline-none transition-all placeholder:text-slate-350 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
-                placeholder="输入节点名称"
+                className="h-9 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-50"
+                placeholder="节点名称"
               />
               <button
                 className={[
-                  "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold transition-all active:scale-95",
+                  "inline-flex h-9 shrink-0 items-center gap-1 rounded-lg px-3 text-xs font-medium transition active:scale-95",
                   saving
                     ? "bg-blue-600 text-white"
                     : saved
                       ? "bg-emerald-600 text-white"
-                      : "bg-slate-900 text-white hover:bg-slate-800 hover:shadow-md hover:shadow-slate-200",
+                      : "bg-slate-800 text-white hover:bg-slate-700",
                 ].join(" ")}
                 onClick={applyNodeLabel}
                 disabled={saving}
               >
                 {saving ? (
-                  <SaveIcon className="h-4 w-4 animate-spin" />
+                  <SaveIcon className="h-3.5 w-3.5 animate-spin" />
                 ) : saved ? (
                   <>
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     已保存
                   </>
                 ) : (
-                  <>
-                    <FocusIcon className="h-4 w-4" />
-                    应用并保存
-                  </>
+                  "保存"
                 )}
               </button>
             </div>
 
-            {/* Action row */}
-            <div className="mt-3 flex items-center gap-2">
+            {/* Actions */}
+            <div className="mt-2 flex items-center gap-2">
               <button
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-all hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-700 active:scale-[0.97]"
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-500 transition hover:border-blue-300 hover:text-blue-600 active:scale-95"
                 onClick={addChildNode}
               >
-                <PlusIcon className="h-3.5 w-3.5" />
+                <PlusIcon className="h-3 w-3" />
                 添加子节点
               </button>
               {selectedNode.id !== "root" && (
                 <button
-                  className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-100 bg-white px-3 text-sm font-medium text-red-500 transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-700 active:scale-[0.97]"
+                  className="ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-red-100 bg-white px-2 text-xs text-red-400 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 active:scale-95"
                   onClick={deleteNode}
                 >
-                  <Trash2Icon className="h-3.5 w-3.5" />
-                  删除节点
+                  <Trash2Icon className="h-3 w-3" />
+                  删除
                 </button>
               )}
             </div>
 
             {selectedNode.summary && (
-              <p className="mt-3 text-xs leading-5 text-slate-400 border-t border-slate-100 pt-3">{selectedNode.summary}</p>
+              <p className="mt-2 text-xs leading-5 text-slate-400 border-t border-slate-100 pt-2">{selectedNode.summary}</p>
             )}
           </aside>
         )}
