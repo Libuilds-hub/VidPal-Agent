@@ -331,7 +331,7 @@ function RightPanel({ video, videoId, currentPlaybackTime, onVideoUpdate, onSeek
   return (
     <>
       {/* Tab Bar */}
-      <div className="px-5 pt-4 pb-3 shrink-0">
+      <div className="px-5 py-2.5 shrink-0">
         <div className="flex gap-1 bg-muted/50 rounded-xl p-1 w-fit ring-1 ring-border/30">
           {tabs.map((tab) => {
             const Icon = tab.icon
@@ -341,7 +341,7 @@ function RightPanel({ video, videoId, currentPlaybackTime, onVideoUpdate, onSeek
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "relative px-4 py-2 text-[13px] font-medium rounded-[10px] transition-all duration-200 flex items-center gap-2",
+                  "relative px-4 py-1.5 text-[13px] font-medium rounded-[10px] transition-all duration-200 flex items-center gap-2",
                   isActive
                     ? "bg-white text-foreground shadow-sm ring-1 ring-black/[0.06]"
                     : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-white/50"
@@ -400,7 +400,7 @@ function SummaryContent({ video, currentPlaybackTime, onSeek }: { video: Video; 
 
   if (video.status !== "done") {
     return (
-      <div className="max-w-2xl mx-auto p-8 pb-32">
+      <div className="max-w-2xl mx-auto p-8 pb-2">
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50 gap-3">
           <SparklesIcon className="h-10 w-10 opacity-20" />
           <span className="text-sm">视频处理完成后将显示完整概述</span>
@@ -411,7 +411,7 @@ function SummaryContent({ video, currentPlaybackTime, onSeek }: { video: Video; 
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto p-8 pb-32 space-y-8">
+      <div className="max-w-2xl mx-auto p-8 pb-2 space-y-8">
         <Skeleton className="h-8 w-72" />
         <Skeleton className="h-24 w-full rounded-2xl" />
         <Skeleton className="h-48 w-full rounded-2xl" />
@@ -422,14 +422,14 @@ function SummaryContent({ video, currentPlaybackTime, onSeek }: { video: Video; 
 
   if (error || !summary) {
     return (
-      <div className="max-w-2xl mx-auto p-8 pb-32">
+      <div className="max-w-2xl mx-auto p-8 pb-2">
         <div className="text-sm text-muted-foreground">{error || "暂无摘要内容"}</div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-6 pb-32 space-y-12 animate-in fade-in slide-in-from-bottom-3 duration-500">
+    <div className="max-w-2xl mx-auto px-6 py-6 pb-2 space-y-12 animate-in fade-in slide-in-from-bottom-3 duration-500">
 
       {/* Header */}
       <header className="space-y-3">
