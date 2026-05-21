@@ -194,7 +194,7 @@ export default function VideoDetailPage() {
     >
       {/* Left Panel: Video & Transcript */}
       <div
-        className="flex flex-col border-r bg-card shrink-0 min-h-0"
+        className="flex flex-col bg-[#F3F0EC] dark:bg-card shrink-0 min-h-0"
         style={{ width: `${leftWidth}%` }}
       >
         {/* Video Player */}
@@ -216,7 +216,7 @@ export default function VideoDetailPage() {
         </div>
 
         {/* Transcript Section */}
-        <div className="flex-1 flex flex-col min-h-0 bg-white">
+        <div className="flex-1 flex flex-col min-h-0">
           <div className="px-4 py-3 flex items-center gap-2 shrink-0">
             <CaptionsIcon className="h-4 w-4 text-muted-foreground" />
             <h3 className="font-medium text-xs tracking-wide uppercase text-muted-foreground">字幕</h3>
@@ -293,7 +293,7 @@ export default function VideoDetailPage() {
       </div>
 
       {/* Right Panel: Content Tabs */}
-      <div className="flex-1 flex flex-col min-w-0 border-t bg-[#FAF9F7] dark:bg-background">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#FAF9F7] dark:bg-background">
         <RightPanel video={video} videoId={videoId} onVideoUpdate={(updates) => setVideo((prev) => prev ? { ...prev, ...updates } : prev)} />
       </div>
     </div>
