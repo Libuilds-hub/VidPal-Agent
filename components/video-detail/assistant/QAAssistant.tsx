@@ -312,7 +312,59 @@ export function QAAssistant() {
         ) : (
           <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
             {messages.map((message) => (
-              <ChatMessageBubble key={message.id} message={message} />
+              <ChatMessageBubble key={message.id} message={message}
+                onRegenerate={() => {
+                  if (!activeId || isTyping) return
+                  setIsTyping(true)
+                  const delay = 800 + Math.random() * 700
+                  setTimeout(() => {
+                    const response = MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)]
+                    setConversations((prev) =>
+                      prev.map((c) => {
+                        if (c.id !== activeId) return c
+                        return { ...c, messages: c.messages.map((m) =>
+                          m.id === message.id ? { ...m, content: response } : m
+                        )}
+                      })
+                    )
+                    setIsTyping(false)
+                  }, delay)
+                }}
+                onEdit={(newContent) => {
+                  setConversations((prev) =>
+                    prev.map((c) => {
+                      if (c.id !== activeId) return c
+                      const idx = c.messages.findIndex((m) => m.id === message.id)
+                      if (idx === -1) return c
+                      const trimmed = c.messages.slice(0, idx + 1).map((m) =>
+                        m.id === message.id ? { ...m, content: newContent } : m
+                      )
+                      return { ...c, messages: trimmed }
+                    })
+                  )
+                  // Trigger regenerate
+                  if (activeId && !isTyping) {
+                    setIsTyping(true)
+                    const delay = 800 + Math.random() * 700
+                    setTimeout(() => {
+                      const response = MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)]
+                      const assistantMessage: ChatMessage = {
+                        id: `assistant-${Date.now()}`,
+                        role: "assistant",
+                        content: response,
+                        timestamp: new Date(),
+                      }
+                      setConversations((prev) =>
+                        prev.map((c) => {
+                          if (c.id !== activeId) return c
+                          return { ...c, messages: [...c.messages, assistantMessage] }
+                        })
+                      )
+                      setIsTyping(false)
+                    }, delay)
+                  }
+                }}
+              />
             ))}
             {isTyping && (
               <div className="flex gap-2.5">
