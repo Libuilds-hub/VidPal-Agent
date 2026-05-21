@@ -316,49 +316,90 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
         </button>
       </div>
 
-      {selectedNode && (
-        <aside className="absolute bottom-4 left-1/2 z-10 w-[min(520px,calc(100%-2rem))] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
-          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-950">
-            <PencilIcon className="h-4 w-4 text-blue-600" />
-            编辑节点
-          </div>
-          <div className="flex gap-2">
-            <input
-              value={draftLabel}
-              onChange={(event) => setDraftLabel(event.target.value)}
-              onKeyDown={(event) => { if (event.key === "Enter") applyNodeLabel() }}
-              className="h-10 flex-1 rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
-            <button
-              className={["inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium text-white transition", saving ? "bg-blue-600 animate-pulse" : saved ? "bg-emerald-600" : "bg-slate-950 hover:bg-slate-800"].join(" ")}
-              onClick={applyNodeLabel}
-              disabled={saving}
-            >
-              {saving ? <SaveIcon className="h-4 w-4 animate-spin" /> : saved ? <SaveIcon className="h-4 w-4" /> : <FocusIcon className="h-4 w-4" />}
-              {saving ? "保存中" : saved ? "已保存" : "应用并保存"}
-            </button>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-200 px-3 text-sm text-slate-600 transition hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
-              onClick={addChildNode}
-            >
-              <PlusIcon className="h-3.5 w-3.5" />
-              添加子节点
-            </button>
-            {selectedNode.id !== "root" && (
+      <div
+        className={[
+          "absolute bottom-4 left-1/2 z-10 w-[min(460px,calc(100%-2rem))] -translate-x-1/2 transition-all duration-300",
+          selectedNode
+            ? "opacity-100 translate-y-0 pointer-events-auto"
+            : "opacity-0 translate-y-2 pointer-events-none",
+        ].join(" ")}
+      >
+        {selectedNode && (
+          <aside className="rounded-2xl border border-slate-200/80 bg-white/95 p-5 shadow-xl shadow-slate-200/50 backdrop-blur">
+            {/* Header: path breadcrumb + close hit area */}
+            <div className="mb-4 flex items-center gap-2.5">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
+                <PencilIcon className="h-3.5 w-3.5 text-blue-600" />
+              </span>
+              <span className="text-xs font-medium text-slate-400">{selectedNode.id === "root" ? "根节点" : "子节点"}</span>
+              <span className="text-xs text-slate-300">/</span>
+              <span className="text-xs font-semibold text-slate-700 truncate">{selectedNode.label}</span>
+            </div>
+
+            {/* Main input row */}
+            <div className="flex gap-2.5">
+              <input
+                value={draftLabel}
+                onChange={(event) => setDraftLabel(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Enter") applyNodeLabel() }}
+                autoFocus
+                className="h-11 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm outline-none transition-all placeholder:text-slate-350 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                placeholder="输入节点名称"
+              />
               <button
-                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-200 px-3 text-sm text-slate-600 transition hover:bg-red-50 hover:text-red-700 hover:border-red-300"
-                onClick={deleteNode}
+                className={[
+                  "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold transition-all active:scale-95",
+                  saving
+                    ? "bg-blue-600 text-white"
+                    : saved
+                      ? "bg-emerald-600 text-white"
+                      : "bg-slate-900 text-white hover:bg-slate-800 hover:shadow-md hover:shadow-slate-200",
+                ].join(" ")}
+                onClick={applyNodeLabel}
+                disabled={saving}
               >
-                <Trash2Icon className="h-3.5 w-3.5" />
-                删除节点
+                {saving ? (
+                  <SaveIcon className="h-4 w-4 animate-spin" />
+                ) : saved ? (
+                  <>
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    已保存
+                  </>
+                ) : (
+                  <>
+                    <FocusIcon className="h-4 w-4" />
+                    应用并保存
+                  </>
+                )}
               </button>
+            </div>
+
+            {/* Action row */}
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-all hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-700 active:scale-[0.97]"
+                onClick={addChildNode}
+              >
+                <PlusIcon className="h-3.5 w-3.5" />
+                添加子节点
+              </button>
+              {selectedNode.id !== "root" && (
+                <button
+                  className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-100 bg-white px-3 text-sm font-medium text-red-500 transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-700 active:scale-[0.97]"
+                  onClick={deleteNode}
+                >
+                  <Trash2Icon className="h-3.5 w-3.5" />
+                  删除节点
+                </button>
+              )}
+            </div>
+
+            {selectedNode.summary && (
+              <p className="mt-3 text-xs leading-5 text-slate-400 border-t border-slate-100 pt-3">{selectedNode.summary}</p>
             )}
-          </div>
-          {selectedNode.summary && <p className="mt-3 text-xs leading-5 text-slate-500">{selectedNode.summary}</p>}
-        </aside>
-      )}
+          </aside>
+        )}
+      </div>
     </div>
   )
 }
