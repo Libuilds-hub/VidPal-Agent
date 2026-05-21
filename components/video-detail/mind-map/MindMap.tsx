@@ -378,7 +378,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
               </button>
               {selectedNode.id !== "root" && (
                 <button
-                  className="inline-flex h-7 items-center gap-1 rounded-md border border-red-100 bg-white px-2 text-xs text-red-400 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 active:scale-95"
+                  className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-500 transition hover:border-red-300 hover:text-red-600 active:scale-95"
                   onClick={deleteNode}
                 >
                   <Trash2Icon className="h-3 w-3" />
