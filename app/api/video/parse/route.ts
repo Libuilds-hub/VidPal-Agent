@@ -107,29 +107,45 @@ async function transcribeAsync(videoId: string, localPath: string, videoTitle: s
 
     // 转录
     const transcripts = await transcribeAudio(audioPath, "base", "zh")
+    console.log("Transcription complete for video:", videoId)
 
-    // 纠错
-    const correctedTranscripts = await correctTranscripts(transcripts, videoTitle)
-    console.log("Transcription and correction complete for video:", videoId)
-
-    // 生成摘要
-    const summary = await generateSummary(correctedTranscripts)
+    // 生成摘要（直接用原始转录，纠错步骤已跳过——MiniMax think 模式会消耗全部 token 导致无输出）
+    const summary = await generateSummary(transcripts)
 
     // 生成思维导图
-    const mindmap = await generateMindmap(correctedTranscripts, videoTitle)
+    const mindmap = await generateMindmap(transcripts, videoTitle)
+
+    const summaryOk = summary.overview && summary.overview.length > 0
+    const mindmapOk = mindmap != null
+
+    // Both LLM steps failed — don't pretend we're done
+    if (!summaryOk && !mindmapOk) {
+      await prisma.video.update({
+        where: { id: videoId },
+        data: {
+          status: "error",
+          error: "LLM generation failed: both summary and mindmap are empty. Check API key and model settings.",
+          transcripts: JSON.stringify(transcripts),
+        },
+      })
+      console.error("LLM generation completely failed for video:", videoId)
+      return
+    }
 
     // 更新为完成，保存转录结果和摘要
     await prisma.video.update({
       where: { id: videoId },
       data: {
         status: "done",
-        transcripts: JSON.stringify(correctedTranscripts),
+        transcripts: JSON.stringify(transcripts),
         summary: JSON.stringify(summary),
         mindmap,
       },
     })
 
     console.log("Transcription, summary and mindmap complete for video:", videoId)
+    if (!summaryOk) console.warn("  summary empty")
+    if (!mindmapOk) console.warn("  mindmap null")
 
   } catch (error) {
     console.error("Transcription error:", error)
@@ -154,6 +170,58 @@ interface TranscriptItem {
   startTime: number
   end: string
   text: string
+}
+
+/**
+ * Strip thinking tags and markdown fences, then extract valid JSON from LLM response.
+ * Uses bracket counting to find complete JSON structures, not fragile regex.
+ */
+function extractJson(raw: string, expectArray: boolean): unknown {
+  let text = raw
+    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+
+  // Strip markdown code fences
+  text = text
+    .replace(/^```(?:json|mermaid)?\s*$/gm, "")
+    .replace(/^```\s*$/gm, "")
+    .trim()
+
+  const bracket = expectArray ? "[" : "{"
+  const closeBracket = expectArray ? "]" : "}"
+
+  // Find first bracket to start extraction
+  const start = text.indexOf(bracket)
+  if (start < 0) throw new Error(`No JSON ${expectArray ? "array" : "object"} found in response`)
+
+  // Bracket counting with string awareness — ignores brackets inside quoted strings
+  const extract = text.slice(start)
+  let depth = 0
+  let end = -1
+  const startChar = expectArray ? "[" : "{"
+  const endChar = expectArray ? "]" : "}"
+  let inString = false
+
+  for (let i = 0; i < extract.length; i++) {
+    const ch = extract[i]
+    if (ch === '\\' && inString) {
+      i++ // skip escaped character
+      continue
+    }
+    if (ch === '"') {
+      inString = !inString
+    } else if (!inString) {
+      if (ch === startChar) {
+        depth++
+      } else if (ch === endChar) {
+        depth--
+        if (depth === 0) { end = i + 1; break }
+      }
+    }
+  }
+
+  if (end < 0) throw new Error(`Unterminated JSON ${expectArray ? "array" : "object"}`)
+  return JSON.parse(extract.slice(0, end))
 }
 
 async function correctTranscripts(transcripts: TranscriptItem[], videoTitle: string | null): Promise<TranscriptItem[]> {
@@ -206,7 +274,6 @@ ${transcriptText}
       body: JSON.stringify({
         model,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 4000,
       }),
     })
 
@@ -222,36 +289,7 @@ ${transcriptText}
       throw new Error("LLM returned empty response")
     }
 
-    // 解析 JSON（处理 thinking tags 和 markdown）
-    // 移除 <thinking>...</thinking> 块内容（包含 [] 会被误匹配为 JSON）
-    const withoutThinking = content
-      .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
-      .replace(/<think>[\s\S]*?<\/think>/gi, "")
-
-    const jsonStr = withoutThinking
-      .replace(/^```json\n?/, "")
-      .replace(/\n?```$/, "")
-      .trim()
-
-    // 提取 JSON 数组
-    const jsonMatch = jsonStr.match(/\[[\s\S]*?\]/)
-    if (!jsonMatch) {
-      throw new Error("No JSON array found in response")
-    }
-    // 验证 JSON 是否完整
-    try {
-      return JSON.parse(jsonMatch[0])
-    } catch {
-      // fallback：找最后一个 ] 之前的完整数组
-      const lastBracket = jsonStr.lastIndexOf(']')
-      if (lastBracket > 0) {
-        const start = jsonStr.lastIndexOf('[', lastBracket)
-        if (start >= 0) {
-          return JSON.parse(jsonStr.substring(start, lastBracket + 1))
-        }
-      }
-      throw new Error("Invalid JSON array in response")
-    }
+    return extractJson(content, true) as TranscriptItem[]
   } catch (error) {
     console.error("Correct transcripts error:", error)
     // 纠错失败返回原始 transcripts
@@ -305,7 +343,6 @@ ${transcriptText}
       body: JSON.stringify({
         model,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 2000,
       }),
     })
 
@@ -321,36 +358,8 @@ ${transcriptText}
       throw new Error("LLM returned empty response")
     }
 
-    // 解析 JSON（去除 markdown 代码块和 thinking tags）
-    const jsonStr = content
-      .replace(/^```json\n?/, "")
-      .replace(/\n?```$/, "")
-      .replace(/^[ \t]*[ \t]*$/gm, "")
-      .replace(/^[ \t]*<think>[ \t]*$/gm, "")
-      .trim()
-
-    // 提取 JSON 对象（处理可能的前后杂文本）
-    // 使用非贪婪匹配避免贪心匹配到JSON之后的内容
-    const jsonMatch = jsonStr.match(/\{[\s\S]*?\}/)
-    if (!jsonMatch) {
-      throw new Error("No JSON found in response")
-    }
-    // 再次验证：确保匹配的内容是有效JSON（检查是否被截断）
-    try {
-      return JSON.parse(jsonMatch[0])
-    } catch {
-      // 如果非贪婪匹配失败，尝试找最后一个完整JSON对象
-      const lastBrace = jsonStr.lastIndexOf('}')
-      if (lastBrace > 0) {
-        const tryStr = jsonStr.substring(0, lastBrace + 1)
-        // 找到对应的开始位置
-        const firstBrace = tryStr.indexOf('{')
-        if (firstBrace >= 0) {
-          return JSON.parse(tryStr.substring(firstBrace))
-        }
-      }
-      throw new Error("Invalid JSON in response")
-    }
+    console.log("Summary LLM raw (first 500 chars):", content.slice(0, 500))
+    return extractJson(content, false) as SummaryResult
   } catch (error) {
     console.error("Generate summary error:", error)
     // 摘要生成失败不中断流程，返回空摘要
@@ -377,29 +386,39 @@ async function generateMindmap(transcripts: { start: string; startTime: number; 
     ? "https://api.deepseek.com"
     : "https://api.minimaxi.com/v1"
 
-  // 构建字幕文本
+  // 构建字幕文本，截取前 4000 字控制 token
   const transcriptText = transcripts
     .map((t) => `[${t.start}] ${t.text}`)
     .join("\n")
+    .slice(0, 4000)
 
-  const prompt = `你是一个视频内容分析助手。根据以下视频字幕，生成思维导图的 Mermaid flowchart 代码：
+  const prompt = `你是视频内容分析专家。根据以下视频字幕，生成结构化的思维导图。
 
 视频主题：${videoTitle || "未知"}
 
 字幕内容：
 ${transcriptText}
 
-请生成一个思维导图的 Mermaid flowchart 代码，使用 TB（从上到下）布局：
-- 主节点：视频主题（用圆角矩形）
-- 分支：背景与现状、关键概念、案例分析、方法与技巧（用方框）
-- 每个分支下有 2-3 个子节点
-- 用箭头连接节点
+要求：
+1. 根节点 id 固定为 "root"，label 为视频主题
+2. 从字幕中提取 3-5 个核心话题作为一级分支，每个分支下再有 2-4 个子节点
+3. 节点 ID 使用 "n1", "n2", "n3" 等格式，不能重复
+4. 每个节点的 label 用中文，控制在 15 字以内，概括核心内容
+5. edges 数组中每条边有 source（父节点ID）和 target（子节点ID）
+6. 思维导图层级深度控制在 3 层以内
 
-只输出 Mermaid 代码，不要有其他内容。
-格式要求：
-1. 使用 flowchart 语法，方向从左到右 LR 或 从上到下 TB
-2. 节点文字用中文，不超过 20 字
-3. 节点 ID 不能重复`
+只输出以下 JSON 格式，不要有其他内容：
+{
+  "nodes": [
+    { "id": "root", "label": "视频主题" },
+    { "id": "n1", "label": "分支主题" },
+    { "id": "n2", "label": "子主题" }
+  ],
+  "edges": [
+    { "source": "root", "target": "n1" },
+    { "source": "n1", "target": "n2" }
+  ]
+}`
 
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -411,7 +430,6 @@ ${transcriptText}
       body: JSON.stringify({
         model,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 2000,
       }),
     })
 
@@ -427,16 +445,114 @@ ${transcriptText}
       throw new Error("LLM returned empty response")
     }
 
-    // 提取 Mermaid 代码（去除 markdown 代码块）
-    const mermaidCode = content
-      .replace(/^```mermaid\n?/, "")
-      .replace(/^```\n?/, "")
-      .replace(/\n?```$/, "")
-      .trim()
+    const parsed = extractJson(content, false) as Record<string, unknown>
 
-    return mermaidCode || null
+    console.log("Mindmap LLM raw (first 500 chars):", content.slice(0, 500))
+    console.log("Mindmap parsed keys:", Object.keys(parsed).join(", "))
+
+    // Unwrap if LLM wrapped data in a key like { "mindmap": { nodes, edges } }
+    const mindmapData = (parsed.nodes ? parsed : (parsed.mindmap && typeof parsed.mindmap === "object" ? parsed.mindmap : null)) as Record<string, unknown> | null
+
+    if (!mindmapData || !mindmapData.nodes || !Array.isArray(mindmapData.nodes) || !mindmapData.edges || !Array.isArray(mindmapData.edges)) {
+      console.warn("Mindmap JSON missing nodes/edges arrays:", JSON.stringify(parsed).slice(0, 300))
+      return null
+    }
+
+    console.log("Mindmap OK: %d nodes, %d edges", (mindmapData.nodes as any[]).length, (mindmapData.edges as any[]).length)
+    return JSON.stringify(mindmapData)
   } catch (error) {
     console.error("Generate mindmap error:", error)
     return null
+  }
+}
+
+/**
+ * PUT — re-run LLM generation (correction + summary + mindmap) for a video
+ * that already has transcripts stored. No re-download, no re-transcription.
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    const { videoId } = await request.json()
+
+    if (!videoId) {
+      return NextResponse.json({ error: "videoId is required" }, { status: 400 })
+    }
+
+    const video = await prisma.video.findUnique({
+      where: { id: videoId },
+      select: { id: true, title: true, transcripts: true, status: true },
+    })
+
+    if (!video) {
+      return NextResponse.json({ error: "Video not found" }, { status: 404 })
+    }
+
+    if (!video.transcripts) {
+      return NextResponse.json({ error: "No transcripts found. Transcribe first." }, { status: 400 })
+    }
+
+    let transcripts: TranscriptItem[]
+    try {
+      transcripts = JSON.parse(video.transcripts)
+    } catch {
+      return NextResponse.json({ error: "Transcripts are corrupted" }, { status: 400 })
+    }
+
+    // Update status to show we're working
+    await prisma.video.update({
+      where: { id: videoId },
+      data: { status: "transcribing" },
+    })
+
+    // Re-run all LLM steps (skip correction — MiniMax think mode exhausts tokens)
+    const summary = await generateSummary(transcripts)
+    const mindmap = await generateMindmap(transcripts, video.title)
+
+    const summaryOk = summary.overview && summary.overview.length > 0
+    const mindmapOk = mindmap != null
+
+    if (!summaryOk && !mindmapOk) {
+      await prisma.video.update({
+        where: { id: videoId },
+        data: {
+          status: "error",
+          error: "LLM generation failed: both summary and mindmap are empty. Check API key and model settings.",
+          transcripts: JSON.stringify(transcripts),
+        },
+      })
+      return NextResponse.json({
+        success: false,
+        error: "Both summary and mindmap generation failed",
+        details: { summaryOk, mindmapOk },
+      })
+    }
+
+    await prisma.video.update({
+      where: { id: videoId },
+      data: {
+        status: "done",
+        transcripts: JSON.stringify(transcripts),
+        summary: JSON.stringify(summary),
+        mindmap,
+      },
+    })
+
+    return NextResponse.json({
+      success: true,
+      summaryOk,
+      mindmapOk,
+    })
+  } catch (error) {
+    console.error("PUT parse error:", error)
+    try {
+      const { videoId } = await request.json().catch(() => ({}))
+      if (videoId) {
+        await prisma.video.update({
+          where: { id: videoId },
+          data: { status: "error", error: "LLM retry failed" },
+        })
+      }
+    } catch {}
+    return NextResponse.json({ error: "Retry failed" }, { status: 500 })
   }
 }
