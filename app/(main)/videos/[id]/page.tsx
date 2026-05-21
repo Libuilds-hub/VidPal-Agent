@@ -292,13 +292,13 @@ export default function VideoDetailPage() {
 
       {/* Right Panel: Content Tabs */}
       <div className="flex-1 flex flex-col bg-[#F8F9FA] dark:bg-background min-w-0 border-t">
-        <RightPanel video={video} videoId={videoId} />
+        <RightPanel video={video} videoId={videoId} onVideoUpdate={(updates) => setVideo((prev) => prev ? { ...prev, ...updates } : prev)} />
       </div>
     </div>
   )
 }
 
-function RightPanel({ video, videoId }: { video: Video; videoId: string }) {
+function RightPanel({ video, videoId, onVideoUpdate }: { video: Video; videoId: string; onVideoUpdate: (updates: Partial<Video>) => void }) {
   const [activeTab, setActiveTab] = useState<TabId>("summary")
 
   const tabs = [
@@ -339,7 +339,7 @@ function RightPanel({ video, videoId }: { video: Video; videoId: string }) {
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {activeTab === "summary" && <SummaryContent video={video} />}
-        {activeTab === "mindmap" && <MindMap videoId={videoId} mermaidCode={video?.mindmap} />}
+        {activeTab === "mindmap" && <MindMap videoId={videoId} mermaidCode={video?.mindmap} onSaved={(mindmap) => onVideoUpdate({ mindmap })} />}
         {activeTab === "assistant" && <QAAssistant />}
       </div>
     </>

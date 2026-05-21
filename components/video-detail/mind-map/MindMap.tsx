@@ -24,9 +24,10 @@ import {
 interface MindMapProps {
   videoId?: string
   mermaidCode?: string | null
+  onSaved?: (mindmap: string) => void
 }
 
-export function MindMap({ videoId, mermaidCode }: MindMapProps) {
+export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
   const initialModel = useMemo(() => createMindmapModel(mermaidCode, "视频主题"), [mermaidCode])
   const [model, setModel] = useState<MindmapModel>(initialModel)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
@@ -250,6 +251,7 @@ export function MindMap({ videoId, mermaidCode }: MindMapProps) {
         body: JSON.stringify({ mindmap: payload }),
       })
       if (!res.ok) throw new Error("Save failed")
+      onSaved?.(payload)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch (err) {
@@ -257,7 +259,7 @@ export function MindMap({ videoId, mermaidCode }: MindMapProps) {
     } finally {
       setSaving(false)
     }
-  }, [videoId, model])
+  }, [videoId, model, onSaved])
 
   return (
     <div className={["relative h-full w-full overflow-hidden", dark ? "markmap-dark bg-[#1a1b26]" : "bg-[#f8fafc]"].join(" ")}>
