@@ -7,6 +7,7 @@ import {
   FocusIcon,
   PencilIcon,
   PlusIcon,
+  SaveIcon,
   Trash2Icon,
   ZoomInIcon,
   ZoomOutIcon,
@@ -31,6 +32,8 @@ export function MindMap({ videoId, mermaidCode }: MindMapProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [draftLabel, setDraftLabel] = useState("")
   const [dark, setDark] = useState<boolean | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const svgRef = useRef<SVGSVGElement>(null)
   const mmRef = useRef<Markmap | null>(null)
 
@@ -236,6 +239,26 @@ export function MindMap({ videoId, mermaidCode }: MindMapProps) {
     mm.toggleNode(mm.state.data, true)
   }, [])
 
+  const handleSave = useCallback(async () => {
+    if (!videoId) return
+    setSaving(true)
+    try {
+      const payload = JSON.stringify({ nodes: model.nodes, edges: model.edges })
+      const res = await fetch(`/api/video/${videoId}/mindmap`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mindmap: payload }),
+      })
+      if (!res.ok) throw new Error("Save failed")
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (err) {
+      console.error("Save mindmap error:", err)
+    } finally {
+      setSaving(false)
+    }
+  }, [videoId, model])
+
   return (
     <div className={["relative h-full w-full overflow-hidden", dark ? "markmap-dark bg-[#1a1b26]" : "bg-[#f8fafc]"].join(" ")}>
       <svg
@@ -285,6 +308,16 @@ export function MindMap({ videoId, mermaidCode }: MindMapProps) {
           onClick={handleToggleAll}
         >
           <UnfoldHorizontalIcon className="h-4 w-4" />
+        </button>
+        <div className="mx-1 h-4 w-px bg-slate-200" />
+        <button
+          type="button"
+          title="保存到服务器"
+          className={["inline-flex h-8 w-8 items-center justify-center rounded transition", saving ? "text-blue-500 animate-pulse" : saved ? "text-emerald-500" : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"].join(" ")}
+          onClick={handleSave}
+          disabled={saving}
+        >
+          <SaveIcon className="h-4 w-4" />
         </button>
       </div>
 
