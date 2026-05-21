@@ -3,30 +3,19 @@ import { prisma } from "@/lib/db"
 
 export async function POST(request: NextRequest) {
   try {
-    const { llmProvider, llmApiKey, llmModel } = await request.json()
+    const body = await request.json()
 
-    if (!llmProvider || !llmApiKey || !llmModel) {
-      return NextResponse.json({ error: "缺少必要参数" }, { status: 400 })
+    // 支持 { settings: {...} } 和 { key: value } 两种格式
+    const entries = body.settings || body
+
+    for (const [key, value] of Object.entries(entries)) {
+      if (key === "settings") continue
+      await prisma.setting.upsert({
+        where: { key },
+        update: { value: String(value) },
+        create: { key, value: String(value) },
+      })
     }
-
-    // 保存配置
-    await prisma.setting.upsert({
-      where: { key: "llmProvider" },
-      update: { value: llmProvider },
-      create: { key: "llmProvider", value: llmProvider },
-    })
-
-    await prisma.setting.upsert({
-      where: { key: "llmApiKey" },
-      update: { value: llmApiKey },
-      create: { key: "llmApiKey", value: llmApiKey },
-    })
-
-    await prisma.setting.upsert({
-      where: { key: "llmModel" },
-      update: { value: llmModel },
-      create: { key: "llmModel", value: llmModel },
-    })
 
     return NextResponse.json({ success: true, message: "设置已保存" })
   } catch (error) {

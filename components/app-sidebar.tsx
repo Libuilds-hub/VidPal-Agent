@@ -4,6 +4,7 @@ import * as React from "react"
 import { usePathname } from "next/navigation"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
+import { SettingsNavContent } from "@/components/settings-nav"
 import {
   Sidebar,
   SidebarContent,
@@ -13,7 +14,19 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar"
-import { VideoIcon, PlusIcon, LibraryIcon, FolderIcon, SettingsIcon, HelpCircleIcon, SparklesIcon } from "lucide-react"
+import {
+  VideoIcon,
+  PlusIcon,
+  LibraryIcon,
+  FolderIcon,
+  SettingsIcon,
+  HelpCircleIcon,
+  SparklesIcon,
+  Globe,
+  Bot,
+  FlaskConical,
+} from "lucide-react"
+import { onSettingsNav } from "@/lib/settings-events"
 
 const navMainItems = [
   { title: "仪表盘", url: "/dashboard", icon: VideoIcon },
@@ -27,8 +40,21 @@ const navSecondaryItems = [
   { title: "帮助", url: "/help", icon: HelpCircleIcon },
 ]
 
+const settingsNavItems = [
+  { id: "general", label: "常规", icon: SettingsIcon },
+  { id: "llm", label: "AI / LLM", icon: Bot },
+  { id: "source", label: "视频源", icon: Globe },
+  { id: "experimental", label: "实验性", icon: FlaskConical },
+]
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
+  const isSettings = pathname.startsWith("/settings")
+  const [activeSection, setActiveSection] = React.useState("general")
+
+  React.useEffect(() => {
+    return onSettingsNav(setActiveSection)
+  }, [])
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -51,9 +77,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent className="px-2">
-        <NavMain items={navMainItems} pathname={pathname} />
-        <SidebarSeparator className="mx-3 my-2" />
-        <NavSecondary items={navSecondaryItems} pathname={pathname} />
+        {isSettings ? (
+          <SettingsNavContent items={settingsNavItems} activeId={activeSection} />
+        ) : (
+          <>
+            <NavMain items={navMainItems} pathname={pathname} />
+            <SidebarSeparator className="mx-3 my-2" />
+            <NavSecondary items={navSecondaryItems} pathname={pathname} />
+          </>
+        )}
       </SidebarContent>
     </Sidebar>
   )
