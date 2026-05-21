@@ -145,6 +145,27 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
     setDraftLabel(selectedNode?.label || "")
   }, [selectedNode])
 
+  const saveModel = useCallback(async (modelToSave: MindmapModel) => {
+    if (!videoId) return
+    setSaving(true)
+    try {
+      const payload = JSON.stringify({ nodes: modelToSave.nodes, edges: modelToSave.edges })
+      const res = await fetch(`/api/video/${videoId}/mindmap`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mindmap: payload }),
+      })
+      if (!res.ok) throw new Error("Save failed")
+      onSaved?.(payload)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (err) {
+      console.error("Save mindmap error:", err)
+    } finally {
+      setSaving(false)
+    }
+  }, [videoId, onSaved])
+
   const applyNodeLabel = useCallback(() => {
     if (!selectedNode || !draftLabel.trim()) return
 
@@ -156,31 +177,32 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
     }
     setModel(nextModel)
     setSelectedNodeId(null)
-  }, [draftLabel, model, selectedNode])
+    saveModel(nextModel)
+  }, [draftLabel, model, selectedNode, saveModel])
 
   const addChildNode = useCallback(() => {
     if (!selectedNode) return
 
-    // Generate a unique ID: find max numeric suffix + 1
     const maxNum = model.nodes.reduce((max, node) => {
       const match = node.id.match(/^n(\d+)$/)
       return match ? Math.max(max, parseInt(match[1], 10)) : max
     }, 0)
     const newId = `n${maxNum + 1}`
     const newEdgeId = `${selectedNode.id}-${newId}`
+    const nextModel = {
+      ...model,
+      nodes: [...model.nodes, { id: newId, label: "新节点", kind: "branch" }],
+      edges: [...model.edges, { id: newEdgeId, source: selectedNode.id, target: newId }],
+    }
 
-    setModel((prev) => ({
-      ...prev,
-      nodes: [...prev.nodes, { id: newId, label: "新节点", kind: "branch" }],
-      edges: [...prev.edges, { id: newEdgeId, source: selectedNode.id, target: newId }],
-    }))
+    setModel(nextModel)
     setSelectedNodeId(newId)
-  }, [model.nodes, selectedNode])
+    // Don't auto-save — user will rename and click "应用" to save
+  }, [model, selectedNode])
 
   const deleteNode = useCallback(() => {
     if (!selectedNode) return
 
-    // Collect all descendant IDs recursively
     const descendants = new Set<string>()
     const collect = (nodeId: string) => {
       descendants.add(nodeId)
@@ -192,13 +214,15 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
     }
     collect(selectedNode.id)
 
-    setModel((prev) => ({
-      ...prev,
-      nodes: prev.nodes.filter((node) => !descendants.has(node.id)),
-      edges: prev.edges.filter((edge) => !descendants.has(edge.source) && !descendants.has(edge.target)),
-    }))
+    const nextModel = {
+      ...model,
+      nodes: model.nodes.filter((node) => !descendants.has(node.id)),
+      edges: model.edges.filter((edge) => !descendants.has(edge.source) && !descendants.has(edge.target)),
+    }
+    setModel(nextModel)
     setSelectedNodeId(null)
-  }, [model.edges, selectedNode])
+    saveModel(nextModel)
+  }, [model, selectedNode, saveModel])
 
   const getCurrentScale = useCallback((): number => {
     const mm = mmRef.current
@@ -239,27 +263,6 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
     if (!mm?.state.data) return
     mm.toggleNode(mm.state.data, true)
   }, [])
-
-  const handleSave = useCallback(async () => {
-    if (!videoId) return
-    setSaving(true)
-    try {
-      const payload = JSON.stringify({ nodes: model.nodes, edges: model.edges })
-      const res = await fetch(`/api/video/${videoId}/mindmap`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mindmap: payload }),
-      })
-      if (!res.ok) throw new Error("Save failed")
-      onSaved?.(payload)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-    } catch (err) {
-      console.error("Save mindmap error:", err)
-    } finally {
-      setSaving(false)
-    }
-  }, [videoId, model, onSaved])
 
   return (
     <div className={["relative h-full w-full overflow-hidden", dark ? "markmap-dark bg-[#1a1b26]" : "bg-[#f8fafc]"].join(" ")}>
@@ -311,16 +314,6 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
         >
           <UnfoldHorizontalIcon className="h-4 w-4" />
         </button>
-        <div className="mx-1 h-4 w-px bg-slate-200" />
-        <button
-          type="button"
-          title="保存到服务器"
-          className={["inline-flex h-8 w-8 items-center justify-center rounded transition", saving ? "text-blue-500 animate-pulse" : saved ? "text-emerald-500" : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"].join(" ")}
-          onClick={handleSave}
-          disabled={saving}
-        >
-          <SaveIcon className="h-4 w-4" />
-        </button>
       </div>
 
       {selectedNode && (
@@ -337,11 +330,12 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
               className="h-10 flex-1 rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
             <button
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-medium text-white transition hover:bg-slate-800"
+              className={["inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium text-white transition", saving ? "bg-blue-600 animate-pulse" : saved ? "bg-emerald-600" : "bg-slate-950 hover:bg-slate-800"].join(" ")}
               onClick={applyNodeLabel}
+              disabled={saving}
             >
-              <FocusIcon className="h-4 w-4" />
-              应用
+              {saving ? <SaveIcon className="h-4 w-4 animate-spin" /> : saved ? <SaveIcon className="h-4 w-4" /> : <FocusIcon className="h-4 w-4" />}
+              {saving ? "保存中" : saved ? "已保存" : "应用并保存"}
             </button>
           </div>
           <div className="mt-3 flex gap-2">
