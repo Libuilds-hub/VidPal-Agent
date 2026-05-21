@@ -256,7 +256,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
         style={{ cursor: "grab" }}
       />
 
-      <div className="absolute bottom-4 right-4 z-10 flex items-center gap-0.5 rounded-xl border border-border/40 bg-white/95 p-1 shadow-md backdrop-blur-sm">
+      <div className="absolute bottom-4 left-4 z-10 flex items-center gap-0.5 rounded-xl border border-border/40 bg-white/95 p-1 shadow-md backdrop-blur-sm">
         <button
           type="button"
           title="放大"

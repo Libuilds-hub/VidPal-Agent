@@ -231,8 +231,8 @@ export default function VideoDetailPage() {
         {/* Transcript Section */}
         <div className="flex-1 flex flex-col min-h-0">
           <div className="px-4 py-3 flex items-center gap-2.5 shrink-0">
-            <CaptionsIcon className="h-[15px] w-[15px] text-muted-foreground/70" />
-            <h3 className="font-medium text-[11px] tracking-widest uppercase text-muted-foreground/60">字幕</h3>
+            <CaptionsIcon className="h-[18px] w-[18px] text-muted-foreground/70" />
+            <h3 className="font-medium text-[13px] tracking-wide text-muted-foreground/60">字幕</h3>
             <div className="ml-auto relative">
               <Search className="h-3 w-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
               <input
