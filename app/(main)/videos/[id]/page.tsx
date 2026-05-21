@@ -7,11 +7,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import {
   PlayIcon,
-  FileTextIcon,
+  CaptionsIcon,
   MapIcon,
   MessageCircleIcon,
-  Search,
-  GripVertical
+  Search
 } from "lucide-react"
 import { MindMap } from "@/components/video-detail/mind-map/MindMap"
 import { QAAssistant } from "@/components/video-detail/assistant/QAAssistant"
@@ -157,17 +156,20 @@ export default function VideoDetailPage() {
     return (
       <div className="flex flex-1 min-h-0">
         <div className="h-full flex flex-col" style={{ width: `${leftWidth}%` }}>
-          <Skeleton className="aspect-video w-full" />
-          <div className="flex-1 border-t p-4">
-            <div className="h-full bg-muted/50 rounded-lg animate-pulse" />
+          <div className="p-4 pb-0">
+            <Skeleton className="aspect-video w-full rounded-2xl" />
+          </div>
+          <div className="px-4 py-3">
+            <Skeleton className="h-4 w-48" />
+          </div>
+          <div className="flex-1 p-4 pt-0">
+            <div className="h-full bg-muted/30 rounded-xl animate-pulse" />
           </div>
         </div>
-        <div className="w-1 shrink-0" />
-        <div className="flex-1 bg-[#F8F9FA] dark:bg-background">
-          <div className="h-[54px] border-b px-6 flex items-center gap-8">
-            <Skeleton className="h-4 w-16" />
-            <Skeleton className="h-4 w-16" />
-            <Skeleton className="h-4 w-16" />
+        <div className="w-[3px] shrink-0" />
+        <div className="flex-1 bg-[#FAF9F7] dark:bg-background">
+          <div className="px-5 py-3">
+            <Skeleton className="h-9 w-64 rounded-full" />
           </div>
         </div>
       </div>
@@ -196,43 +198,44 @@ export default function VideoDetailPage() {
         style={{ width: `${leftWidth}%` }}
       >
         {/* Video Player */}
-        <div className="relative aspect-[16/9] bg-black shrink-0">
-          {video.localPath ? (
-            <video
-              ref={videoRef}
-              src={video.localPath}
-              className="w-full h-full"
-              style={{ objectFit: 'contain' }}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              <PlayIcon className="h-12 w-12" />
-            </div>
-          )}
+        <div className="relative shrink-0 bg-[#0a0a0b] rounded-2xl overflow-hidden m-4 mb-0 ring-1 ring-white/5">
+          <div className="relative aspect-[16/9]">
+            {video.localPath ? (
+              <video
+                ref={videoRef}
+                src={video.localPath}
+                className="w-full h-full"
+                style={{ objectFit: 'contain' }}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-white/20">
+                <PlayIcon className="h-12 w-12" />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Transcript Section */}
-        <div className="flex-1 flex flex-col min-h-0 bg-background">
-          <div className="p-3 border-b flex items-center gap-2">
-            <FileTextIcon className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold text-sm">视频转录</h3>
+        <div className="flex-1 flex flex-col min-h-0 bg-white">
+          <div className="px-4 py-3 flex items-center gap-2 shrink-0">
+            <CaptionsIcon className="h-4 w-4 text-muted-foreground" />
+            <h3 className="font-medium text-xs tracking-wide uppercase text-muted-foreground">字幕</h3>
             <div className="ml-auto relative">
-              <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
               <input
-                className="h-8 pl-8 pr-3 text-xs bg-muted/50 rounded-lg w-32 focus:w-48 transition-all outline-none border-none placeholder:text-muted-foreground"
-                placeholder="搜索转录内容..."
+                className="h-7 pl-8 pr-3 text-xs bg-muted/40 rounded-full w-28 focus:w-44 transition-all duration-200 outline-none border-none placeholder:text-muted-foreground/50"
+                placeholder="搜索..."
               />
             </div>
           </div>
 
-          <div ref={transcriptListRef} className="flex-1 overflow-y-auto py-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div ref={transcriptListRef} className="flex-1 overflow-y-auto px-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {video.status === "transcribing" ? (
-              <div className="text-center py-8 text-sm text-muted-foreground">
+              <div className="text-center py-12 text-sm text-muted-foreground">
                 转录中，请稍候...
               </div>
             ) : video.transcripts && video.transcripts.length > 0 ? (
-              // Show real transcripts
-              <div className="space-y-2">
+              <div className="py-2">
                 {video.transcripts.map((item, index) => {
                   const isActive = currentPlaybackTime >= item.startTime &&
                     (index === video.transcripts!.length - 1 || currentPlaybackTime < video.transcripts![index + 1].startTime)
@@ -247,19 +250,21 @@ export default function VideoDetailPage() {
                         }
                       }}
                       className={cn(
-                        "flex gap-3 group cursor-pointer py-1 px-2 rounded-lg",
-                        isActive && ["font-medium", "bg-blue-50"]
+                        "flex gap-3 group cursor-pointer py-2 px-3 rounded-lg border-l-2 transition-all duration-200",
+                        isActive
+                          ? "border-l-indigo-500 bg-indigo-50/70 shadow-sm"
+                          : "border-l-transparent hover:bg-muted/40"
                       )}
                     >
                       <span className={cn(
-                        "text-xs font-mono shrink-0 w-10 leading-5",
-                        isActive ? "text-blue-600" : "text-gray-400"
+                        "text-xs font-mono shrink-0 w-10 leading-5 tabular-nums",
+                        isActive ? "text-indigo-600 font-medium" : "text-muted-foreground/50"
                       )}>
                         {item.start}
                       </span>
                       <p className={cn(
                         "text-sm leading-5",
-                        isActive ? "text-black" : "text-gray-400"
+                        isActive ? "text-foreground font-medium" : "text-muted-foreground/70"
                       )}>
                         {item.text}
                       </p>
@@ -268,8 +273,7 @@ export default function VideoDetailPage() {
                 })}
               </div>
             ) : (
-              // Show placeholder when no transcripts
-              <div className="text-center py-8 text-sm text-muted-foreground">
+              <div className="text-center py-12 text-sm text-muted-foreground">
                 {video.status === "done"
                   ? "暂无转录内容"
                   : "视频处理完成后将显示转录内容"}
@@ -281,17 +285,15 @@ export default function VideoDetailPage() {
 
       {/* Resizable Divider */}
       <div
-        className="w-1 bg-border hover:bg-primary/50 transition-colors cursor-col-resize flex items-center justify-center shrink-0 relative group"
+        className="w-[3px] bg-transparent hover:bg-indigo-200/50 transition-colors cursor-col-resize flex items-center justify-center shrink-0 relative group"
         onMouseDown={handleMouseDown}
       >
         <div className="absolute inset-y-0 -left-2 -right-2 z-10" />
-        <div className="h-8 w-4 bg-background border rounded-sm flex items-center justify-center shadow-sm group-hover:border-primary/50">
-          <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-primary" />
-        </div>
+        <div className="h-10 w-[3px] bg-border/80 rounded-full group-hover:bg-indigo-400/60 transition-colors" />
       </div>
 
       {/* Right Panel: Content Tabs */}
-      <div className="flex-1 flex flex-col bg-[#F8F9FA] dark:bg-background min-w-0 border-t">
+      <div className="flex-1 flex flex-col min-w-0 border-t bg-[#FAF9F7] dark:bg-background">
         <RightPanel video={video} videoId={videoId} onVideoUpdate={(updates) => setVideo((prev) => prev ? { ...prev, ...updates } : prev)} />
       </div>
     </div>
@@ -310,8 +312,8 @@ function RightPanel({ video, videoId, onVideoUpdate }: { video: Video; videoId: 
   return (
     <>
       {/* Tab Bar */}
-      <div className="bg-white dark:bg-card border-b px-6 shrink-0">
-        <div className="flex gap-8 relative">
+      <div className="px-5 py-3 shrink-0">
+        <div className="flex gap-1.5 bg-muted/60 rounded-full p-1 w-fit">
           {tabs.map((tab) => {
             const Icon = tab.icon
             return (
@@ -319,17 +321,14 @@ function RightPanel({ video, videoId, onVideoUpdate }: { video: Video; videoId: 
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "py-4 text-sm font-medium relative transition-colors flex items-center gap-2",
+                  "px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 flex items-center gap-2",
                   activeTab === tab.id
-                    ? "text-blue-600 dark:text-blue-400 font-semibold"
+                    ? "bg-white dark:bg-foreground dark:text-background text-foreground shadow-sm ring-1 ring-black/5"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Icon className="h-4 w-4" />
                 {tab.label}
-                {activeTab === tab.id && (
-                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
-                )}
               </button>
             )
           })}
@@ -378,12 +377,11 @@ function SummaryContent({ video }: { video: Video }) {
 
   if (video.status !== "done") {
     return (
-      <div className="max-w-4xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <h1 className="text-2xl font-bold mb-8">{video.title || "视频分析"}</h1>
-        <div className="space-y-8">
+      <div className="max-w-3xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-10">
           <section>
-            <h2 className="text-lg font-bold mb-4">全文概述</h2>
-            <div className="text-muted-foreground leading-relaxed space-y-4 text-sm">
+            <h2 className="text-xs font-medium tracking-wider uppercase text-muted-foreground/70 mb-4">全文概述</h2>
+            <div className="text-muted-foreground leading-relaxed text-sm">
               <p>视频处理完成后将显示完整的视频概述内容。</p>
             </div>
           </section>
@@ -394,12 +392,11 @@ function SummaryContent({ video }: { video: Video }) {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <h1 className="text-2xl font-bold mb-8">{video.title || "视频分析"}</h1>
-        <div className="space-y-8">
-          <div className="h-32 bg-muted/50 rounded-xl animate-pulse" />
-          <div className="h-48 bg-muted/50 rounded-xl animate-pulse" />
-          <div className="h-64 bg-muted/50 rounded-xl animate-pulse" />
+      <div className="max-w-3xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-10">
+          <div className="h-32 bg-muted/40 rounded-2xl animate-pulse" />
+          <div className="h-48 bg-muted/40 rounded-2xl animate-pulse" />
+          <div className="h-64 bg-muted/40 rounded-2xl animate-pulse" />
         </div>
       </div>
     )
@@ -407,51 +404,69 @@ function SummaryContent({ video }: { video: Video }) {
 
   if (error || !summary) {
     return (
-      <div className="max-w-4xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <h1 className="text-2xl font-bold mb-8">{video.title || "视频分析"}</h1>
+      <div className="max-w-3xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="text-muted-foreground text-sm">{error || "暂无摘要内容"}</div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <h1 className="text-2xl font-bold mb-8">{video.title || "视频分析"}</h1>
+    <div className="max-w-3xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-      <div className="space-y-8">
+      {/* Video Title */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground/90">
+          {video.title || "视频分析"}
+        </h1>
+        <div className="flex items-center gap-3 mt-2">
+          <span className="text-xs text-muted-foreground/70">
+            {getSourceLabel(video.source)}
+          </span>
+          {video.duration != null && (
+            <span className="text-xs text-muted-foreground/50">
+              {formatDuration(video.duration)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-10">
+        {/* Overview */}
         <section>
-          <h2 className="text-lg font-bold mb-4">全文概述</h2>
-          <div className="text-muted-foreground leading-relaxed space-y-4 text-sm">
+          <h2 className="text-xs font-medium tracking-wider uppercase text-muted-foreground/70 mb-4">全文概述</h2>
+          <div className="text-foreground/80 leading-relaxed text-[15px]">
             <p>{summary.overview}</p>
           </div>
         </section>
 
+        {/* Key Points */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold">关键要点</h2>
-          </div>
-          <div className="bg-muted/30 rounded-xl p-6 space-y-3">
+          <h2 className="text-xs font-medium tracking-wider uppercase text-muted-foreground/70 mb-4">关键要点</h2>
+          <div className="bg-white dark:bg-card rounded-2xl border border-border/40 p-6 space-y-3">
             {summary.keyPoints.map((point, i) => (
-              <div key={i} className="flex gap-3 text-sm text-muted-foreground">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0 mt-2" />
-                <span>{point}</span>
+              <div key={i} className="flex gap-3 text-sm">
+                <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-semibold flex items-center justify-center shrink-0 mt-0.5">
+                  {i + 1}
+                </span>
+                <span className="text-foreground/75 leading-relaxed">{point}</span>
               </div>
             ))}
           </div>
         </section>
 
+        {/* Timeline */}
         <section>
-          <h2 className="text-lg font-bold mb-6">段落总结</h2>
-          <div className="relative pl-4 space-y-6 before:absolute before:left-[5px] before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-blue-200 before:via-blue-100 before:to-transparent before:content-['']">
+          <h2 className="text-xs font-medium tracking-wider uppercase text-muted-foreground/70 mb-6">段落总结</h2>
+          <div className="relative pl-5 space-y-6 before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-px before:bg-border/60">
             {summary.segments.map((item, i) => (
               <div key={i} className="flex gap-4 relative">
-                <div className="absolute -left-[15px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-500 ring-4 ring-white dark:ring-background z-10" />
-                <span className="text-sm font-medium text-slate-700 dark:text-slate-300 shrink-0 mt-0.5 min-w-[3rem]">{item.time}</span>
-                <div className="bg-blue-50/50 dark:bg-card border border-blue-100 dark:border-border rounded-xl p-5 flex-1 hover:shadow-md transition-shadow cursor-default group">
+                <div className="absolute -left-[23px] top-1.5 w-[13px] h-[13px] rounded-full bg-white dark:bg-card border-2 border-indigo-300 dark:border-indigo-600 ring-4 ring-[#FAF9F7] dark:ring-background z-10" />
+                <span className="text-xs font-mono text-muted-foreground/60 shrink-0 mt-0.5 min-w-[3rem] tabular-nums">{item.time}</span>
+                <div className="bg-white dark:bg-card border border-border/30 rounded-xl p-5 flex-1 hover:border-border/60 hover:shadow-sm transition-all duration-200 cursor-default group">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-base text-foreground group-hover:text-blue-700 transition-colors">{item.title}</h3>
+                    <h3 className="font-semibold text-sm text-foreground/85 group-hover:text-foreground transition-colors">{item.title}</h3>
                   </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-sm text-muted-foreground/80 leading-relaxed">
                     {item.content}
                   </p>
                 </div>
