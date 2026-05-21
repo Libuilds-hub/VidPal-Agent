@@ -10,7 +10,13 @@ import {
   CaptionsIcon,
   MapIcon,
   MessageCircleIcon,
-  Search
+  Search,
+  ClockIcon,
+  BookOpenIcon,
+  LayersIcon,
+  SparklesIcon,
+  HashIcon,
+  ExternalLinkIcon,
 } from "lucide-react"
 import { MindMap } from "@/components/video-detail/mind-map/MindMap"
 import { QAAssistant } from "@/components/video-detail/assistant/QAAssistant"
@@ -58,7 +64,6 @@ export default function VideoDetailPage() {
     fetchVideo()
   }, [videoId])
 
-  // Initialize Plyr when video element is available
   useEffect(() => {
     let plyrInstance: Plyr | null = null
 
@@ -73,7 +78,6 @@ export default function VideoDetailPage() {
         })
         plyrRef.current = plyrInstance
 
-        // Listen to timeupdate event to sync transcript
         plyrInstance.on('timeupdate', () => {
           if (plyrInstance) {
             setCurrentPlaybackTime(plyrInstance.currentTime)
@@ -92,13 +96,18 @@ export default function VideoDetailPage() {
     }
   }, [video?.localPath])
 
-  // Scroll active transcript into view
   useEffect(() => {
     if (activeTranscriptRef.current && transcriptListRef.current) {
-      activeTranscriptRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      })
+      const container = transcriptListRef.current
+      const active = activeTranscriptRef.current
+      const containerTop = container.scrollTop
+      const containerBottom = containerTop + container.clientHeight
+      const activeTop = active.offsetTop
+      const activeBottom = activeTop + active.clientHeight
+
+      if (activeTop < containerTop || activeBottom > containerBottom) {
+        active.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
     }
   }, [currentPlaybackTime])
 
@@ -107,7 +116,6 @@ export default function VideoDetailPage() {
       const res = await fetch(`/api/video/${videoId}`)
       const found = await res.json()
       if (found && found.id) {
-        // Parse transcripts from JSON string
         if (found.transcripts && typeof found.transcripts === 'string') {
           found.transcripts = JSON.parse(found.transcripts)
         }
@@ -115,7 +123,7 @@ export default function VideoDetailPage() {
       } else {
         setError("视频未找到")
       }
-    } catch (err) {
+    } catch {
       setError("加载失败")
     } finally {
       setLoading(false)
@@ -155,21 +163,22 @@ export default function VideoDetailPage() {
   if (loading) {
     return (
       <div className="flex flex-1 min-h-0">
-        <div className="h-full flex flex-col" style={{ width: `${leftWidth}%` }}>
+        <div className="flex flex-col" style={{ width: `${leftWidth}%` }}>
           <div className="p-4 pb-0">
             <Skeleton className="aspect-video w-full rounded-2xl" />
           </div>
           <div className="px-4 py-3">
-            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-4 w-36" />
           </div>
           <div className="flex-1 p-4 pt-0">
             <div className="h-full bg-muted/30 rounded-xl animate-pulse" />
           </div>
         </div>
-        <div className="w-[3px] shrink-0" />
-        <div className="flex-1 bg-[#FAF9F7] dark:bg-background">
-          <div className="px-5 py-3">
-            <Skeleton className="h-9 w-64 rounded-full" />
+        <div className="w-px shrink-0 bg-border/50" />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="space-y-4">
+            <Skeleton className="h-9 w-64 rounded-full mx-auto" />
+            <Skeleton className="h-4 w-48 mx-auto" />
           </div>
         </div>
       </div>
@@ -178,8 +187,11 @@ export default function VideoDetailPage() {
 
   if (error || !video) {
     return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        {error || "视频未找到"}
+      <div className="flex items-center justify-center h-full text-muted-foreground">
+        <div className="text-center space-y-2">
+          <div className="text-lg font-medium">{error || "视频未找到"}</div>
+          <div className="text-sm text-muted-foreground/60">请检查链接是否正确</div>
+        </div>
       </div>
     )
   }
@@ -188,17 +200,17 @@ export default function VideoDetailPage() {
     <div
       ref={containerRef}
       className={cn(
-        "flex flex-1 min-h-0 overflow-hidden",
+        "flex flex-1 min-h-0",
         isDragging && "cursor-col-resize select-none"
       )}
     >
       {/* Left Panel: Video & Transcript */}
       <div
-        className="flex flex-col bg-[#F3F0EC] dark:bg-card shrink-0 min-h-0"
+        className="flex flex-col bg-[#F5F2EF] shrink-0 min-h-0 border-r border-border/30"
         style={{ width: `${leftWidth}%` }}
       >
         {/* Video Player */}
-        <div className="relative shrink-0 bg-[#0a0a0b] rounded-2xl overflow-hidden m-4 mb-0 ring-1 ring-white/5">
+        <div className="relative shrink-0 bg-[#0d0d0f] m-3 mb-0 rounded-2xl overflow-hidden shadow-lg shadow-black/[0.06] ring-1 ring-black/[0.04]">
           <div className="relative aspect-[16/9]">
             {video.localPath ? (
               <video
@@ -208,8 +220,9 @@ export default function VideoDetailPage() {
                 style={{ objectFit: 'contain' }}
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-white/20">
-                <PlayIcon className="h-12 w-12" />
+              <div className="flex flex-col items-center justify-center h-full text-white/15 gap-3">
+                <PlayIcon className="h-14 w-14" />
+                <span className="text-xs tracking-wide">等待视频文件</span>
               </div>
             )}
           </div>
@@ -217,25 +230,30 @@ export default function VideoDetailPage() {
 
         {/* Transcript Section */}
         <div className="flex-1 flex flex-col min-h-0">
-          <div className="px-4 py-3 flex items-center gap-2 shrink-0">
-            <CaptionsIcon className="h-4 w-4 text-muted-foreground" />
-            <h3 className="font-medium text-xs tracking-wide uppercase text-muted-foreground">字幕</h3>
+          <div className="px-4 py-3 flex items-center gap-2.5 shrink-0">
+            <CaptionsIcon className="h-[15px] w-[15px] text-muted-foreground/70" />
+            <h3 className="font-medium text-[11px] tracking-widest uppercase text-muted-foreground/60">字幕</h3>
             <div className="ml-auto relative">
-              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
+              <Search className="h-3 w-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
               <input
-                className="h-7 pl-8 pr-3 text-xs bg-muted/40 rounded-full w-28 focus:w-44 transition-all duration-200 outline-none border-none placeholder:text-muted-foreground/50"
-                placeholder="搜索..."
+                className="h-7 pl-7 pr-3 text-xs bg-white/60 rounded-lg w-28 focus:w-44 transition-all duration-300 outline-none border border-border/40 focus:border-primary/30 focus:ring-2 focus:ring-primary/5 placeholder:text-muted-foreground/40"
+                placeholder="搜索字幕..."
               />
             </div>
           </div>
 
-          <div ref={transcriptListRef} className="flex-1 overflow-y-auto px-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div ref={transcriptListRef} className="flex-1 overflow-y-auto px-2 custom-scrollbar">
             {video.status === "transcribing" ? (
-              <div className="text-center py-12 text-sm text-muted-foreground">
-                转录中，请稍候...
+              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/60 gap-3">
+                <div className="flex gap-1">
+                  <span className="size-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="size-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="size-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <span className="text-xs">转录中，请稍候...</span>
               </div>
             ) : video.transcripts && video.transcripts.length > 0 ? (
-              <div className="py-2">
+              <div className="py-1">
                 {video.transcripts.map((item, index) => {
                   const isActive = currentPlaybackTime >= item.startTime &&
                     (index === video.transcripts!.length - 1 || currentPlaybackTime < video.transcripts![index + 1].startTime)
@@ -250,21 +268,21 @@ export default function VideoDetailPage() {
                         }
                       }}
                       className={cn(
-                        "flex gap-3 group cursor-pointer py-2 px-3 rounded-lg border-l-2 transition-all duration-200",
+                        "flex gap-3 group cursor-pointer py-2.5 px-3 rounded-xl transition-all duration-200 border-l-2",
                         isActive
-                          ? "border-l-indigo-500 bg-indigo-50/70 shadow-sm"
-                          : "border-l-transparent hover:bg-muted/40"
+                          ? "border-l-amber-500 bg-amber-50/60 shadow-sm"
+                          : "border-l-transparent hover:bg-white/40"
                       )}
                     >
                       <span className={cn(
-                        "text-xs font-mono shrink-0 w-10 leading-5 tabular-nums",
-                        isActive ? "text-indigo-600 font-medium" : "text-muted-foreground/50"
+                        "text-[10px] font-mono shrink-0 w-10 leading-5 tabular-nums text-right transition-colors duration-200",
+                        isActive ? "text-amber-600 font-semibold" : "text-muted-foreground/35 group-hover:text-muted-foreground/60"
                       )}>
                         {item.start}
                       </span>
                       <p className={cn(
-                        "text-sm leading-5",
-                        isActive ? "text-foreground font-medium" : "text-muted-foreground/70"
+                        "text-[13px] leading-[1.55] transition-colors duration-200",
+                        isActive ? "text-foreground/90 font-medium" : "text-muted-foreground/55 group-hover:text-muted-foreground/75"
                       )}>
                         {item.text}
                       </p>
@@ -273,10 +291,11 @@ export default function VideoDetailPage() {
                 })}
               </div>
             ) : (
-              <div className="text-center py-12 text-sm text-muted-foreground">
-                {video.status === "done"
-                  ? "暂无转录内容"
-                  : "视频处理完成后将显示转录内容"}
+              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50 gap-2">
+                <CaptionsIcon className="h-8 w-8 opacity-20" />
+                <span className="text-xs">
+                  {video.status === "done" ? "暂无转录内容" : "视频处理完成后将显示转录内容"}
+                </span>
               </div>
             )}
           </div>
@@ -285,49 +304,53 @@ export default function VideoDetailPage() {
 
       {/* Resizable Divider */}
       <div
-        className="w-[3px] bg-transparent hover:bg-indigo-200/50 transition-colors cursor-col-resize flex items-center justify-center shrink-0 relative group"
+        className="w-[5px] -ml-[2.5px] -mr-[2.5px] bg-transparent hover:bg-primary/8 transition-colors cursor-col-resize flex items-center justify-center shrink-0 relative group z-10"
         onMouseDown={handleMouseDown}
       >
-        <div className="absolute inset-y-0 -left-2 -right-2 z-10" />
-        <div className="h-10 w-[3px] bg-border/80 rounded-full group-hover:bg-indigo-400/60 transition-colors" />
+        <div className="absolute inset-y-0 -left-2 -right-2" />
+        <div className="h-8 w-1 bg-border/60 rounded-full group-hover:bg-primary/30 group-hover:h-12 transition-all duration-200" />
       </div>
 
-      {/* Right Panel: Content Tabs */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#FAF9F7] dark:bg-background">
-        <RightPanel video={video} videoId={videoId} onVideoUpdate={(updates) => setVideo((prev) => prev ? { ...prev, ...updates } : prev)} />
+      {/* Right Panel */}
+      <div className="flex-1 flex flex-col min-w-0 bg-[#FBFAF8]">
+        <RightPanel video={video} videoId={videoId} currentPlaybackTime={currentPlaybackTime} onVideoUpdate={(updates) => setVideo((prev) => prev ? { ...prev, ...updates } : prev)} onSeek={(t) => { if (plyrRef.current) { plyrRef.current.currentTime = t; setCurrentPlaybackTime(t) } }} />
       </div>
     </div>
   )
 }
 
-function RightPanel({ video, videoId, onVideoUpdate }: { video: Video; videoId: string; onVideoUpdate: (updates: Partial<Video>) => void }) {
+function RightPanel({ video, videoId, currentPlaybackTime, onVideoUpdate, onSeek }: { video: Video; videoId: string; currentPlaybackTime: number; onVideoUpdate: (updates: Partial<Video>) => void; onSeek: (t: number) => void }) {
   const [activeTab, setActiveTab] = useState<TabId>("summary")
 
   const tabs = [
-    { id: "summary" as const, label: "视频速览", icon: PlayIcon },
-    { id: "mindmap" as const, label: "思维导图", icon: MapIcon },
+    { id: "summary" as const, label: "视频速览", icon: BookOpenIcon },
+    { id: "mindmap" as const, label: "思维导图", icon: LayersIcon },
     { id: "assistant" as const, label: "问答助手", icon: MessageCircleIcon },
   ]
 
   return (
     <>
       {/* Tab Bar */}
-      <div className="px-5 py-3 shrink-0">
-        <div className="flex gap-1.5 bg-muted/60 rounded-full p-1 w-fit">
+      <div className="px-5 pt-4 pb-3 shrink-0">
+        <div className="flex gap-1 bg-muted/50 rounded-xl p-1 w-fit ring-1 ring-border/30">
           {tabs.map((tab) => {
             const Icon = tab.icon
+            const isActive = activeTab === tab.id
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 flex items-center gap-2",
-                  activeTab === tab.id
-                    ? "bg-white dark:bg-foreground dark:text-background text-foreground shadow-sm ring-1 ring-black/5"
-                    : "text-muted-foreground hover:text-foreground"
+                  "relative px-4 py-2 text-[13px] font-medium rounded-[10px] transition-all duration-200 flex items-center gap-2",
+                  isActive
+                    ? "bg-white text-foreground shadow-sm ring-1 ring-black/[0.06]"
+                    : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-white/50"
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className={cn(
+                  "h-[15px] w-[15px] transition-colors duration-200",
+                  isActive ? "text-primary" : ""
+                )} />
                 {tab.label}
               </button>
             )
@@ -336,8 +359,8 @@ function RightPanel({ video, videoId, onVideoUpdate }: { video: Video; videoId: 
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        {activeTab === "summary" && <SummaryContent video={video} />}
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        {activeTab === "summary" && <SummaryContent video={video} currentPlaybackTime={currentPlaybackTime} onSeek={onSeek} />}
         {activeTab === "mindmap" && <MindMap videoId={videoId} mermaidCode={video?.mindmap} onSaved={(mindmap) => onVideoUpdate({ mindmap })} />}
         {activeTab === "assistant" && <QAAssistant />}
       </div>
@@ -345,7 +368,7 @@ function RightPanel({ video, videoId, onVideoUpdate }: { video: Video; videoId: 
   )
 }
 
-function SummaryContent({ video }: { video: Video }) {
+function SummaryContent({ video, currentPlaybackTime, onSeek }: { video: Video; currentPlaybackTime: number; onSeek: (t: number) => void }) {
   const [summary, setSummary] = useState<{
     overview: string
     keyPoints: string[]
@@ -377,14 +400,10 @@ function SummaryContent({ video }: { video: Video }) {
 
   if (video.status !== "done") {
     return (
-      <div className="max-w-3xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="space-y-10">
-          <section>
-            <h2 className="text-xs font-medium tracking-wider uppercase text-muted-foreground/70 mb-4">全文概述</h2>
-            <div className="text-muted-foreground leading-relaxed text-sm">
-              <p>视频处理完成后将显示完整的视频概述内容。</p>
-            </div>
-          </section>
+      <div className="max-w-2xl mx-auto p-8 pb-32">
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50 gap-3">
+          <SparklesIcon className="h-10 w-10 opacity-20" />
+          <span className="text-sm">视频处理完成后将显示完整概述</span>
         </div>
       </div>
     )
@@ -392,134 +411,131 @@ function SummaryContent({ video }: { video: Video }) {
 
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="space-y-10">
-          <div className="h-32 bg-muted/40 rounded-2xl animate-pulse" />
-          <div className="h-48 bg-muted/40 rounded-2xl animate-pulse" />
-          <div className="h-64 bg-muted/40 rounded-2xl animate-pulse" />
-        </div>
+      <div className="max-w-2xl mx-auto p-8 pb-32 space-y-8">
+        <Skeleton className="h-8 w-72" />
+        <Skeleton className="h-24 w-full rounded-2xl" />
+        <Skeleton className="h-48 w-full rounded-2xl" />
+        <Skeleton className="h-64 w-full rounded-2xl" />
       </div>
     )
   }
 
   if (error || !summary) {
     return (
-      <div className="max-w-3xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="text-muted-foreground text-sm">{error || "暂无摘要内容"}</div>
+      <div className="max-w-2xl mx-auto p-8 pb-32">
+        <div className="text-sm text-muted-foreground">{error || "暂无摘要内容"}</div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-8 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-2xl mx-auto px-6 py-6 pb-32 space-y-12 animate-in fade-in slide-in-from-bottom-3 duration-500">
 
-      {/* Video Title */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground/90">
+      {/* Header */}
+      <header className="space-y-3">
+        <h1 className="text-[22px] font-bold tracking-tight text-foreground/90 leading-[1.3]">
           {video.title || "视频分析"}
         </h1>
-        <div className="flex items-center gap-3 mt-2">
-          <span className="text-xs text-muted-foreground/70">
+        <div className="flex items-center gap-3 text-[13px] text-muted-foreground/60">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/60 text-[11px] font-medium tracking-wide">
+            <ExternalLinkIcon className="h-2.5 w-2.5" />
             {getSourceLabel(video.source)}
           </span>
           {video.duration != null && (
-            <span className="text-xs text-muted-foreground/50">
+            <span className="inline-flex items-center gap-1.5 text-[11px]">
+              <ClockIcon className="h-2.5 w-2.5" />
               {formatDuration(video.duration)}
             </span>
           )}
         </div>
-      </div>
+      </header>
 
-      <div className="space-y-10">
-        {/* Overview */}
-        <section>
-          <h2 className="text-xs font-medium tracking-wider uppercase text-muted-foreground/70 mb-4">全文概述</h2>
-          <div className="text-foreground/80 leading-relaxed text-[15px]">
-            <p>{summary.overview}</p>
-          </div>
-        </section>
+      {/* Overview */}
+      <section>
+        <h2 className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground/50 mb-5">全文概述</h2>
+        <div className="bg-white rounded-2xl border border-border/30 p-6 shadow-sm">
+          <p className="text-[15px] text-foreground/75 leading-[1.75]">{summary.overview}</p>
+        </div>
+      </section>
 
-        {/* Key Points */}
-        <section>
-          <h2 className="text-xs font-medium tracking-wider uppercase text-muted-foreground/70 mb-4">关键要点</h2>
-          <div className="bg-white dark:bg-card rounded-2xl border border-border/40 p-6 space-y-3">
-            {summary.keyPoints.map((point, i) => (
-              <div key={i} className="flex gap-3 text-sm">
-                <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-semibold flex items-center justify-center shrink-0 mt-0.5">
-                  {i + 1}
-                </span>
-                <span className="text-foreground/75 leading-relaxed">{point}</span>
+      {/* Key Points */}
+      <section>
+        <h2 className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground/50 mb-5">关键要点</h2>
+        <div className="bg-white rounded-2xl border border-border/30 p-6 shadow-sm space-y-0.5">
+          {summary.keyPoints.map((point, i) => (
+            <div key={i} className="flex gap-4 py-2.5 group">
+              <span className="flex-shrink-0 w-6 h-6 rounded-lg bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center ring-1 ring-primary/15 group-hover:scale-105 transition-transform duration-200">
+                {i + 1}
+              </span>
+              <span className="text-[14px] text-foreground/75 leading-[1.65] pt-0.5">{point}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Timeline */}
+      <section>
+        <h2 className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground/50 mb-6">段落总结</h2>
+        {(() => {
+          const totalDuration = video.duration || 1
+          const progress = Math.min(Math.max(currentPlaybackTime / totalDuration, 0), 1)
+          return (
+            <div className="relative pl-8 space-y-5 before:absolute before:left-[20px] before:top-[12px] before:bottom-[12px] before:w-px before:bg-border/50">
+              {/* Glow progress bar */}
+              <div className="absolute left-[20px] top-[12px] bottom-[12px] w-0.5 overflow-hidden rounded-full">
+                <div
+                  className="absolute left-0 right-0 top-0 bg-gradient-to-b from-primary/70 via-primary/30 to-primary/5 rounded-full transition-all duration-300 ease-linear"
+                  style={{ bottom: `${(1 - progress) * 100}%` }}
+                />
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Timeline */}
-        <section>
-          <h2 className="text-xs font-medium tracking-wider uppercase text-muted-foreground/70 mb-6">段落总结</h2>
-          <div className="relative pl-5 space-y-6 before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-px before:bg-border/60">
-            {summary.segments.map((item, i) => (
-              <div key={i} className="flex gap-4 relative">
-                <div className="absolute -left-[23px] top-1.5 w-[13px] h-[13px] rounded-full bg-white dark:bg-card border-2 border-indigo-300 dark:border-indigo-600 ring-4 ring-[#FAF9F7] dark:ring-background z-10" />
-                <span className="text-xs font-mono text-muted-foreground/60 shrink-0 mt-0.5 min-w-[3rem] tabular-nums">{item.time}</span>
-                <div className="bg-white dark:bg-card border border-border/30 rounded-xl p-5 flex-1 hover:border-border/60 hover:shadow-sm transition-all duration-200 cursor-default group">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-sm text-foreground/85 group-hover:text-foreground transition-colors">{item.title}</h3>
+              {summary.segments.map((item, i) => {
+                  const [segStart, segEnd] = item.time.split("-")
+                  const segStartSec = parseTime(segStart)
+                  const segEndSec = parseTime(segEnd)
+                  const isActive = currentPlaybackTime >= segStartSec && currentPlaybackTime < segEndSec
+                  return (
+                <div key={i} className="flex gap-4 relative group items-start">
+                  <span className={[
+                    "absolute -left-[17px] top-[7px] w-[10px] h-[10px] rounded-full bg-white ring-2 ring-offset-2 ring-offset-[#FBFAF8] transition-all duration-200 z-10 shadow-sm",
+                    isActive
+                      ? "ring-primary/60"
+                      : "ring-border/40 group-hover:ring-primary/30"
+                  ].join(" ")} />
+                  <span className="text-[11px] font-mono text-muted-foreground/45 shrink-0 min-w-[2.75rem] tabular-nums leading-[24px]">{item.time}</span>
+                  <div
+                    onClick={() => onSeek(segStartSec)}
+                    className={[
+                    "rounded-xl border p-5 flex-1 transition-all duration-200 cursor-pointer",
+                    isActive
+                      ? "bg-primary/[0.04] border-primary/20 shadow-sm"
+                      : "bg-white border-border/30 hover:border-border/50 hover:shadow-sm"
+                  ].join(" ")}>
+                    <h3 className="font-semibold text-[14px] text-foreground/85 mb-2 group-hover:text-foreground transition-colors">{item.title}</h3>
+                    <p className="text-[13px] text-muted-foreground/70 leading-[1.65]">{item.content}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground/80 leading-relaxed">
-                    {item.content}
-                  </p>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
+                  )
+              })}
+            </div>
+          )
+        })()}
+      </section>
     </div>
   )
 }
 
-function getEmbedUrl(url: string, source: string): string {
-  if (source === "bilibili") {
-    const match = url.match(/bilibili\.com\/video\/(BV\w+)/)
-    if (match) {
-      return `https://player.bilibili.com/player.html?bvid=${match[1]}&p=1`
-    }
-  } else if (source === "youtube") {
-    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]+)/)
-    if (match) {
-      return `https://www.youtube.com/embed/${match[1]}`
-    }
-  }
-  return url
-}
-
 function getSourceLabel(source: string): string {
   switch (source) {
-    case "bilibili":
-      return "B站"
-    case "youtube":
-      return "YouTube"
-    case "local":
-      return "本地"
-    default:
-      return source
+    case "bilibili": return "B站"
+    case "youtube": return "YouTube"
+    case "local": return "本地"
+    default: return source
   }
 }
 
-function getStatusLabel(status: string): string {
-  switch (status) {
-    case "pending":
-      return "待处理"
-    case "downloading":
-      return "下载中"
-    case "done":
-      return "已完成"
-    case "error":
-      return "错误"
-    default:
-      return status
-  }
+function parseTime(t: string): number {
+  const parts = t.split(":")
+  return parseInt(parts[0]) * 60 + parseInt(parts[1])
 }
 
 function formatDuration(seconds: number): string {

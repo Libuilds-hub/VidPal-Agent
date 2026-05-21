@@ -6,6 +6,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
+import { cn } from "@/lib/utils"
 
 export default function MainLayout({
   children,
@@ -16,10 +17,13 @@ export default function MainLayout({
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
+        <header className="flex h-14 shrink-0 items-center gap-3 px-5 border-b border-border/40 bg-background/80 backdrop-blur-sm">
+          <SidebarTrigger className="size-8 rounded-lg hover:bg-muted/80 transition-colors [&>svg]:size-4" />
+          <span className="text-xs font-medium text-muted-foreground/60 tracking-wide uppercase select-none">工作台</span>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div className={cn(
+          "flex flex-1 flex-col overflow-hidden",
+        )}>
           {children}
         </div>
       </SidebarInset>

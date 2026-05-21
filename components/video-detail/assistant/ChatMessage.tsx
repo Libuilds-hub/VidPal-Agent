@@ -1,6 +1,6 @@
 "use client"
 
-import { Bot, Send } from "lucide-react"
+import { Bot } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChatMessage } from "./types"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -13,11 +13,11 @@ export function ChatMessageBubble({ message }: ChatMessageProps) {
   const isUser = message.role === "user"
 
   return (
-    <div className={cn("flex gap-3", isUser && "flex-row-reverse")}>
+    <div className={cn("flex gap-2.5", isUser && "flex-row-reverse")}>
       {!isUser && (
-        <Avatar className="h-8 w-8 shrink-0 bg-primary/10">
+        <Avatar className="h-7 w-7 shrink-0 bg-primary/10 ring-1 ring-primary/10">
           <AvatarFallback>
-            <Bot className="h-4 w-4 text-primary" />
+            <Bot className="h-3.5 w-3.5 text-primary/70" />
           </AvatarFallback>
         </Avatar>
       )}
@@ -26,14 +26,14 @@ export function ChatMessageBubble({ message }: ChatMessageProps) {
         className={cn(
           "max-w-[80%] rounded-2xl px-4 py-2.5",
           isUser
-            ? "bg-blue-100 dark:bg-blue-900/30 text-foreground"
-            : "bg-card border border-border shadow-sm"
+            ? "bg-primary text-primary-foreground shadow-sm"
+            : "bg-white border border-border/30 shadow-sm"
         )}
       >
         {!isUser && (
-          <div className="text-xs font-medium text-muted-foreground mb-1">AI 助手</div>
+          <div className="text-[11px] font-medium text-muted-foreground/60 mb-0.5 tracking-wide">AI 助手</div>
         )}
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+        <p className="text-[13px] leading-[1.65] whitespace-pre-wrap">{message.content}</p>
       </div>
     </div>
   )

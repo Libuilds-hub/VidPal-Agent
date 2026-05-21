@@ -249,18 +249,18 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
   }, [])
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#f8fafc]">
+    <div className="relative h-full w-full overflow-hidden bg-[#FAF9F6]">
       <svg
         ref={svgRef}
         className="w-full h-full"
         style={{ cursor: "grab" }}
       />
 
-      <div className="absolute bottom-4 right-4 z-10 flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/90 p-1 shadow-sm backdrop-blur">
+      <div className="absolute bottom-4 right-4 z-10 flex items-center gap-0.5 rounded-xl border border-border/40 bg-white/95 p-1 shadow-md backdrop-blur-sm">
         <button
           type="button"
           title="放大"
-          className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/60 transition-all duration-200 hover:bg-muted/80 hover:text-foreground/80"
           onClick={handleZoomIn}
         >
           <ZoomInIcon className="h-4 w-4" />
@@ -268,7 +268,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
         <button
           type="button"
           title="缩小"
-          className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/60 transition-all duration-200 hover:bg-muted/80 hover:text-foreground/80"
           onClick={handleZoomOut}
         >
           <ZoomOutIcon className="h-4 w-4" />
@@ -276,7 +276,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
         <button
           type="button"
           title="适应窗口"
-          className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/60 transition-all duration-200 hover:bg-muted/80 hover:text-foreground/80"
           onClick={handleFit}
         >
           <MaximizeIcon className="h-4 w-4" />
@@ -284,7 +284,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
         <button
           type="button"
           title="展开/折叠全部"
-          className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/60 transition-all duration-200 hover:bg-muted/80 hover:text-foreground/80"
           onClick={handleToggleAll}
         >
           <UnfoldHorizontalIcon className="h-4 w-4" />
@@ -300,10 +300,10 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
         ].join(" ")}
       >
         {selectedNode && (
-          <aside className="rounded-xl border border-slate-200 bg-white p-3 shadow-lg shadow-slate-200/50">
+          <aside className="rounded-xl border border-border/30 bg-white p-3 shadow-lg">
             {/* Header */}
-            <div className="mb-2.5 flex items-center gap-1.5 text-xs text-slate-400">
-              <PencilIcon className="h-3 w-3 text-blue-500" />
+            <div className="mb-2.5 flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
+              <PencilIcon className="h-3 w-3 text-primary/70" />
               <span>{selectedNode.id === "root" ? "根节点" : "编辑节点"}</span>
             </div>
 
@@ -314,17 +314,17 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
                 onChange={(event) => setDraftLabel(event.target.value)}
                 onKeyDown={(event) => { if (event.key === "Enter") applyNodeLabel() }}
                 autoFocus
-                className="h-9 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-50"
+                className="h-9 flex-1 rounded-lg border border-border/40 bg-muted/60 px-2.5 text-sm outline-none transition focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/5"
                 placeholder="节点名称"
               />
               <button
                 className={[
                   "inline-flex h-9 shrink-0 items-center gap-1 rounded-lg px-3 text-xs font-medium transition active:scale-95",
                   saving
-                    ? "bg-blue-600 text-white"
+                    ? "bg-primary text-primary-foreground"
                     : saved
                       ? "bg-emerald-600 text-white"
-                      : "bg-slate-800 text-white hover:bg-slate-700",
+                      : "bg-foreground text-background hover:bg-foreground/90",
                 ].join(" ")}
                 onClick={applyNodeLabel}
                 disabled={saving}
@@ -345,7 +345,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
             {/* Actions */}
             <div className="mt-2 flex items-center gap-2">
               <button
-                className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-500 transition hover:border-blue-300 hover:text-blue-600 active:scale-95"
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-border/40 bg-white px-2 text-xs text-muted-foreground/70 transition hover:border-primary/30 hover:text-primary active:scale-95"
                 onClick={addChildNode}
               >
                 <PlusIcon className="h-3 w-3" />
@@ -353,7 +353,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
               </button>
               {selectedNode.id !== "root" && (
                 <button
-                  className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-500 transition hover:border-red-300 hover:text-red-600 active:scale-95"
+                  className="inline-flex h-7 items-center gap-1 rounded-md border border-border/40 bg-white px-2 text-xs text-muted-foreground/70 transition hover:border-red-300 hover:text-red-600 active:scale-95"
                   onClick={deleteNode}
                 >
                   <Trash2Icon className="h-3 w-3" />
@@ -363,7 +363,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
             </div>
 
             {selectedNode.summary && (
-              <p className="mt-2 text-xs leading-5 text-slate-400 border-t border-slate-100 pt-2">{selectedNode.summary}</p>
+              <p className="mt-2 text-[11px] leading-5 text-muted-foreground/60 border-t border-border/30 pt-2">{selectedNode.summary}</p>
             )}
           </aside>
         )}

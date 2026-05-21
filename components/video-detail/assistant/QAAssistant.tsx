@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Bot, Send, MessageCircle } from "lucide-react"
+import { Bot, Send, SparklesIcon } from "lucide-react"
 import { ChatMessage } from "./types"
 import { ChatMessageBubble } from "./ChatMessage"
 import { TypingIndicator } from "./TypingIndicator"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Card } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 
 const MOCK_RESPONSES = [
   "根据视频内容，这个问题涉及到几个关键点：首先，视频中提到了核心概念的定义和背景。其次，相关的实际案例展示了这些理论的应用场景。最后，还有一些实用的技巧可以帮助你更好地理解和应用。",
@@ -70,45 +70,26 @@ export function QAAssistant() {
     }
   }
 
-  const handleSuggestedQuestion = (question: string) => {
-    setInputValue(question)
-    setTimeout(() => {
-      const event = new CustomEvent("submit-question")
-      textareaRef.current?.dispatchEvent(event)
-    }, 100)
-  }
-
-  useEffect(() => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-
-    const handleSubmit = () => handleSend()
-    textarea.addEventListener("submit-question", handleSubmit)
-    return () => textarea.removeEventListener("submit-question", handleSubmit)
-  }, [handleSend])
-
   return (
     <div className="flex flex-col h-full">
       {messages.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-md w-full text-center">
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="max-w-sm w-full text-center">
             <div className="relative mx-auto mb-6">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full blur-xl" />
-              <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/20 flex items-center justify-center mx-auto">
-                <Bot className="h-10 w-10 text-primary" />
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-amber-500/10 to-primary/5 rounded-full blur-2xl" />
+              <div className="relative h-16 w-16 rounded-2xl bg-white border border-border/40 flex items-center justify-center mx-auto shadow-sm">
+                <SparklesIcon className="h-8 w-8 text-primary/70" />
               </div>
             </div>
-            <h3 className="text-xl font-bold mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-              我是视频问答助手
-            </h3>
-            <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+            <h3 className="text-lg font-bold mb-2 text-foreground/85">视频问答助手</h3>
+            <p className="text-[13px] text-muted-foreground/60 mb-6 leading-relaxed">
               基于视频内容智能分析，随时为你答疑解惑
             </p>
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-col gap-2">
               {SUGGESTED_QUESTIONS.map((q) => (
                 <button
                   key={q}
-                  className="text-xs px-4 py-2 rounded-lg bg-background border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 text-muted-foreground hover:text-foreground shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                  className="text-[13px] px-4 py-2.5 rounded-xl bg-white border border-border/40 hover:border-primary/20 hover:bg-primary/[0.03] transition-all duration-200 text-muted-foreground/70 hover:text-foreground/80 shadow-sm hover:shadow-md text-left"
                   onClick={() => setInputValue(q)}
                 >
                   {q}
@@ -118,13 +99,13 @@ export function QAAssistant() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
           {messages.map((message) => (
             <ChatMessageBubble key={message.id} message={message} />
           ))}
           {isTyping && (
             <div className="flex gap-3">
-              <div className="bg-card border border-border shadow-sm rounded-2xl px-4 py-2.5">
+              <div className="bg-white border border-border/30 shadow-sm rounded-2xl px-4 py-2.5">
                 <TypingIndicator />
               </div>
             </div>
@@ -133,7 +114,7 @@ export function QAAssistant() {
         </div>
       )}
 
-      <div className="border-t p-3 shrink-0">
+      <div className="border-t border-border/30 p-3 shrink-0">
         <div className="flex gap-2 items-end max-w-4xl mx-auto">
           <Textarea
             ref={textareaRef}
@@ -141,7 +122,7 @@ export function QAAssistant() {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="输入您的问题..."
-            className="min-h-[44px] max-h-[120px] resize-none bg-muted/50 border border-input focus-visible:ring-1"
+            className="min-h-[44px] max-h-[120px] resize-none bg-white border-border/40 rounded-xl focus-visible:ring-1 focus-visible:ring-primary/30 text-[14px]"
             rows={1}
             disabled={isTyping}
           />
@@ -149,7 +130,7 @@ export function QAAssistant() {
             size="icon"
             onClick={handleSend}
             disabled={!inputValue.trim() || isTyping}
-            className="shrink-0 h-[44px] w-[44px]"
+            className="shrink-0 h-[44px] w-[44px] rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200 shadow-sm"
           >
             <Send className="h-4 w-4" />
           </Button>
