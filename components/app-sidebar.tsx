@@ -8,12 +8,14 @@ import { SettingsNavContent } from "@/components/settings-nav"
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar"
+import { NavUser } from "@/components/nav-user"
 import {
   VideoIcon,
   PlusIcon,
@@ -98,6 +100,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </>
         )}
       </SidebarContent>
+
+      {!isSettings && (
+        <SidebarFooter className="px-2 pb-2">
+          <NavUser user={{ name: "Admin", email: "admin@example.com", avatar: "" }} />
+        </SidebarFooter>
+      )}
     </Sidebar>
   )
 }
