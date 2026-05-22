@@ -181,6 +181,12 @@ export default function SettingsPage() {
 
   // AI & Agent
   const [autoSave, setAutoSave] = useState(true)
+  const [openclawEnabled, setOpenclawEnabled] = useState(false)
+  const [openclawKey, setOpenclawKey] = useState("")
+  const [hermesEnabled, setHermesEnabled] = useState(false)
+  const [hermesKey, setHermesKey] = useState("")
+  const [claudeCodeEnabled, setClaudeCodeEnabled] = useState(false)
+  const [claudeCodeKey, setClaudeCodeKey] = useState("")
 
   // Storage
   const [dbPath, setDbPath] = useState("./data/video-analysis.db")
@@ -220,6 +226,12 @@ export default function SettingsPage() {
         if (data.transcribeLang) setTranscribeLang(data.transcribeLang)
         if (data.uiDensity) setUiDensity(data.uiDensity)
         if (data.autoSave) setAutoSave(data.autoSave === "true")
+        if (data.openclawEnabled) setOpenclawEnabled(data.openclawEnabled === "true")
+        if (data.openclawKey) setOpenclawKey(data.openclawKey)
+        if (data.hermesEnabled) setHermesEnabled(data.hermesEnabled === "true")
+        if (data.hermesKey) setHermesKey(data.hermesKey)
+        if (data.claudeCodeEnabled) setClaudeCodeEnabled(data.claudeCodeEnabled === "true")
+        if (data.claudeCodeKey) setClaudeCodeKey(data.claudeCodeKey)
         if (data.cacheDays) setCacheDays(Number(data.cacheDays))
       } catch { /* silent */ }
       finally { setLoading(false) }
@@ -287,7 +299,7 @@ export default function SettingsPage() {
     await saveSettings({ llmProvider, llmApiKey, llmModel }, setLlmSave)
   }
 
-  const handleSaveAi = () => saveSettings({ autoSave, transcribeLang }, setAiSave)
+  const handleSaveAi = () => saveSettings({ autoSave, openclawEnabled, openclawKey, hermesEnabled, hermesKey, claudeCodeEnabled, claudeCodeKey }, setAiSave)
   const handleSaveStorage = () => saveSettings({ dbPath, exportPath, exportFormat, ytdlpPath, ffmpegPath, cacheDays }, setStorageSave)
 
   /* ---- section titles ---- */
@@ -398,11 +410,61 @@ export default function SettingsPage() {
           {/* ---- AI & Agent ---- */}
           {activeSection === "ai" && (
             <section>
+              <p className="text-sm text-muted-foreground mb-6">配置 AI Agent 连接和自动化</p>
+
+              {/* Openclaw */}
               <div className="space-y-0.5">
+                <div className="h-px bg-border/60" />
+                <div className="flex items-center justify-between gap-8 py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Openclaw</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">多平台 AI Agent 调度引擎</div>
+                  </div>
+                  <Toggle checked={openclawEnabled} onChange={(v) => { setOpenclawEnabled(v); clearMessage(setAiSave) }} />
+                </div>
+                {openclawEnabled && (
+                  <SettingRow label="API Key" description="Openclaw 服务连接密钥">
+                    <Input type="password" value={openclawKey} onChange={(e) => { setOpenclawKey(e.target.value); clearMessage(setAiSave) }} placeholder="sk-..." className="w-[260px]" />
+                  </SettingRow>
+                )}
+
+                {/* Hermes Agent */}
+                <div className="h-px bg-border/60" />
+                <div className="flex items-center justify-between gap-8 py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Hermes Agent</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">智能对话与任务编排 Agent</div>
+                  </div>
+                  <Toggle checked={hermesEnabled} onChange={(v) => { setHermesEnabled(v); clearMessage(setAiSave) }} />
+                </div>
+                {hermesEnabled && (
+                  <SettingRow label="API Key" description="Hermes Agent 连接密钥">
+                    <Input type="password" value={hermesKey} onChange={(e) => { setHermesKey(e.target.value); clearMessage(setAiSave) }} placeholder="sk-..." className="w-[260px]" />
+                  </SettingRow>
+                )}
+
+                {/* Claude Code */}
+                <div className="h-px bg-border/60" />
+                <div className="flex items-center justify-between gap-8 py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Claude Code</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">Anthropic 代码辅助 Agent</div>
+                  </div>
+                  <Toggle checked={claudeCodeEnabled} onChange={(v) => { setClaudeCodeEnabled(v); clearMessage(setAiSave) }} />
+                </div>
+                {claudeCodeEnabled && (
+                  <SettingRow label="API Key" description="Claude Code 连接密钥">
+                    <Input type="password" value={claudeCodeKey} onChange={(e) => { setClaudeCodeKey(e.target.value); clearMessage(setAiSave) }} placeholder="sk-..." className="w-[260px]" />
+                  </SettingRow>
+                )}
+
+                {/* Auto-save */}
+                <div className="h-px bg-border/60" />
                 <SettingRow label="自动保存分析结果" description="分析完成后自动保存到本地，无需手动确认">
                   <Toggle checked={autoSave} onChange={(v) => { setAutoSave(v); clearMessage(setAiSave) }} />
                 </SettingRow>
               </div>
+
               <div className="flex items-center justify-between mt-8 pt-4">
                 <StatusBanner type={aiSave.message?.type ?? "success"} text={aiSave.message?.text ?? ""} onDismiss={() => clearMessage(setAiSave)} />
                 <Button onClick={handleSaveAi} disabled={aiSave.status === "saving"} size="sm" className="ml-auto">
