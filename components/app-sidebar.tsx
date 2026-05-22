@@ -28,6 +28,7 @@ import {
   Database,
   Plug,
   RefreshCw,
+  Key,
 } from "lucide-react"
 import { onSettingsNav } from "@/lib/settings-events"
 
@@ -49,6 +50,7 @@ const settingsNavItems = [
   { id: "llm", label: "LLM API", icon: Bot },
   { id: "ai", label: "AI & Agent", icon: SparklesIcon },
   { id: "storage", label: "存储配置", icon: Database },
+  { id: "cookies", label: "Cookie 配置", icon: Key },
   { id: "integrations", label: "集成", icon: Plug },
   { id: "help", label: "帮助", icon: HelpCircleIcon },
   { id: "updates", label: "更新", icon: RefreshCw },

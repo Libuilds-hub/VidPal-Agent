@@ -11,7 +11,6 @@ import {
   ChevronDown,
   CheckCircle2,
   AlertCircle,
-  Globe,
 } from "lucide-react"
 
 /* -------------------------------------------------------------------------- */
@@ -28,7 +27,7 @@ const THEME_OPTIONS = ["浅色", "深色", "跟随系统"]
 const LANG_OPTIONS = ["自动检测", "中文", "English", "日本語", "한국어"]
 const DENSITY_OPTIONS = ["舒适", "紧凑"]
 
-type SectionId = "profile" | "preferences" | "llm" | "ai" | "storage" | "integrations" | "help" | "updates"
+type SectionId = "profile" | "preferences" | "llm" | "ai" | "storage" | "cookies" | "integrations" | "help" | "updates"
 
 /* -------------------------------------------------------------------------- */
 /*  Dropdown                                                                  */
@@ -199,10 +198,15 @@ export default function SettingsPage() {
   const [ffmpegPath, setFfmpegPath] = useState("ffmpeg")
   const [cacheDays, setCacheDays] = useState(30)
 
+  // Cookies
+  const [bilibiliCookie, setBilibiliCookie] = useState("")
+  const [youtubeCookie, setYoutubeCookie] = useState("")
+
   type SaveStatus = { status: "idle" | "saving"; message: { type: "success" | "error"; text: string } | null }
   const [prefSave, setPrefSave] = useState<SaveStatus>({ status: "idle", message: null })
   const [llmSave, setLlmSave] = useState<SaveStatus>({ status: "idle", message: null })
   const [storageSave, setStorageSave] = useState<SaveStatus>({ status: "idle", message: null })
+  const [cookieSave, setCookieSave] = useState<SaveStatus>({ status: "idle", message: null })
 
   /* ---- load ---- */
   useEffect(() => {
@@ -234,6 +238,8 @@ export default function SettingsPage() {
         if (data.claudeCodeEnabled) setClaudeCodeEnabled(data.claudeCodeEnabled === "true")
         if (data.claudeCodeKey) setClaudeCodeKey(data.claudeCodeKey)
         if (data.cacheDays) setCacheDays(Number(data.cacheDays))
+        if (data.bilibiliCookie) setBilibiliCookie(data.bilibiliCookie)
+        if (data.youtubeCookie) setYoutubeCookie(data.youtubeCookie)
       } catch { /* silent */ }
       finally { setLoading(false) }
     }
@@ -307,6 +313,8 @@ export default function SettingsPage() {
     [saveSettings]
   )
 
+  const handleSaveCookies = () => saveSettings({ bilibiliCookie, youtubeCookie }, setCookieSave)
+
   const handleSaveStorage = () => saveSettings({ dbPath, exportPath, exportFormat, ytdlpPath, ffmpegPath, cacheDays }, setStorageSave)
 
   /* ---- section titles ---- */
@@ -316,6 +324,7 @@ export default function SettingsPage() {
     llm: "LLM API",
     ai: "AI & Agent",
     storage: "存储配置",
+    cookies: "Cookie 配置",
     integrations: "集成",
     help: "帮助",
     updates: "更新",
@@ -518,6 +527,40 @@ export default function SettingsPage() {
             </section>
           )}
 
+          {/* ---- Cookies ---- */}
+          {activeSection === "cookies" && (
+            <section>
+              <p className="text-sm text-muted-foreground mb-6">配置各平台的 Cookie，用于视频下载和解析</p>
+              <div className="space-y-0.5">
+                <SettingRow label="Bilibili Cookie" description="B 站视频解析和下载所需的 Cookie">
+                  <Input
+                    type="password"
+                    value={bilibiliCookie}
+                    onChange={(e) => { setBilibiliCookie(e.target.value); clearMessage(setCookieSave) }}
+                    placeholder="粘贴 Bilibili Cookie"
+                    className="w-[260px]"
+                  />
+                </SettingRow>
+                <SettingRow label="YouTube Cookie" description="YouTube 视频下载所需的 Cookie">
+                  <Input
+                    type="password"
+                    value={youtubeCookie}
+                    onChange={(e) => { setYoutubeCookie(e.target.value); clearMessage(setCookieSave) }}
+                    placeholder="粘贴 YouTube Cookie"
+                    className="w-[260px]"
+                  />
+                </SettingRow>
+              </div>
+              <div className="flex items-center justify-between mt-8 pt-4">
+                <StatusBanner type={cookieSave.message?.type ?? "success"} text={cookieSave.message?.text ?? ""} onDismiss={() => clearMessage(setCookieSave)} />
+                <Button onClick={handleSaveCookies} disabled={cookieSave.status === "saving"} size="sm" className="ml-auto">
+                  {cookieSave.status === "saving" && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                  保存
+                </Button>
+              </div>
+            </section>
+          )}
+
           {/* ---- Integrations ---- */}
           {activeSection === "integrations" && (
             <section>
@@ -602,31 +645,10 @@ export default function SettingsPage() {
                 </Button>
               </div>
               {updateStatus === "up-to-date" && (
-                <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mb-4 animate-in fade-in">
+                <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mb-6 animate-in fade-in">
                   <CheckCircle2 className="h-4 w-4" /> 已是最新版本
                 </div>
               )}
-
-              <div className="flex items-center gap-3 mb-8">
-                <a
-                  href="https://video-shancn.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Globe className="size-3.5" />
-                  官网
-                </a>
-                <a
-                  href="https://github.com/video-shancn/video-shancn"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <svg className="size-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                  GitHub
-                </a>
-              </div>
 
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
