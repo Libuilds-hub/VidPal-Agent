@@ -36,16 +36,16 @@ export function SettingsNavContent({
       <div className="px-2 pt-1 pb-1">
         <Link
           href={backHref}
-          className="inline-flex items-center gap-2 rounded-md px-1 py-1 text-[13px] text-sidebar-foreground/50 hover:text-sidebar-foreground/80 hover:bg-sidebar-accent/40 transition-all duration-200"
+          className="inline-flex items-center gap-2.5 rounded-md px-1.5 py-1 text-[13.5px] font-medium text-sidebar-foreground/60 hover:text-sidebar-foreground/90 hover:bg-sidebar-accent/40 transition-all duration-200"
         >
-          <ArrowLeft className="size-[15px] text-muted-foreground/40" />
+          <ArrowLeft className="size-4 text-muted-foreground/50" />
           <span>{backLabel}</span>
         </Link>
       </div>
 
       {/* Settings nav items */}
       <SidebarGroup className="px-0">
-        <SidebarGroupLabel className="px-2">设置</SidebarGroupLabel>
+        <SidebarGroupLabel className="px-2 text-[11px] uppercase tracking-wider font-semibold text-sidebar-foreground/45">设置</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu className="gap-0.5">
             {items.map((item) => {
@@ -56,24 +56,21 @@ export function SettingsNavContent({
                     isActive={isActive}
                     onClick={() => navigateSettings(item.id)}
                     className={cn(
-                      "group relative transition-all duration-200",
+                      "group relative transition-all duration-150 py-1.5 h-8.5 text-[13.5px] rounded select-none",
                       isActive
-                        ? "bg-sidebar-accent/80 text-sidebar-accent-foreground font-medium"
-                        : "text-sidebar-foreground/65 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                        ? "bg-sidebar-accent/80 text-sidebar-accent-foreground font-semibold"
+                        : "text-sidebar-foreground/65 hover:bg-transparent! hover:text-sidebar-foreground/65!"
                     )}
                   >
                     <item.icon
                       className={cn(
-                        "size-[18px] transition-all duration-200",
+                        "size-4 transition-colors duration-150",
                         isActive
-                          ? "text-primary"
-                          : "text-muted-foreground/50 group-hover:text-muted-foreground/80"
+                          ? "text-sidebar-accent-foreground"
+                          : "text-muted-foreground/45"
                       )}
                     />
-                    <span>{item.label}</span>
-                    {isActive && (
-                      <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary animate-in zoom-in duration-300" />
-                    )}
+                    <span className="tracking-wide">{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )

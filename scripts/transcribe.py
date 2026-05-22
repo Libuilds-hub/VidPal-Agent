@@ -1,7 +1,9 @@
-
 import sys
 import json
 import os
+
+# Set offline mode before importing to avoid SSL issues with model cache
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
 try:
     from faster_whisper import WhisperModel
@@ -11,7 +13,7 @@ try:
     model_size = sys.argv[2] if len(sys.argv) > 2 else "base"
     language = sys.argv[3] if len(sys.argv) > 3 else "zh"
 
-    print(f"Loading Whisper {model_size} model...", file=sys.stderr)
+    print(f"Loading Whisper {model_size} model (offline mode)...", file=sys.stderr)
     model = WhisperModel(model_size, device="cpu", compute_type="int8")
 
     print(f"Transcribing: {audio_path}", file=sys.stderr)

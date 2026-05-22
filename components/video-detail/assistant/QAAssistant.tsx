@@ -177,7 +177,7 @@ export function QAAssistant() {
     <div className="flex h-full relative">
       {/* Conversation Sidebar */}
       <div className={cn(
-        "absolute left-0 top-0 bottom-0 z-20 border-r border-border/30 flex flex-col bg-[#F8F7F5] transition-all duration-300 overflow-hidden shadow-lg",
+        "absolute left-0 top-0 bottom-0 z-20 border-r border-border/35 flex flex-col bg-sidebar transition-all duration-300 overflow-hidden",
         sidebarOpen ? "w-[180px]" : "w-0 border-r-0 shadow-none"
       )}>
         {sidebarOpen && (
@@ -207,7 +207,7 @@ export function QAAssistant() {
             <div className="px-2 pb-3">
               <button
                 onClick={handleNewConversation}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl w-full border border-border/30 bg-white/70 hover:bg-white hover:border-primary/20 hover:shadow-sm transition-all duration-200 text-foreground/65 hover:text-primary"
+                className="flex items-center gap-2 px-3 py-2 rounded-md w-full border border-border/40 bg-card hover:bg-muted/60 transition-all duration-150 text-muted-foreground/70 hover:text-foreground/80"
               >
                 <PlusIcon className="h-4 w-4 shrink-0" />
                 <span className="text-[13px] font-medium">开启新对话</span>
@@ -230,10 +230,10 @@ export function QAAssistant() {
                     key={conv.id}
                     onClick={() => { setActiveId(conv.id); setConfirmDelete(null); setSearchOpen(false); setSearchQuery("") }}
                     className={cn(
-                      "group flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg cursor-pointer transition-all duration-200",
+                      "group flex items-center gap-2.5 px-2.5 py-2 rounded cursor-pointer transition-all duration-150",
                       activeId === conv.id
-                        ? "bg-white/90"
-                        : "hover:bg-white/60"
+                        ? "bg-sidebar-accent"
+                        : "hover:bg-sidebar-accent/60"
                     )}
                   >
                     <span className={cn(
@@ -380,7 +380,7 @@ export function QAAssistant() {
         {/* Input Bar */}
         <div className="border-t border-border/20 p-3 shrink-0">
           <div className="mx-auto">
-            <div className="flex items-end gap-1.5 bg-white rounded-2xl border border-border/30 p-1.5 shadow-sm transition-all duration-300 focus-within:shadow-md focus-within:border-primary/20 focus-within:ring-4 focus-within:ring-primary/5">
+            <div className="flex items-end gap-1.5 bg-card rounded-md border border-border/40 p-1.5 transition-all duration-200 focus-within:border-primary/30 focus-within:ring-1 focus-within:ring-primary/10">
               <button
                 type="button"
                 className="shrink-0 h-9 w-9 flex items-center justify-center rounded-xl text-muted-foreground/50 hover:text-primary/70 hover:bg-primary/[0.06] transition-all duration-200"
@@ -414,7 +414,7 @@ export function QAAssistant() {
       {searchOpen && (
         <div className="absolute inset-0 z-30 flex items-start justify-center pt-20">
           <div className="absolute inset-0 bg-black/15" onClick={handleCloseSearch} />
-          <div className="relative w-[320px] max-h-[400px] bg-white rounded-2xl shadow-xl border border-border/30 flex flex-col overflow-hidden">
+          <div className="relative w-[320px] max-h-[400px] bg-card rounded-md shadow-lg border border-border/40 flex flex-col overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-border/20">
               <SearchIcon className="h-4 w-4 shrink-0 text-muted-foreground/50" />
               <input

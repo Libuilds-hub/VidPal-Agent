@@ -20,15 +20,16 @@ export default function MainLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="bg-background">
         {!isSettings && (
-          <header className="flex h-14 shrink-0 items-center gap-3 px-5 border-b border-border/40 bg-background/80 backdrop-blur-sm">
-            <SidebarTrigger className="size-8 rounded-lg hover:bg-muted/80 transition-colors [&>svg]:size-4" />
-            <span className="text-xs font-medium text-muted-foreground/60 tracking-wide uppercase select-none">工作台</span>
+          <header className="flex h-11 shrink-0 items-center gap-3 px-4 border-b border-border/45 bg-background/40 backdrop-blur-md select-none z-10">
+            <SidebarTrigger className="size-7 rounded hover:bg-muted/70 text-muted-foreground/80 hover:text-foreground transition-all duration-150 [&>svg]:size-3.5" />
+            <div className="h-4 w-px bg-border/40" />
+            <span className="text-[11px] font-medium text-muted-foreground/75 tracking-wider uppercase">工作台</span>
           </header>
         )}
         <div className={cn(
-          "flex flex-1 flex-col overflow-hidden",
+          "flex flex-1 flex-col overflow-hidden bg-background",
         )}>
           {children}
         </div>

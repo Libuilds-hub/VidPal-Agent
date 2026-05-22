@@ -29,17 +29,25 @@ import {
   Plug,
   RefreshCw,
   Key,
-  SettingsIcon,
 } from "lucide-react"
 import { onSettingsNav } from "@/lib/settings-events"
 
-const navMainItems = [
-  { title: "仪表盘", url: "/dashboard", icon: LayoutDashboardIcon },
-  { title: "AI 助手", url: "/ai-assistant", icon: BotIcon },
-  { title: "视频库", url: "/videos", icon: LibraryIcon },
-  { title: "知识图谱", url: "/knowledge-graph", icon: GitGraphIcon },
-  { title: "合集", url: "/collections", icon: FolderHeartIcon },
-  { title: "笔记", url: "/notes", icon: PenLineIcon },
+const navGroups = [
+  {
+    label: "工作空间",
+    items: [
+      { title: "仪表盘", url: "/dashboard", icon: LayoutDashboardIcon },
+      { title: "AI 助手", url: "/ai-assistant", icon: BotIcon },
+      { title: "知识图谱", url: "/knowledge-graph", icon: GitGraphIcon },
+    ],
+  },
+  {
+    label: "内容管理",
+    items: [
+      { title: "视频库", url: "/videos", icon: LibraryIcon },
+      { title: "合集", url: "/collections", icon: FolderHeartIcon },
+    ],
+  },
 ]
 
 const settingsNavItems = [
@@ -66,17 +74,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar variant="inset" {...props}>
       {!isSettings && (
-        <SidebarHeader className="px-3 pt-4 pb-2">
+        <SidebarHeader className="px-3 pt-3 pb-1.5">
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild className="hover:bg-transparent! data-active:bg-transparent!">
-                <a href="/dashboard" className="flex items-center gap-3! group">
-                  <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm shadow-indigo-500/20 transition-all duration-300 group-hover:shadow-md group-hover:shadow-indigo-500/30 group-hover:scale-105">
-                    <SparklesIcon className="size-4" />
+                <a href="/dashboard" className="flex items-center gap-2.5! group select-none">
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-900/5 dark:bg-zinc-100/10 border border-zinc-200/50 dark:border-zinc-800/60 text-foreground transition-all duration-200">
+                    <SparklesIcon className="size-4 text-foreground/80" />
                   </div>
                   <div className="grid flex-1 text-left leading-tight">
-                    <span className="truncate font-semibold text-[15px] tracking-tight">视频总结分析</span>
-                    <span className="truncate text-[11px] text-muted-foreground/70 font-medium tracking-wide">AI 学习助手</span>
+                    <span className="truncate font-semibold text-[14px] tracking-tight text-foreground/90">视频总结分析</span>
+                    <span className="truncate text-[11px] text-muted-foreground/60 font-medium tracking-wide">AI 学习助手</span>
                   </div>
                 </a>
               </SidebarMenuButton>
@@ -85,28 +93,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarHeader>
       )}
 
-      <SidebarContent className="px-2">
+      <SidebarContent className="px-2 scrollbar-hide">
         {isSettings ? (
           <SettingsNavContent items={settingsNavItems} activeId={activeSection} />
         ) : (
           <>
-            <NavMain items={navMainItems} pathname={pathname} />
-            <div className="mt-auto pt-4">
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip="设置"
-                    className="text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all duration-200"
-                  >
-                    <a href="/settings" className="flex items-center gap-2.5">
-                      <SettingsIcon className="size-[18px] text-muted-foreground/40" />
-                      <span>设置</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </div>
+            <NavMain groups={navGroups} pathname={pathname} />
           </>
         )}
       </SidebarContent>

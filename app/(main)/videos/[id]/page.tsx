@@ -165,19 +165,19 @@ export default function VideoDetailPage() {
       <div className="flex flex-1 min-h-0">
         <div className="flex flex-col" style={{ width: `${leftWidth}%` }}>
           <div className="p-4 pb-0">
-            <Skeleton className="aspect-video w-full rounded-2xl" />
+            <Skeleton className="aspect-video w-full rounded-md" />
           </div>
           <div className="px-4 py-3">
             <Skeleton className="h-4 w-36" />
           </div>
           <div className="flex-1 p-4 pt-0">
-            <div className="h-full bg-muted/30 rounded-xl animate-pulse" />
+            <div className="h-full bg-muted/30 rounded-md animate-pulse" />
           </div>
         </div>
-        <div className="w-px shrink-0 bg-border/50" />
+        <div className="w-px shrink-0 bg-border/40" />
         <div className="flex-1 flex items-center justify-center">
           <div className="space-y-4">
-            <Skeleton className="h-9 w-64 rounded-full mx-auto" />
+            <Skeleton className="h-8 w-64 rounded-md mx-auto" />
             <Skeleton className="h-4 w-48 mx-auto" />
           </div>
         </div>
@@ -188,9 +188,9 @@ export default function VideoDetailPage() {
   if (error || !video) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        <div className="text-center space-y-2">
-          <div className="text-lg font-medium">{error || "视频未找到"}</div>
-          <div className="text-sm text-muted-foreground/60">请检查链接是否正确</div>
+        <div className="text-center space-y-1.5">
+          <div className="text-sm font-medium">{error || "视频未找到"}</div>
+          <div className="text-xs text-muted-foreground/60">请检查链接是否正确</div>
         </div>
       </div>
     )
@@ -206,11 +206,11 @@ export default function VideoDetailPage() {
     >
       {/* Left Panel: Video & Transcript */}
       <div
-        className="flex flex-col bg-[#F5F2EF] shrink-0 min-h-0 border-r border-border/30"
+        className="flex flex-col bg-background shrink-0 min-h-0 border-r border-border/40"
         style={{ width: `${leftWidth}%` }}
       >
         {/* Video Player */}
-        <div className="relative shrink-0 bg-[#0d0d0f] m-3 mb-0 rounded-2xl overflow-hidden shadow-lg shadow-black/[0.06] ring-1 ring-black/[0.04]">
+        <div className="relative shrink-0 bg-black m-3 mb-0 rounded-md overflow-hidden border border-border/30">
           <div className="relative aspect-[16/9]">
             {video.localPath ? (
               <video
@@ -220,8 +220,8 @@ export default function VideoDetailPage() {
                 style={{ objectFit: 'contain' }}
               />
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-white/15 gap-3">
-                <PlayIcon className="h-14 w-14" />
+              <div className="flex flex-col items-center justify-center h-full text-white/20 gap-2.5">
+                <PlayIcon className="h-12 w-12" />
                 <span className="text-xs tracking-wide">等待视频文件</span>
               </div>
             )}
@@ -230,21 +230,21 @@ export default function VideoDetailPage() {
 
         {/* Transcript Section */}
         <div className="flex-1 flex flex-col min-h-0">
-          <div className="px-4 py-3 flex items-center gap-2.5 shrink-0">
-            <CaptionsIcon className="h-[18px] w-[18px] text-muted-foreground/70" />
-            <h3 className="font-medium text-[13px] tracking-wide text-muted-foreground/60">字幕</h3>
+          <div className="px-4 py-2.5 flex items-center gap-2 shrink-0 border-b border-border/30">
+            <CaptionsIcon className="h-[15px] w-[15px] text-muted-foreground/60" />
+            <h3 className="font-medium text-[11px] tracking-widest uppercase text-muted-foreground/50">字幕</h3>
             <div className="ml-auto relative">
-              <Search className="h-3 w-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
+              <Search className="h-3 w-3 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
               <input
-                className="h-7 pl-7 pr-3 text-xs bg-white/60 rounded-lg w-28 focus:w-44 transition-all duration-300 outline-none border border-border/40 focus:border-primary/30 focus:ring-2 focus:ring-primary/5 placeholder:text-muted-foreground/40"
+                className="h-6 pl-6 pr-2.5 text-[11px] bg-muted/60 rounded border border-border/40 w-24 focus:w-40 transition-all duration-300 outline-none focus:border-primary/30 placeholder:text-muted-foreground/40"
                 placeholder="搜索字幕..."
               />
             </div>
           </div>
 
-          <div ref={transcriptListRef} className="flex-1 overflow-y-auto px-2 custom-scrollbar">
+          <div ref={transcriptListRef} className="flex-1 overflow-y-auto custom-scrollbar">
             {video.status === "transcribing" ? (
-              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/60 gap-3">
+              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50 gap-3">
                 <div className="flex gap-1">
                   <span className="size-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0ms' }} />
                   <span className="size-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -268,21 +268,21 @@ export default function VideoDetailPage() {
                         }
                       }}
                       className={cn(
-                        "flex gap-3 group cursor-pointer py-2.5 px-3 rounded-xl transition-all duration-200 border-l-2",
+                        "flex gap-3 group cursor-pointer py-2 px-3 transition-all duration-150 border-l-2",
                         isActive
-                          ? "border-l-amber-500 bg-amber-50/60 shadow-sm"
-                          : "border-l-transparent hover:bg-white/40"
+                          ? "border-l-primary bg-muted/50"
+                          : "border-l-transparent hover:bg-muted/30"
                       )}
                     >
                       <span className={cn(
-                        "text-[10px] font-mono shrink-0 w-10 leading-5 tabular-nums text-right transition-colors duration-200",
-                        isActive ? "text-amber-600 font-semibold" : "text-muted-foreground/35 group-hover:text-muted-foreground/60"
+                        "text-[10px] font-mono shrink-0 w-10 leading-5 tabular-nums text-right transition-colors duration-150",
+                        isActive ? "text-primary font-medium" : "text-muted-foreground/35 group-hover:text-muted-foreground/55"
                       )}>
                         {item.start}
                       </span>
                       <p className={cn(
-                        "text-[13px] leading-[1.55] transition-colors duration-200",
-                        isActive ? "text-foreground/90 font-medium" : "text-muted-foreground/55 group-hover:text-muted-foreground/75"
+                        "text-[12px] leading-[1.6] transition-colors duration-150",
+                        isActive ? "text-foreground/90 font-medium" : "text-muted-foreground/60 group-hover:text-muted-foreground/75"
                       )}>
                         {item.text}
                       </p>
@@ -291,8 +291,8 @@ export default function VideoDetailPage() {
                 })}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50 gap-2">
-                <CaptionsIcon className="h-8 w-8 opacity-20" />
+              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/40 gap-2">
+                <CaptionsIcon className="h-7 w-7 opacity-30" />
                 <span className="text-xs">
                   {video.status === "done" ? "暂无转录内容" : "视频处理完成后将显示转录内容"}
                 </span>
@@ -304,15 +304,15 @@ export default function VideoDetailPage() {
 
       {/* Resizable Divider */}
       <div
-        className="w-[5px] -ml-[2.5px] -mr-[2.5px] bg-transparent hover:bg-primary/8 transition-colors cursor-col-resize flex items-center justify-center shrink-0 relative group z-10"
+        className="w-[5px] -ml-[2.5px] -mr-[2.5px] bg-transparent hover:bg-primary/10 transition-colors cursor-col-resize flex items-center justify-center shrink-0 relative group z-10"
         onMouseDown={handleMouseDown}
       >
         <div className="absolute inset-y-0 -left-2 -right-2" />
-        <div className="h-8 w-1 bg-border/60 rounded-full group-hover:bg-primary/30 group-hover:h-12 transition-all duration-200" />
+        <div className="h-6 w-0.5 bg-border/50 rounded-full group-hover:bg-primary/40 group-hover:h-10 transition-all duration-200" />
       </div>
 
       {/* Right Panel */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#FBFAF8]">
+      <div className="flex-1 flex flex-col min-w-0 bg-background">
         <RightPanel video={video} videoId={videoId} currentPlaybackTime={currentPlaybackTime} onVideoUpdate={(updates) => setVideo((prev) => prev ? { ...prev, ...updates } : prev)} onSeek={(t) => { if (plyrRef.current) { plyrRef.current.currentTime = t; setCurrentPlaybackTime(t) } }} />
       </div>
     </div>
@@ -330,32 +330,30 @@ function RightPanel({ video, videoId, currentPlaybackTime, onVideoUpdate, onSeek
 
   return (
     <>
-      {/* Tab Bar */}
-      <div className="px-5 py-2.5 shrink-0">
-        <div className="flex gap-1 bg-muted/50 rounded-xl p-1 w-fit ring-1 ring-border/30">
-          {tabs.map((tab) => {
-            const Icon = tab.icon
-            const isActive = activeTab === tab.id
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "relative px-4 py-1.5 text-[13px] font-medium rounded-[10px] transition-all duration-200 flex items-center gap-2",
-                  isActive
-                    ? "bg-white text-foreground shadow-sm ring-1 ring-black/[0.06]"
-                    : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-white/50"
-                )}
-              >
-                <Icon className={cn(
-                  "h-[15px] w-[15px] transition-colors duration-200",
-                  isActive ? "text-primary" : ""
-                )} />
-                {tab.label}
-              </button>
-            )
-          })}
-        </div>
+      {/* Tab Bar — Linear-style underline tabs */}
+      <div className="flex items-center gap-0 px-5 border-b border-border/35 shrink-0">
+        {tabs.map((tab) => {
+          const Icon = tab.icon
+          const isActive = activeTab === tab.id
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "relative flex items-center gap-1.5 h-10 px-4 text-[12px] font-medium transition-colors duration-150 border-b-2 -mb-px",
+                isActive
+                  ? "border-b-primary text-foreground/90"
+                  : "border-b-transparent text-muted-foreground/60 hover:text-muted-foreground/80"
+              )}
+            >
+              <Icon className={cn(
+                "h-[13px] w-[13px]",
+                isActive ? "text-primary" : "text-current"
+              )} />
+              {tab.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* Content Area */}
@@ -400,10 +398,10 @@ function SummaryContent({ video, currentPlaybackTime, onSeek }: { video: Video; 
 
   if (video.status !== "done") {
     return (
-      <div className="max-w-2xl mx-auto p-8 pb-2">
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50 gap-3">
-          <SparklesIcon className="h-10 w-10 opacity-20" />
-          <span className="text-sm">视频处理完成后将显示完整概述</span>
+      <div className="max-w-2xl mx-auto p-8">
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/40 gap-3">
+          <SparklesIcon className="h-9 w-9 opacity-20" />
+          <span className="text-xs">视频处理完成后将显示完整概述</span>
         </div>
       </div>
     )
@@ -411,38 +409,38 @@ function SummaryContent({ video, currentPlaybackTime, onSeek }: { video: Video; 
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto p-8 pb-2 space-y-8">
-        <Skeleton className="h-8 w-72" />
-        <Skeleton className="h-24 w-full rounded-2xl" />
-        <Skeleton className="h-48 w-full rounded-2xl" />
-        <Skeleton className="h-64 w-full rounded-2xl" />
+      <div className="max-w-2xl mx-auto p-8 space-y-6">
+        <Skeleton className="h-7 w-72" />
+        <Skeleton className="h-20 w-full rounded-md" />
+        <Skeleton className="h-40 w-full rounded-md" />
+        <Skeleton className="h-56 w-full rounded-md" />
       </div>
     )
   }
 
   if (error || !summary) {
     return (
-      <div className="max-w-2xl mx-auto p-8 pb-2">
-        <div className="text-sm text-muted-foreground">{error || "暂无摘要内容"}</div>
+      <div className="max-w-2xl mx-auto p-8">
+        <div className="text-xs text-muted-foreground">{error || "暂无摘要内容"}</div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-6 pb-2 space-y-12 animate-in fade-in slide-in-from-bottom-3 duration-500">
+    <div className="max-w-2xl mx-auto px-6 py-6 space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-400">
 
       {/* Header */}
-      <header className="space-y-3">
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground/90 leading-[1.3]">
+      <header className="space-y-2.5 pb-5 border-b border-border/30">
+        <h1 className="text-[18px] font-semibold tracking-tight text-foreground/90 leading-snug">
           {video.title || "视频分析"}
         </h1>
-        <div className="flex items-center gap-3 text-[13px] text-muted-foreground/60">
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/60 text-[11px] font-medium tracking-wide">
+        <div className="flex items-center gap-3 text-[11px] text-muted-foreground/60">
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/60 border border-border/40 font-mono">
             <ExternalLinkIcon className="h-2.5 w-2.5" />
             {getSourceLabel(video.source)}
           </span>
           {video.duration != null && (
-            <span className="inline-flex items-center gap-1.5 text-[11px]">
+            <span className="inline-flex items-center gap-1">
               <ClockIcon className="h-2.5 w-2.5" />
               {formatDuration(video.duration)}
             </span>
@@ -452,22 +450,22 @@ function SummaryContent({ video, currentPlaybackTime, onSeek }: { video: Video; 
 
       {/* Overview */}
       <section>
-        <h2 className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground/50 mb-5">全文概述</h2>
-        <div className="bg-white rounded-2xl border border-border/30 p-6 shadow-sm">
-          <p className="text-[15px] text-foreground/75 leading-[1.75]">{summary.overview}</p>
+        <h2 className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/50 mb-4">全文概述</h2>
+        <div className="rounded-md border border-border/40 bg-card p-5">
+          <p className="text-[13px] text-foreground/75 leading-[1.75]">{summary.overview}</p>
         </div>
       </section>
 
       {/* Key Points */}
       <section>
-        <h2 className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground/50 mb-5">关键要点</h2>
-        <div className="bg-white rounded-2xl border border-border/30 p-6 shadow-sm space-y-0.5">
+        <h2 className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/50 mb-4">关键要点</h2>
+        <div className="rounded-md border border-border/40 bg-card divide-y divide-border/25">
           {summary.keyPoints.map((point, i) => (
-            <div key={i} className="flex gap-4 py-2.5 group">
-              <span className="flex-shrink-0 w-6 h-6 rounded-lg bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center ring-1 ring-primary/15 group-hover:scale-105 transition-transform duration-200">
+            <div key={i} className="flex gap-3.5 py-3 px-5">
+              <span className="flex-shrink-0 w-5 h-5 rounded bg-muted/80 border border-border/40 text-muted-foreground/60 text-[10px] font-mono flex items-center justify-center mt-0.5">
                 {i + 1}
               </span>
-              <span className="text-[14px] text-foreground/75 leading-[1.65] pt-0.5">{point}</span>
+              <span className="text-[13px] text-foreground/75 leading-[1.65] pt-0.5">{point}</span>
             </div>
           ))}
         </div>
@@ -475,16 +473,16 @@ function SummaryContent({ video, currentPlaybackTime, onSeek }: { video: Video; 
 
       {/* Timeline */}
       <section>
-        <h2 className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground/50 mb-6">段落总结</h2>
+        <h2 className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/50 mb-5">段落总结</h2>
         {(() => {
           const totalDuration = video.duration || 1
           const progress = Math.min(Math.max(currentPlaybackTime / totalDuration, 0), 1)
           return (
-            <div className="relative pl-8 space-y-5 before:absolute before:left-[20px] before:top-[12px] before:bottom-[12px] before:w-px before:bg-border/50">
-              {/* Glow progress bar */}
-              <div className="absolute left-[20px] top-[12px] bottom-[12px] w-0.5 overflow-hidden rounded-full">
+            <div className="relative pl-7 space-y-3 before:absolute before:left-[16px] before:top-[10px] before:bottom-[10px] before:w-px before:bg-border/40">
+              {/* Progress bar */}
+              <div className="absolute left-[16px] top-[10px] bottom-[10px] w-px overflow-hidden">
                 <div
-                  className="absolute left-0 right-0 top-0 bg-gradient-to-b from-primary/70 via-primary/30 to-primary/5 rounded-full transition-all duration-300 ease-linear"
+                  className="absolute left-0 right-0 top-0 bg-primary/50 transition-all duration-300 ease-linear"
                   style={{ bottom: `${(1 - progress) * 100}%` }}
                 />
               </div>
@@ -494,24 +492,24 @@ function SummaryContent({ video, currentPlaybackTime, onSeek }: { video: Video; 
                   const segEndSec = parseTime(segEnd)
                   const isActive = currentPlaybackTime >= segStartSec && currentPlaybackTime < segEndSec
                   return (
-                <div key={i} className="flex gap-4 relative group items-start">
+                <div key={i} className="flex gap-3.5 relative group items-start">
                   <span className={[
-                    "absolute -left-[17px] top-[7px] w-[10px] h-[10px] rounded-full bg-white ring-2 ring-offset-2 ring-offset-[#FBFAF8] transition-all duration-200 z-10 shadow-sm",
+                    "absolute -left-[14px] top-[8px] w-[8px] h-[8px] rounded-full border-2 bg-background transition-all duration-150 z-10",
                     isActive
-                      ? "ring-primary/60"
-                      : "ring-border/40 group-hover:ring-primary/30"
+                      ? "border-primary"
+                      : "border-border/50 group-hover:border-muted-foreground/40"
                   ].join(" ")} />
-                  <span className="text-[11px] font-mono text-muted-foreground/45 shrink-0 min-w-[2.75rem] tabular-nums leading-[24px]">{item.time}</span>
+                  <span className="text-[10px] font-mono text-muted-foreground/40 shrink-0 min-w-[2.5rem] tabular-nums leading-[22px]">{item.time}</span>
                   <div
                     onClick={() => onSeek(segStartSec)}
                     className={[
-                    "rounded-xl border p-5 flex-1 transition-all duration-200 cursor-pointer",
+                    "rounded-md border p-4 flex-1 transition-all duration-150 cursor-pointer",
                     isActive
-                      ? "bg-primary/[0.04] border-primary/20 shadow-sm"
-                      : "bg-white border-border/30 hover:border-border/50 hover:shadow-sm"
+                      ? "bg-primary/[0.03] border-primary/20"
+                      : "bg-card border-border/40 hover:border-border/60"
                   ].join(" ")}>
-                    <h3 className="font-semibold text-[14px] text-foreground/85 mb-2 group-hover:text-foreground transition-colors">{item.title}</h3>
-                    <p className="text-[13px] text-muted-foreground/70 leading-[1.65]">{item.content}</p>
+                    <h3 className="font-medium text-[13px] text-foreground/85 mb-1.5">{item.title}</h3>
+                    <p className="text-[12px] text-muted-foreground/65 leading-[1.6]">{item.content}</p>
                   </div>
                 </div>
                   )

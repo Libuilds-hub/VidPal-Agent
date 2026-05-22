@@ -48,7 +48,24 @@ try:
     language = sys.argv[3] if len(sys.argv) > 3 else "zh"
 
     print(f"Loading Whisper {model_size} model...", file=sys.stderr)
-    model = WhisperModel(model_size, device="cpu", compute_type="int8")
+
+    model = None
+    # Try online first, fall back to offline cache on network error
+    for offline in (False, True):
+        try:
+            if offline:
+                os.environ["HF_HUB_OFFLINE"] = "1"
+                print("Retrying with offline cache...", file=sys.stderr)
+            model = WhisperModel(model_size, device="cpu", compute_type="int8")
+            break
+        except Exception as e:
+            if not offline:
+                print(f"Online load failed: {e}", file=sys.stderr)
+            else:
+                raise
+
+    if model is None:
+        raise RuntimeError("Failed to load Whisper model")
 
     print(f"Transcribing: {audio_path}", file=sys.stderr)
     segments, info = model.transcribe(

@@ -249,18 +249,18 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
   }, [])
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#FAF9F6]">
+    <div className="relative h-full w-full overflow-hidden bg-background" style={{ backgroundImage: "radial-gradient(circle, oklch(0.75 0.002 240 / 0.35) 1px, transparent 1px)", backgroundSize: "22px 22px" }}>
       <svg
         ref={svgRef}
         className="w-full h-full"
         style={{ cursor: "grab" }}
       />
 
-      <div className="absolute bottom-4 left-4 z-10 flex items-center gap-0.5 rounded-xl border border-border/40 bg-white/95 p-1 shadow-md backdrop-blur-sm">
+      <div className="absolute bottom-4 left-4 z-10 flex items-center gap-0.5 rounded-md border border-border/40 bg-card/95 p-0.5 backdrop-blur-sm shadow-sm">
         <button
           type="button"
           title="放大"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/60 transition-all duration-200 hover:bg-muted/80 hover:text-foreground/80"
+          className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground/60 transition-all duration-150 hover:bg-muted/80 hover:text-foreground/80"
           onClick={handleZoomIn}
         >
           <ZoomInIcon className="h-4 w-4" />
@@ -268,7 +268,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
         <button
           type="button"
           title="缩小"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/60 transition-all duration-200 hover:bg-muted/80 hover:text-foreground/80"
+          className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground/60 transition-all duration-150 hover:bg-muted/80 hover:text-foreground/80"
           onClick={handleZoomOut}
         >
           <ZoomOutIcon className="h-4 w-4" />
@@ -276,7 +276,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
         <button
           type="button"
           title="适应窗口"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/60 transition-all duration-200 hover:bg-muted/80 hover:text-foreground/80"
+          className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground/60 transition-all duration-150 hover:bg-muted/80 hover:text-foreground/80"
           onClick={handleFit}
         >
           <MaximizeIcon className="h-4 w-4" />
@@ -284,7 +284,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
         <button
           type="button"
           title="展开/折叠全部"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/60 transition-all duration-200 hover:bg-muted/80 hover:text-foreground/80"
+          className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground/60 transition-all duration-150 hover:bg-muted/80 hover:text-foreground/80"
           onClick={handleToggleAll}
         >
           <UnfoldHorizontalIcon className="h-4 w-4" />
@@ -300,7 +300,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
         ].join(" ")}
       >
         {selectedNode && (
-          <aside className="rounded-xl border border-border/30 bg-white p-3 shadow-lg">
+          <aside className="rounded-md border border-border/40 bg-card/98 p-3 shadow-sm backdrop-blur-sm">
             {/* Header */}
             <div className="mb-2.5 flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
               <PencilIcon className="h-3 w-3 text-primary/70" />
@@ -314,12 +314,12 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
                 onChange={(event) => setDraftLabel(event.target.value)}
                 onKeyDown={(event) => { if (event.key === "Enter") applyNodeLabel() }}
                 autoFocus
-                className="h-9 flex-1 rounded-lg border border-border/40 bg-muted/60 px-2.5 text-sm outline-none transition focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/5"
+              className="h-8 flex-1 rounded border border-border/40 bg-muted/50 px-2.5 text-[13px] outline-none transition focus:border-primary/40 focus:bg-background focus:ring-1 focus:ring-primary/10"
                 placeholder="节点名称"
               />
               <button
                 className={[
-                  "inline-flex h-9 shrink-0 items-center gap-1 rounded-lg px-3 text-xs font-medium transition active:scale-95",
+                  "inline-flex h-8 shrink-0 items-center gap-1 rounded px-2.5 text-[11px] font-medium transition active:scale-95",
                   saving
                     ? "bg-primary text-primary-foreground"
                     : saved
@@ -345,7 +345,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
             {/* Actions */}
             <div className="mt-2 flex items-center gap-2">
               <button
-                className="inline-flex h-7 items-center gap-1 rounded-md border border-border/40 bg-white px-2 text-xs text-muted-foreground/70 transition hover:border-primary/30 hover:text-primary active:scale-95"
+                className="inline-flex h-6 items-center gap-1 rounded border border-border/35 bg-card px-2 text-[11px] text-muted-foreground/70 transition hover:border-primary/25 hover:text-primary active:scale-95"
                 onClick={addChildNode}
               >
                 <PlusIcon className="h-3 w-3" />
@@ -353,7 +353,7 @@ export function MindMap({ videoId, mermaidCode, onSaved }: MindMapProps) {
               </button>
               {selectedNode.id !== "root" && (
                 <button
-                  className="inline-flex h-7 items-center gap-1 rounded-md border border-border/40 bg-white px-2 text-xs text-muted-foreground/70 transition hover:border-red-300 hover:text-red-600 active:scale-95"
+                className="inline-flex h-6 items-center gap-1 rounded border border-border/35 bg-card px-2 text-[11px] text-muted-foreground/70 transition hover:border-red-300 hover:text-red-600 active:scale-95"
                   onClick={deleteNode}
                 >
                   <Trash2Icon className="h-3 w-3" />
