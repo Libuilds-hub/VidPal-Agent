@@ -3,7 +3,6 @@
 import * as React from "react"
 import { usePathname } from "next/navigation"
 import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
 import { SettingsNavContent } from "@/components/settings-nav"
 import {
   Sidebar,
@@ -13,7 +12,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarSeparator,
 } from "@/components/ui/sidebar"
 import { NavUser } from "@/components/nav-user"
 import {
@@ -21,9 +19,8 @@ import {
   PlusIcon,
   LibraryIcon,
   FolderIcon,
-  SettingsIcon,
-  HelpCircleIcon,
   SparklesIcon,
+  HelpCircleIcon,
   Bot,
   UserCircle,
   SlidersHorizontal,
@@ -41,11 +38,6 @@ const navMainItems = [
   { title: "合集", url: "/collections", icon: FolderIcon },
 ]
 
-const navSecondaryItems = [
-  { title: "设置", url: "/settings", icon: SettingsIcon },
-  { title: "帮助", url: "/help", icon: HelpCircleIcon },
-]
-
 const settingsNavItems = [
   { id: "profile", label: "个人信息", icon: UserCircle },
   { id: "preferences", label: "偏好设置", icon: SlidersHorizontal },
@@ -54,6 +46,7 @@ const settingsNavItems = [
   { id: "storage", label: "存储配置", icon: Database },
   { id: "cookies", label: "Cookie 配置", icon: Key },
   { id: "integrations", label: "集成", icon: Plug },
+  { id: "help", label: "帮助", icon: HelpCircleIcon },
   { id: "updates", label: "更新", icon: RefreshCw },
 ]
 
@@ -92,11 +85,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {isSettings ? (
           <SettingsNavContent items={settingsNavItems} activeId={activeSection} />
         ) : (
-          <>
             <NavMain items={navMainItems} pathname={pathname} />
-            <SidebarSeparator className="mx-3 my-2" />
-            <NavSecondary items={navSecondaryItems} pathname={pathname} />
-          </>
         )}
       </SidebarContent>
 
