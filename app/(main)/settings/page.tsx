@@ -179,6 +179,9 @@ export default function SettingsPage() {
   const [llmModel, setLlmModel] = useState("")
   const [llmApiKey, setLlmApiKey] = useState("")
 
+  // Updates
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "up-to-date">("idle")
+
   // AI & Agent
   const [openclawEnabled, setOpenclawEnabled] = useState(false)
   const [openclawKey, setOpenclawKey] = useState("")
@@ -580,12 +583,32 @@ export default function SettingsPage() {
           {/* ---- Updates ---- */}
           {activeSection === "updates" && (
             <section>
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <div className="text-sm font-medium">当前版本 v1.2.0</div>
+                  <div className="text-sm text-muted-foreground mt-0.5">检查是否有新版本可用</div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setUpdateStatus("checking")
+                    setTimeout(() => setUpdateStatus("up-to-date"), 1200)
+                  }}
+                  disabled={updateStatus === "checking"}
+                >
+                  {updateStatus === "checking" && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                  {updateStatus === "up-to-date" ? "已是最新" : updateStatus === "checking" ? "检查中..." : "检查更新"}
+                </Button>
+              </div>
+              {updateStatus === "up-to-date" && (
+                <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mb-6 animate-in fade-in">
+                  <CheckCircle2 className="h-4 w-4" /> 已是最新版本
+                </div>
+              )}
+
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <span className="relative flex size-2 shrink-0">
-                    <span className="absolute inline-flex size-full rounded-full bg-primary animate-ping" />
-                    <span className="relative inline-flex size-2 rounded-full bg-primary" />
-                  </span>
+                  <span className="flex size-2 shrink-0 rounded-full bg-primary" />
                   <div>
                     <div className="text-sm font-medium">v1.2.0 — 设置页重构</div>
                     <div className="text-sm text-muted-foreground mt-0.5">全新 Linear 风格设置页面，侧边栏融入主导航</div>
