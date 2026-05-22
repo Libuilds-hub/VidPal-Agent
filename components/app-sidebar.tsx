@@ -58,23 +58,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar variant="inset" {...props}>
-      <SidebarHeader className="px-3 pt-4 pb-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild className="hover:bg-transparent! data-active:bg-transparent!">
-              <a href="/dashboard" className="flex items-center gap-3! group">
-                <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm shadow-indigo-500/20 transition-all duration-300 group-hover:shadow-md group-hover:shadow-indigo-500/30 group-hover:scale-105">
-                  <SparklesIcon className="size-4" />
-                </div>
-                <div className="grid flex-1 text-left leading-tight">
-                  <span className="truncate font-semibold text-[15px] tracking-tight">视频总结分析</span>
-                  <span className="truncate text-[11px] text-muted-foreground/70 font-medium tracking-wide">AI 学习助手</span>
-                </div>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
+      {!isSettings && (
+        <SidebarHeader className="px-3 pt-4 pb-2">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild className="hover:bg-transparent! data-active:bg-transparent!">
+                <a href="/dashboard" className="flex items-center gap-3! group">
+                  <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm shadow-indigo-500/20 transition-all duration-300 group-hover:shadow-md group-hover:shadow-indigo-500/30 group-hover:scale-105">
+                    <SparklesIcon className="size-4" />
+                  </div>
+                  <div className="grid flex-1 text-left leading-tight">
+                    <span className="truncate font-semibold text-[15px] tracking-tight">视频总结分析</span>
+                    <span className="truncate text-[11px] text-muted-foreground/70 font-medium tracking-wide">AI 学习助手</span>
+                  </div>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+      )}
 
       <SidebarContent className="px-2">
         {isSettings ? (
