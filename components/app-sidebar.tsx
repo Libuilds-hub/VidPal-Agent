@@ -15,33 +15,37 @@ import {
 } from "@/components/ui/sidebar"
 import { NavUser } from "@/components/nav-user"
 import {
-  VideoIcon,
-  PlusIcon,
+  LayoutDashboardIcon,
+  BotIcon,
   LibraryIcon,
-  FolderIcon,
+  GitGraphIcon,
+  FolderHeartIcon,
+  PenLineIcon,
   SparklesIcon,
   HelpCircleIcon,
-  Bot,
   UserCircle,
   SlidersHorizontal,
   Database,
   Plug,
   RefreshCw,
   Key,
+  SettingsIcon,
 } from "lucide-react"
 import { onSettingsNav } from "@/lib/settings-events"
 
 const navMainItems = [
-  { title: "仪表盘", url: "/dashboard", icon: VideoIcon },
-  { title: "添加视频", url: "/videos/new", icon: PlusIcon },
+  { title: "仪表盘", url: "/dashboard", icon: LayoutDashboardIcon },
+  { title: "AI 助手", url: "/ai-assistant", icon: BotIcon },
   { title: "视频库", url: "/videos", icon: LibraryIcon },
-  { title: "合集", url: "/collections", icon: FolderIcon },
+  { title: "知识图谱", url: "/knowledge-graph", icon: GitGraphIcon },
+  { title: "合集", url: "/collections", icon: FolderHeartIcon },
+  { title: "笔记", url: "/notes", icon: PenLineIcon },
 ]
 
 const settingsNavItems = [
   { id: "profile", label: "个人信息", icon: UserCircle },
   { id: "preferences", label: "偏好设置", icon: SlidersHorizontal },
-  { id: "llm", label: "LLM API", icon: Bot },
+  { id: "llm", label: "LLM API", icon: BotIcon },
   { id: "ai", label: "AI & Agent", icon: SparklesIcon },
   { id: "storage", label: "存储配置", icon: Database },
   { id: "cookies", label: "Cookie 配置", icon: Key },
@@ -85,7 +89,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {isSettings ? (
           <SettingsNavContent items={settingsNavItems} activeId={activeSection} />
         ) : (
+          <>
             <NavMain items={navMainItems} pathname={pathname} />
+            <div className="mt-auto pt-4">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="设置"
+                    className="text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all duration-200"
+                  >
+                    <a href="/settings" className="flex items-center gap-2.5">
+                      <SettingsIcon className="size-[18px] text-muted-foreground/40" />
+                      <span>设置</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </div>
+          </>
         )}
       </SidebarContent>
 
