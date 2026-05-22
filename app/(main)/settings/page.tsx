@@ -27,7 +27,7 @@ const THEME_OPTIONS = ["浅色", "深色", "跟随系统"]
 const LANG_OPTIONS = ["自动检测", "中文", "English", "日本語", "한국어"]
 const DENSITY_OPTIONS = ["舒适", "紧凑"]
 
-type SectionId = "profile" | "preferences" | "llm" | "ai" | "storage"
+type SectionId = "profile" | "preferences" | "llm" | "ai" | "storage" | "integrations" | "help" | "updates"
 
 /* -------------------------------------------------------------------------- */
 /*  Dropdown                                                                  */
@@ -297,6 +297,9 @@ export default function SettingsPage() {
     llm: "LLM API",
     ai: "AI & Agent",
     storage: "存储配置",
+    integrations: "集成",
+    help: "帮助",
+    updates: "更新",
   }
 
   /* ---- render ---- */
@@ -454,6 +457,106 @@ export default function SettingsPage() {
                   {storageSave.status === "saving" && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
                   保存
                 </Button>
+              </div>
+            </section>
+          )}
+
+          {/* ---- Integrations ---- */}
+          {activeSection === "integrations" && (
+            <section>
+              <p className="text-sm text-muted-foreground mb-6">连接第三方服务和工具</p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">飞书</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">连接飞书进行消息通知和文档协作</div>
+                  </div>
+                  <Button variant="outline" size="sm">连接</Button>
+                </div>
+                <div className="h-px bg-border/60" />
+                <div className="flex items-center justify-between py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">GitHub</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">同步代码仓库和 Issues</div>
+                  </div>
+                  <Button variant="outline" size="sm">连接</Button>
+                </div>
+                <div className="h-px bg-border/60" />
+                <div className="flex items-center justify-between py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Slack</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">接收分析完成通知</div>
+                  </div>
+                  <Button variant="outline" size="sm">连接</Button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ---- Help ---- */}
+          {activeSection === "help" && (
+            <section>
+              <div className="space-y-3">
+                <a href="/help" className="flex items-center justify-between py-3 hover:bg-accent/50 -mx-2 px-2 rounded-md transition-colors">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">使用文档</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">了解如何使用视频分析工具的各项功能</div>
+                  </div>
+                  <span className="text-muted-foreground text-sm">→</span>
+                </a>
+                <div className="h-px bg-border/60" />
+                <div className="flex items-center justify-between py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">快捷键</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">查看键盘快捷键列表</div>
+                  </div>
+                  <span className="text-muted-foreground text-sm">⌘K</span>
+                </div>
+                <div className="h-px bg-border/60" />
+                <div className="flex items-center justify-between py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">反馈与建议</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">提交问题或功能建议</div>
+                  </div>
+                  <span className="text-muted-foreground text-sm">→</span>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ---- Updates ---- */}
+          {activeSection === "updates" && (
+            <section>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <span className="relative flex size-2 shrink-0">
+                    <span className="absolute inline-flex size-full rounded-full bg-primary animate-ping" />
+                    <span className="relative inline-flex size-2 rounded-full bg-primary" />
+                  </span>
+                  <div>
+                    <div className="text-sm font-medium">v1.2.0 — 设置页重构</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">全新 Linear 风格设置页面，侧边栏融入主导航</div>
+                    <div className="text-xs text-muted-foreground/60 mt-0.5">2026-05-22</div>
+                  </div>
+                </div>
+                <div className="h-px bg-border/60" />
+                <div className="flex items-center gap-3">
+                  <span className="flex size-2 shrink-0 rounded-full bg-muted-foreground/30" />
+                  <div>
+                    <div className="text-sm font-medium">v1.1.0 — 消息操作优化</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">复制、重新生成、编辑消息操作按钮</div>
+                    <div className="text-xs text-muted-foreground/60 mt-0.5">2026-05-15</div>
+                  </div>
+                </div>
+                <div className="h-px bg-border/60" />
+                <div className="flex items-center gap-3">
+                  <span className="flex size-2 shrink-0 rounded-full bg-muted-foreground/30" />
+                  <div>
+                    <div className="text-sm font-medium">v1.0.0 — 问答助手</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">DeepSeek 风格侧边栏、多会话管理</div>
+                    <div className="text-xs text-muted-foreground/60 mt-0.5">2026-05-08</div>
+                  </div>
+                </div>
               </div>
             </section>
           )}
