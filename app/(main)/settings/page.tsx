@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -315,7 +316,15 @@ export default function SettingsPage() {
           {/* ---- Profile ---- */}
           {activeSection === "profile" && (
             <section>
-              <p className="text-sm text-muted-foreground mb-6">管理您的账户信息</p>
+              <div className="flex items-center gap-4 mb-8">
+                <Avatar size="lg" className="size-14">
+                  <AvatarFallback className="text-lg font-medium">A</AvatarFallback>
+                </Avatar>
+                <div>
+                  <h2 className="text-lg font-semibold">admin</h2>
+                  <p className="text-sm text-muted-foreground">admin@example.com</p>
+                </div>
+              </div>
               <div className="space-y-0.5">
                 <SettingRow label="用户名" description="您的登录账号">
                   <Input value="admin" disabled className="w-[220px]" />
