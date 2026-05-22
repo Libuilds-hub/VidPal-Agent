@@ -26,7 +26,7 @@ const THEME_OPTIONS = ["浅色", "深色", "跟随系统"]
 const LANG_OPTIONS = ["自动检测", "中文", "English", "日本語", "한국어"]
 const DENSITY_OPTIONS = ["舒适", "紧凑"]
 
-type SectionId = "general" | "llm" | "source" | "experimental"
+type SectionId = "profile" | "preferences" | "llm" | "ai" | "storage"
 
 /* -------------------------------------------------------------------------- */
 /*  Dropdown                                                                  */
@@ -165,35 +165,35 @@ function StatusBanner({ type, text, onDismiss }: { type: "success" | "error"; te
 /* -------------------------------------------------------------------------- */
 
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState<SectionId>("general")
+  const [activeSection, setActiveSection] = useState<SectionId>("profile")
   const [loading, setLoading] = useState(true)
 
-  // General
-  const [dbPath, setDbPath] = useState("./data/video-analysis.db")
-  const [exportPath, setExportPath] = useState("./exports")
-  const [exportFormat, setExportFormat] = useState("JSON")
+  // Preferences
+  const [theme, setTheme] = useState("跟随系统")
+  const [transcribeLang, setTranscribeLang] = useState("自动检测")
+  const [uiDensity, setUiDensity] = useState("舒适")
 
   // LLM
   const [llmProvider, setLlmProvider] = useState("minimax")
   const [llmModel, setLlmModel] = useState("")
   const [llmApiKey, setLlmApiKey] = useState("")
 
-  // Video source
+  // AI & Agent
+  const [autoSave, setAutoSave] = useState(true)
+
+  // Storage
+  const [dbPath, setDbPath] = useState("./data/video-analysis.db")
+  const [exportPath, setExportPath] = useState("./exports")
+  const [exportFormat, setExportFormat] = useState("JSON")
   const [ytdlpPath, setYtdlpPath] = useState("yt-dlp")
   const [ffmpegPath, setFfmpegPath] = useState("ffmpeg")
-
-  // Experimental
-  const [theme, setTheme] = useState("跟随系统")
-  const [transcribeLang, setTranscribeLang] = useState("自动检测")
-  const [uiDensity, setUiDensity] = useState("舒适")
-  const [autoSave, setAutoSave] = useState(true)
   const [cacheDays, setCacheDays] = useState(30)
 
   type SaveStatus = { status: "idle" | "saving"; message: { type: "success" | "error"; text: string } | null }
-  const [generalSave, setGeneralSave] = useState<SaveStatus>({ status: "idle", message: null })
+  const [prefSave, setPrefSave] = useState<SaveStatus>({ status: "idle", message: null })
   const [llmSave, setLlmSave] = useState<SaveStatus>({ status: "idle", message: null })
-  const [sourceSave, setSourceSave] = useState<SaveStatus>({ status: "idle", message: null })
-  const [expSave, setExpSave] = useState<SaveStatus>({ status: "idle", message: null })
+  const [aiSave, setAiSave] = useState<SaveStatus>({ status: "idle", message: null })
+  const [storageSave, setStorageSave] = useState<SaveStatus>({ status: "idle", message: null })
 
   /* ---- load ---- */
   useEffect(() => {
@@ -259,7 +259,7 @@ export default function SettingsPage() {
   )
 
   /* ---- handlers ---- */
-  const handleSaveGeneral = () => saveSettings({ dbPath, exportPath, exportFormat }, setGeneralSave)
+  const handleSavePref = () => saveSettings({ theme, transcribeLang, uiDensity }, setPrefSave)
 
   const handleSaveLlm = async () => {
     if (!llmApiKey || !llmModel) {
@@ -286,15 +286,16 @@ export default function SettingsPage() {
     await saveSettings({ llmProvider, llmApiKey, llmModel }, setLlmSave)
   }
 
-  const handleSaveSource = () => saveSettings({ ytdlpPath, ffmpegPath }, setSourceSave)
-  const handleSaveExp = () => saveSettings({ theme, transcribeLang, uiDensity, autoSave, cacheDays }, setExpSave)
+  const handleSaveAi = () => saveSettings({ autoSave, transcribeLang }, setAiSave)
+  const handleSaveStorage = () => saveSettings({ dbPath, exportPath, exportFormat, ytdlpPath, ffmpegPath, cacheDays }, setStorageSave)
 
   /* ---- section titles ---- */
   const sectionTitles: Record<SectionId, string> = {
-    general: "常规",
-    llm: "AI / LLM",
-    source: "视频源",
-    experimental: "实验性",
+    profile: "个人信息",
+    preferences: "偏好设置",
+    llm: "LLM API",
+    ai: "AI & Agent",
+    storage: "存储配置",
   }
 
   /* ---- render ---- */
@@ -311,24 +312,39 @@ export default function SettingsPage() {
       <div className="max-w-[640px] mx-auto pt-16 pb-24 px-8">
           <h1 className="text-2xl font-semibold mb-8">{sectionTitles[activeSection]}</h1>
 
-          {/* ---- General ---- */}
-          {activeSection === "general" && (
+          {/* ---- Profile ---- */}
+          {activeSection === "profile" && (
+            <section>
+              <p className="text-sm text-muted-foreground mb-6">管理您的账户信息</p>
+              <div className="space-y-0.5">
+                <SettingRow label="用户名" description="您的登录账号">
+                  <Input value="admin" disabled className="w-[220px]" />
+                </SettingRow>
+                <SettingRow label="邮箱" description="用于接收通知和报告">
+                  <Input value="admin@example.com" disabled className="w-[220px]" />
+                </SettingRow>
+              </div>
+            </section>
+          )}
+
+          {/* ---- Preferences ---- */}
+          {activeSection === "preferences" && (
             <section>
               <div className="space-y-0.5">
-                <SettingRow label="数据库路径" description="SQLite 数据库文件的存储位置">
-                  <Input value={dbPath} onChange={(e) => { setDbPath(e.target.value); clearMessage(setGeneralSave) }} className="w-[220px]" />
+                <SettingRow label="主题" description="界面配色方案">
+                  <Dropdown value={theme} options={THEME_OPTIONS} width="140px" onChange={(v) => { setTheme(v); clearMessage(setPrefSave) }} />
                 </SettingRow>
-                <SettingRow label="导出路径" description="分析结果的默认导出目录">
-                  <Input value={exportPath} onChange={(e) => { setExportPath(e.target.value); clearMessage(setGeneralSave) }} className="w-[220px]" />
+                <SettingRow label="转写默认语言" description="视频语音转文字的默认目标语言">
+                  <Dropdown value={transcribeLang} options={LANG_OPTIONS} width="140px" onChange={(v) => { setTranscribeLang(v); clearMessage(setPrefSave) }} />
                 </SettingRow>
-                <SettingRow label="导出格式" description="分析报告和字幕的默认导出格式">
-                  <Dropdown value={exportFormat} options={EXPORT_FORMATS} width="140px" onChange={(v) => { setExportFormat(v); clearMessage(setGeneralSave) }} />
+                <SettingRow label="UI 密度" description="控制界面信息密度与间距">
+                  <Dropdown value={uiDensity} options={DENSITY_OPTIONS} width="100px" onChange={(v) => { setUiDensity(v); clearMessage(setPrefSave) }} />
                 </SettingRow>
               </div>
               <div className="flex items-center justify-between mt-8 pt-4">
-                <StatusBanner type={generalSave.message?.type ?? "success"} text={generalSave.message?.text ?? ""} onDismiss={() => clearMessage(setGeneralSave)} />
-                <Button onClick={handleSaveGeneral} disabled={generalSave.status === "saving"} size="sm" className="ml-auto">
-                  {generalSave.status === "saving" && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                <StatusBanner type={prefSave.message?.type ?? "success"} text={prefSave.message?.text ?? ""} onDismiss={() => clearMessage(setPrefSave)} />
+                <Button onClick={handleSavePref} disabled={prefSave.status === "saving"} size="sm" className="ml-auto">
+                  {prefSave.status === "saving" && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
                   保存
                 </Button>
               </div>
@@ -367,49 +383,50 @@ export default function SettingsPage() {
             </section>
           )}
 
-          {/* ---- Source ---- */}
-          {activeSection === "source" && (
+          {/* ---- AI & Agent ---- */}
+          {activeSection === "ai" && (
             <section>
               <div className="space-y-0.5">
-                <SettingRow label="yt-dlp 路径" description="yt-dlp 可执行文件路径或命令名">
-                  <Input value={ytdlpPath} onChange={(e) => { setYtdlpPath(e.target.value); clearMessage(setSourceSave) }} className="w-[220px]" />
-                </SettingRow>
-                <SettingRow label="FFmpeg 路径" description="FFmpeg 可执行文件路径或命令名">
-                  <Input value={ffmpegPath} onChange={(e) => { setFfmpegPath(e.target.value); clearMessage(setSourceSave) }} className="w-[220px]" />
+                <SettingRow label="自动保存分析结果" description="分析完成后自动保存到本地，无需手动确认">
+                  <Toggle checked={autoSave} onChange={(v) => { setAutoSave(v); clearMessage(setAiSave) }} />
                 </SettingRow>
               </div>
               <div className="flex items-center justify-between mt-8 pt-4">
-                <StatusBanner type={sourceSave.message?.type ?? "success"} text={sourceSave.message?.text ?? ""} onDismiss={() => clearMessage(setSourceSave)} />
-                <Button onClick={handleSaveSource} disabled={sourceSave.status === "saving"} size="sm" className="ml-auto">
-                  {sourceSave.status === "saving" && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                <StatusBanner type={aiSave.message?.type ?? "success"} text={aiSave.message?.text ?? ""} onDismiss={() => clearMessage(setAiSave)} />
+                <Button onClick={handleSaveAi} disabled={aiSave.status === "saving"} size="sm" className="ml-auto">
+                  {aiSave.status === "saving" && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
                   保存
                 </Button>
               </div>
             </section>
           )}
 
-          {/* ---- Experimental ---- */}
-          {activeSection === "experimental" && (
+          {/* ---- Storage ---- */}
+          {activeSection === "storage" && (
             <section>
               <div className="space-y-0.5">
-                <SettingRow label="主题" description="界面配色方案">
-                  <Dropdown value={theme} options={THEME_OPTIONS} width="140px" onChange={(v) => { setTheme(v); clearMessage(setExpSave) }} />
+                <SettingRow label="数据库路径" description="SQLite 数据库文件的存储位置">
+                  <Input value={dbPath} onChange={(e) => { setDbPath(e.target.value); clearMessage(setStorageSave) }} className="w-[220px]" />
                 </SettingRow>
-                <SettingRow label="转写默认语言" description="视频语音转文字的默认目标语言">
-                  <Dropdown value={transcribeLang} options={LANG_OPTIONS} width="140px" onChange={(v) => { setTranscribeLang(v); clearMessage(setExpSave) }} />
+                <SettingRow label="导出路径" description="分析结果的默认导出目录">
+                  <Input value={exportPath} onChange={(e) => { setExportPath(e.target.value); clearMessage(setStorageSave) }} className="w-[220px]" />
                 </SettingRow>
-                <SettingRow label="UI 密度" description="控制界面信息密度与间距">
-                  <Dropdown value={uiDensity} options={DENSITY_OPTIONS} width="100px" onChange={(v) => { setUiDensity(v); clearMessage(setExpSave) }} />
+                <SettingRow label="导出格式" description="分析报告和字幕的默认导出格式">
+                  <Dropdown value={exportFormat} options={EXPORT_FORMATS} width="140px" onChange={(v) => { setExportFormat(v); clearMessage(setStorageSave) }} />
                 </SettingRow>
                 <div className="h-px bg-border/60 my-2" />
-                <SettingRow label="自动保存分析结果" description="分析完成后自动保存到本地，无需手动确认">
-                  <Toggle checked={autoSave} onChange={(v) => { setAutoSave(v); clearMessage(setExpSave) }} />
+                <SettingRow label="yt-dlp 路径" description="yt-dlp 可执行文件路径或命令名">
+                  <Input value={ytdlpPath} onChange={(e) => { setYtdlpPath(e.target.value); clearMessage(setStorageSave) }} className="w-[220px]" />
                 </SettingRow>
+                <SettingRow label="FFmpeg 路径" description="FFmpeg 可执行文件路径或命令名">
+                  <Input value={ffmpegPath} onChange={(e) => { setFfmpegPath(e.target.value); clearMessage(setStorageSave) }} className="w-[220px]" />
+                </SettingRow>
+                <div className="h-px bg-border/60 my-2" />
                 <SettingRow label="缓存保留天数" description={`已下载视频和音频的本地缓存保留 ${cacheDays} 天`}>
                   <div className="flex items-center gap-3 w-[180px]">
                     <input
                       type="range" min={1} max={90} step={1} value={cacheDays}
-                      onChange={(e) => { setCacheDays(Number(e.target.value)); clearMessage(setExpSave) }}
+                      onChange={(e) => { setCacheDays(Number(e.target.value)); clearMessage(setStorageSave) }}
                       className={cn(
                         "h-1.5 w-full appearance-none rounded-full bg-muted accent-primary",
                         "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4",
@@ -423,9 +440,9 @@ export default function SettingsPage() {
                 </SettingRow>
               </div>
               <div className="flex items-center justify-between mt-8 pt-4">
-                <StatusBanner type={expSave.message?.type ?? "success"} text={expSave.message?.text ?? ""} onDismiss={() => clearMessage(setExpSave)} />
-                <Button onClick={handleSaveExp} disabled={expSave.status === "saving"} size="sm" className="ml-auto">
-                  {expSave.status === "saving" && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                <StatusBanner type={storageSave.message?.type ?? "success"} text={storageSave.message?.text ?? ""} onDismiss={() => clearMessage(setStorageSave)} />
+                <Button onClick={handleSaveStorage} disabled={storageSave.status === "saving"} size="sm" className="ml-auto">
+                  {storageSave.status === "saving" && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
                   保存
                 </Button>
               </div>

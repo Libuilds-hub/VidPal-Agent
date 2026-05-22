@@ -22,9 +22,10 @@ import {
   SettingsIcon,
   HelpCircleIcon,
   SparklesIcon,
-  Globe,
   Bot,
-  FlaskConical,
+  UserCircle,
+  SlidersHorizontal,
+  Database,
 } from "lucide-react"
 import { onSettingsNav } from "@/lib/settings-events"
 
@@ -41,16 +42,17 @@ const navSecondaryItems = [
 ]
 
 const settingsNavItems = [
-  { id: "general", label: "常规", icon: SettingsIcon },
-  { id: "llm", label: "AI / LLM", icon: Bot },
-  { id: "source", label: "视频源", icon: Globe },
-  { id: "experimental", label: "实验性", icon: FlaskConical },
+  { id: "profile", label: "个人信息", icon: UserCircle },
+  { id: "preferences", label: "偏好设置", icon: SlidersHorizontal },
+  { id: "llm", label: "LLM API", icon: Bot },
+  { id: "ai", label: "AI & Agent", icon: SparklesIcon },
+  { id: "storage", label: "存储配置", icon: Database },
 ]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const isSettings = pathname.startsWith("/settings")
-  const [activeSection, setActiveSection] = React.useState("general")
+  const [activeSection, setActiveSection] = React.useState("profile")
 
   React.useEffect(() => {
     return onSettingsNav(setActiveSection)
