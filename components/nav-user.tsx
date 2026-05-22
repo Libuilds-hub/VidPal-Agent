@@ -20,7 +20,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, SparklesIcon, BadgeCheckIcon, SettingsIcon, LogOutIcon } from "lucide-react"
+import { ChevronsUpDownIcon, SparklesIcon, BadgeCheckIcon, LogOutIcon } from "lucide-react"
 import Link from "next/link"
 
 export function NavUser({
@@ -83,11 +83,6 @@ export function NavUser({
               <DropdownMenuItem asChild>
                 <Link href="/settings">
                   <BadgeCheckIcon /> 个人信息
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/settings">
-                  <SettingsIcon /> 设置
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>

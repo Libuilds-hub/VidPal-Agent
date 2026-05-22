@@ -54,7 +54,6 @@ const settingsNavItems = [
   { id: "storage", label: "存储配置", icon: Database },
   { id: "cookies", label: "Cookie 配置", icon: Key },
   { id: "integrations", label: "集成", icon: Plug },
-  { id: "help", label: "帮助", icon: HelpCircleIcon },
   { id: "updates", label: "更新", icon: RefreshCw },
 ]
 

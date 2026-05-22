@@ -27,7 +27,7 @@ const THEME_OPTIONS = ["浅色", "深色", "跟随系统"]
 const LANG_OPTIONS = ["自动检测", "中文", "English", "日本語", "한국어"]
 const DENSITY_OPTIONS = ["舒适", "紧凑"]
 
-type SectionId = "profile" | "preferences" | "llm" | "ai" | "storage" | "cookies" | "integrations" | "help" | "updates"
+type SectionId = "profile" | "preferences" | "llm" | "ai" | "storage" | "cookies" | "integrations" | "updates"
 
 /* -------------------------------------------------------------------------- */
 /*  Dropdown                                                                  */
@@ -326,7 +326,6 @@ export default function SettingsPage() {
     storage: "存储配置",
     cookies: "Cookie 配置",
     integrations: "集成",
-    help: "帮助",
     updates: "更新",
   }
 
@@ -588,37 +587,6 @@ export default function SettingsPage() {
                     <div className="text-sm text-muted-foreground mt-0.5">接收分析完成通知</div>
                   </div>
                   <Button variant="outline" size="sm">连接</Button>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* ---- Help ---- */}
-          {activeSection === "help" && (
-            <section>
-              <div className="space-y-3">
-                <a href="/help" className="flex items-center justify-between py-3 hover:bg-accent/50 -mx-2 px-2 rounded-md transition-colors">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">使用文档</div>
-                    <div className="text-sm text-muted-foreground mt-0.5">了解如何使用视频分析工具的各项功能</div>
-                  </div>
-                  <span className="text-muted-foreground text-sm">→</span>
-                </a>
-                <div className="h-px bg-border/60" />
-                <div className="flex items-center justify-between py-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">快捷键</div>
-                    <div className="text-sm text-muted-foreground mt-0.5">查看键盘快捷键列表</div>
-                  </div>
-                  <span className="text-muted-foreground text-sm">⌘K</span>
-                </div>
-                <div className="h-px bg-border/60" />
-                <div className="flex items-center justify-between py-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">反馈与建议</div>
-                    <div className="text-sm text-muted-foreground mt-0.5">提交问题或功能建议</div>
-                  </div>
-                  <span className="text-muted-foreground text-sm">→</span>
                 </div>
               </div>
             </section>
