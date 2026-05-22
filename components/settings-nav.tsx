@@ -23,20 +23,23 @@ export function SettingsNavContent({
   items,
   activeId,
   backHref = "/dashboard",
+  backLabel = "返回工作台",
 }: {
   items: SettingsNavItem[]
   activeId: string
   backHref?: string
+  backLabel?: string
 }) {
   return (
     <>
       {/* Back button */}
-      <div className="px-2 pt-1">
+      <div className="px-2 pt-1 pb-1">
         <Link
           href={backHref}
-          className="inline-flex items-center justify-center size-7 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-sidebar-accent/40 transition-all duration-200"
+          className="inline-flex items-center gap-2 rounded-md px-1 py-1 text-[13px] text-sidebar-foreground/50 hover:text-sidebar-foreground/80 hover:bg-sidebar-accent/40 transition-all duration-200"
         >
-          <ArrowLeft className="size-[15px]" />
+          <ArrowLeft className="size-[15px] text-muted-foreground/40" />
+          <span>{backLabel}</span>
         </Link>
       </div>
 
@@ -50,23 +53,27 @@ export function SettingsNavContent({
               return (
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
-                    size="sm"
                     isActive={isActive}
                     onClick={() => navigateSettings(item.id)}
                     className={cn(
-                      "transition-all duration-200",
+                      "group relative transition-all duration-200",
                       isActive
-                        ? "bg-sidebar-accent/80 font-medium"
-                        : "text-sidebar-foreground/50 hover:text-sidebar-foreground/80 hover:bg-sidebar-accent/40"
+                        ? "bg-sidebar-accent/80 text-sidebar-accent-foreground font-medium"
+                        : "text-sidebar-foreground/65 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
                     )}
                   >
                     <item.icon
                       className={cn(
-                        "size-[15px] transition-colors duration-200",
-                        isActive ? "text-primary/80" : "text-muted-foreground/40"
+                        "size-[18px] transition-all duration-200",
+                        isActive
+                          ? "text-primary"
+                          : "text-muted-foreground/50 group-hover:text-muted-foreground/80"
                       )}
                     />
-                    <span className="text-[13px]">{item.label}</span>
+                    <span>{item.label}</span>
+                    {isActive && (
+                      <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary animate-in zoom-in duration-300" />
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )
