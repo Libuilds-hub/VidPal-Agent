@@ -198,7 +198,6 @@ export default function SettingsPage() {
   type SaveStatus = { status: "idle" | "saving"; message: { type: "success" | "error"; text: string } | null }
   const [prefSave, setPrefSave] = useState<SaveStatus>({ status: "idle", message: null })
   const [llmSave, setLlmSave] = useState<SaveStatus>({ status: "idle", message: null })
-  const [aiSave, setAiSave] = useState<SaveStatus>({ status: "idle", message: null })
   const [storageSave, setStorageSave] = useState<SaveStatus>({ status: "idle", message: null })
 
   /* ---- load ---- */
@@ -297,7 +296,13 @@ export default function SettingsPage() {
     await saveSettings({ llmProvider, llmApiKey, llmModel }, setLlmSave)
   }
 
-  const handleSaveAi = () => saveSettings({ openclawEnabled, openclawKey, hermesEnabled, hermesKey, claudeCodeEnabled, claudeCodeKey }, setAiSave)
+  const saveAgentSetting = useCallback(
+    (key: string, value: string | boolean) => {
+      saveSettings({ [key]: value }, () => {})
+    },
+    [saveSettings]
+  )
+
   const handleSaveStorage = () => saveSettings({ dbPath, exportPath, exportFormat, ytdlpPath, ffmpegPath, cacheDays }, setStorageSave)
 
   /* ---- section titles ---- */
@@ -418,11 +423,11 @@ export default function SettingsPage() {
                     <div className="text-sm font-medium">Openclaw</div>
                     <div className="text-sm text-muted-foreground mt-0.5">多平台 AI Agent 调度引擎</div>
                   </div>
-                  <Toggle checked={openclawEnabled} onChange={(v) => { setOpenclawEnabled(v); clearMessage(setAiSave) }} />
+                  <Toggle checked={openclawEnabled} onChange={(v) => { setOpenclawEnabled(v); saveAgentSetting("openclawEnabled", v) }} />
                 </div>
                 {openclawEnabled && (
                   <SettingRow label="API Key" description="Openclaw 服务连接密钥">
-                    <Input type="password" value={openclawKey} onChange={(e) => { setOpenclawKey(e.target.value); clearMessage(setAiSave) }} placeholder="sk-..." className="w-[260px]" />
+                    <Input type="password" value={openclawKey} onChange={(e) => { setOpenclawKey(e.target.value) }} placeholder="sk-..." className="w-[260px]" />
                   </SettingRow>
                 )}
 
@@ -433,11 +438,11 @@ export default function SettingsPage() {
                     <div className="text-sm font-medium">Hermes Agent</div>
                     <div className="text-sm text-muted-foreground mt-0.5">智能对话与任务编排 Agent</div>
                   </div>
-                  <Toggle checked={hermesEnabled} onChange={(v) => { setHermesEnabled(v); clearMessage(setAiSave) }} />
+                  <Toggle checked={hermesEnabled} onChange={(v) => { setHermesEnabled(v); saveAgentSetting("hermesEnabled", v) }} />
                 </div>
                 {hermesEnabled && (
                   <SettingRow label="API Key" description="Hermes Agent 连接密钥">
-                    <Input type="password" value={hermesKey} onChange={(e) => { setHermesKey(e.target.value); clearMessage(setAiSave) }} placeholder="sk-..." className="w-[260px]" />
+                    <Input type="password" value={hermesKey} onChange={(e) => { setHermesKey(e.target.value) }} placeholder="sk-..." className="w-[260px]" />
                   </SettingRow>
                 )}
 
@@ -448,23 +453,16 @@ export default function SettingsPage() {
                     <div className="text-sm font-medium">Claude Code</div>
                     <div className="text-sm text-muted-foreground mt-0.5">Anthropic 代码辅助 Agent</div>
                   </div>
-                  <Toggle checked={claudeCodeEnabled} onChange={(v) => { setClaudeCodeEnabled(v); clearMessage(setAiSave) }} />
+                  <Toggle checked={claudeCodeEnabled} onChange={(v) => { setClaudeCodeEnabled(v); saveAgentSetting("claudeCodeEnabled", v) }} />
                 </div>
                 {claudeCodeEnabled && (
                   <SettingRow label="API Key" description="Claude Code 连接密钥">
-                    <Input type="password" value={claudeCodeKey} onChange={(e) => { setClaudeCodeKey(e.target.value); clearMessage(setAiSave) }} placeholder="sk-..." className="w-[260px]" />
+                    <Input type="password" value={claudeCodeKey} onChange={(e) => { setClaudeCodeKey(e.target.value) }} placeholder="sk-..." className="w-[260px]" />
                   </SettingRow>
                 )}
 
               </div>
 
-              <div className="flex items-center justify-between mt-8 pt-4">
-                <StatusBanner type={aiSave.message?.type ?? "success"} text={aiSave.message?.text ?? ""} onDismiss={() => clearMessage(setAiSave)} />
-                <Button onClick={handleSaveAi} disabled={aiSave.status === "saving"} size="sm" className="ml-auto">
-                  {aiSave.status === "saving" && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-                  保存
-                </Button>
-              </div>
             </section>
           )}
 
