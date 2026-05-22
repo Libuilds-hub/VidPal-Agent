@@ -180,7 +180,6 @@ export default function SettingsPage() {
   const [llmApiKey, setLlmApiKey] = useState("")
 
   // AI & Agent
-  const [autoSave, setAutoSave] = useState(true)
   const [openclawEnabled, setOpenclawEnabled] = useState(false)
   const [openclawKey, setOpenclawKey] = useState("")
   const [hermesEnabled, setHermesEnabled] = useState(false)
@@ -225,7 +224,6 @@ export default function SettingsPage() {
         if (data.theme) setTheme(data.theme)
         if (data.transcribeLang) setTranscribeLang(data.transcribeLang)
         if (data.uiDensity) setUiDensity(data.uiDensity)
-        if (data.autoSave) setAutoSave(data.autoSave === "true")
         if (data.openclawEnabled) setOpenclawEnabled(data.openclawEnabled === "true")
         if (data.openclawKey) setOpenclawKey(data.openclawKey)
         if (data.hermesEnabled) setHermesEnabled(data.hermesEnabled === "true")
@@ -299,7 +297,7 @@ export default function SettingsPage() {
     await saveSettings({ llmProvider, llmApiKey, llmModel }, setLlmSave)
   }
 
-  const handleSaveAi = () => saveSettings({ autoSave, openclawEnabled, openclawKey, hermesEnabled, hermesKey, claudeCodeEnabled, claudeCodeKey }, setAiSave)
+  const handleSaveAi = () => saveSettings({ openclawEnabled, openclawKey, hermesEnabled, hermesKey, claudeCodeEnabled, claudeCodeKey }, setAiSave)
   const handleSaveStorage = () => saveSettings({ dbPath, exportPath, exportFormat, ytdlpPath, ffmpegPath, cacheDays }, setStorageSave)
 
   /* ---- section titles ---- */
@@ -458,11 +456,6 @@ export default function SettingsPage() {
                   </SettingRow>
                 )}
 
-                {/* Auto-save */}
-                <div className="h-px bg-border/60" />
-                <SettingRow label="自动保存分析结果" description="分析完成后自动保存到本地，无需手动确认">
-                  <Toggle checked={autoSave} onChange={(v) => { setAutoSave(v); clearMessage(setAiSave) }} />
-                </SettingRow>
               </div>
 
               <div className="flex items-center justify-between mt-8 pt-4">
