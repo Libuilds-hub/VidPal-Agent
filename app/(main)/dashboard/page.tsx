@@ -1,205 +1,773 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+"use client"
+
+import { useEffect, useState, useMemo, useRef } from "react"
+import { useRouter } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { VideoIcon, BrainIcon, TrendingUpIcon, ClockIcon, ArrowRightIcon, GitGraphIcon, BotIcon, LightbulbIcon } from "lucide-react"
+import {
+  VideoIcon,
+  SearchIcon,
+  ExternalLinkIcon,
+  Loader2Icon,
+  ClockIcon,
+  CheckCircle2Icon,
+  AlertCircleIcon,
+  SparklesIcon,
+  HelpCircleIcon,
+  ArrowRightIcon,
+  BookOpenIcon,
+  GitGraphIcon,
+  TrendingUpIcon,
+  History as HistoryIcon,
+  PlayIcon,
+} from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 
-const learningTopics = [
-  { name: "Claude Code", progress: 58, totalVideos: 4, gap: "Hook 实战案例" },
-  { name: "RAG 技术", progress: 35, totalVideos: 3, gap: "Embedding 模型选择" },
-  { name: "MCP 协议", progress: 72, totalVideos: 2, gap: "多 Agent 通信" },
-]
+interface Video {
+  id: string
+  title: string | null
+  source: string
+  url: string | null
+  localPath: string | null
+  duration: number | null
+  thumbnail: string | null
+  status: string
+  createdAt: string
+}
 
-const recommendedVideos = [
+// Quick AI prompts
+const QUICK_PROMPTS = [
   {
-    id: "r1",
-    title: "Claude Code Hook 系统实战：从零搭建自动化工作流",
-    source: "bilibili" as const,
-    duration: "32:15",
-    reason: "弥补 Hook 实战案例缺口",
+    num: "01",
+    text: "总结本周视频所学到的核心脉络",
+    prompt: "请总结我本周导入的所有视频，提炼出核心的学习脉络与关键知识点。",
   },
   {
-    id: "r2",
-    title: "Embedding 模型选型指南：OpenAI vs Cohere vs 开源方案",
-    source: "youtube" as const,
-    duration: "18:50",
-    reason: "填补 Embedding 知识空白",
+    num: "02",
+    text: "分析我最近的学习兴趣与领域分布",
+    prompt: "基于我的视频库，分析我最近的学习兴趣主要集中在哪些领域？各领域的占比大约是多少？",
   },
   {
-    id: "r3",
-    title: "Agent 间通信模式：发布订阅 vs 请求响应",
-    source: "bilibili" as const,
-    duration: "26:40",
-    reason: "衔接上周 MCP 学习路径",
+    num: "03",
+    text: "为我生成一份 React Fiber 思维导图说明",
+    prompt: "帮我推荐视频库中与 React/前端 相关的视频，并用 Markdown 或 Mermaid 格式为我生成一份 React 核心原理解析思维导图说明。",
   },
-]
-
-const recentActivity = [
-  { action: "完成了", target: "MCP 协议深入解析", time: "2 小时前", icon: VideoIcon },
-  { action: "在", target: "RAG 应用实战", time: "昨天 15:30", icon: BrainIcon },
-  { action: "和 Agent 讨论了", target: "Chunk 策略最佳实践", time: "昨天 10:12", icon: BotIcon },
-  { action: "添加了", target: "Claude Code Hook 系统", time: "2 天前", icon: VideoIcon },
+  {
+    num: "04",
+    text: "检测我目前的知识网络是否存在盲区",
+    prompt: "深度审视我的知识图谱与视频库，检测我目前的学习内容在系统设计或技术全景上是否存在知识盲区？并给出后续的学习推荐。",
+  },
 ]
 
 export default function DashboardPage() {
+  const [videos, setVideos] = useState<Video[]>([])
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+
+  // Chart states
+  const [chartMetric, setChartMetric] = useState<"hours" | "count">("hours")
+  const [hoveredChartIndex, setHoveredChartIndex] = useState<number | null>(null)
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 })
+  const chartSvgRef = useRef<SVGSVGElement | null>(null)
+
+  useEffect(() => {
+    fetchVideos()
+    const interval = setInterval(fetchVideos, 15000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const fetchVideos = async () => {
+    try {
+      const res = await fetch("/api/video")
+      const data = await res.json()
+      setVideos(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error("Failed to fetch videos:", err)
+      setVideos([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Greeting based on hour
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours()
+    if (hour < 5) return "夜深了，终身学习者"
+    if (hour < 9) return "早上好，终身学习者"
+    if (hour < 12) return "上午好，终身学习者"
+    if (hour < 14) return "中午好，终身学习者"
+    if (hour < 18) return "下午好，终身学习者"
+    return "晚上好，终身学习者"
+  }, [])
+
+  // Statistics calculation
+  const stats = useMemo(() => {
+    const total = videos.length
+    const doneVideos = videos.filter((v) => v.status === "done")
+    const doneCount = doneVideos.length
+    const processingCount = videos.filter(
+      (v) => v.status === "downloading" || v.status === "transcribing"
+    ).length
+    const errorCount = videos.filter((v) => v.status === "error").length
+
+    // Duration (in seconds)
+    const totalDurationSeconds = doneVideos.reduce((acc, v) => acc + (v.duration || 0), 0)
+    const totalDurationHours = totalDurationSeconds > 0 ? totalDurationSeconds / 3600 : 0
+
+    // Digest rate
+    const digestRate = total > 0 ? Math.round((doneCount / total) * 100) : 0
+
+    // Concept points calculation (simulated study nodes)
+    const knowledgePoints = doneCount * 12 + processingCount * 3
+
+    // Platform distribution
+    const platforms = { bilibili: 0, youtube: 0, local: 0 }
+    videos.forEach((v) => {
+      if (v.source === "bilibili") platforms.bilibili++
+      else if (v.source === "youtube") platforms.youtube++
+      else platforms.local++
+    })
+
+    return {
+      total,
+      doneCount,
+      processingCount,
+      errorCount,
+      totalDurationHours,
+      digestRate,
+      knowledgePoints,
+      platforms,
+    }
+  }, [videos])
+
+  // Custom Chart Data Generation (Past 7 Days)
+  const chartData = useMemo(() => {
+    const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
+    const days = []
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const dateString = d.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })
+      const dayName = weekdays[d.getDay()]
+      
+      // Calculate videos imported on this day
+      const dayVideos = videos.filter((v) => {
+        const videoDate = new Date(v.createdAt)
+        return (
+          videoDate.getFullYear() === d.getFullYear() &&
+          videoDate.getMonth() === d.getMonth() &&
+          videoDate.getDate() === d.getDate()
+        )
+      })
+
+      const videoCount = dayVideos.length
+      // Sum duration in hours (fallback to 0.4 hours if done video has no duration for rendering)
+      const durationHours = dayVideos.reduce((acc, v) => {
+        if (v.status === "done") {
+          return acc + (v.duration ? v.duration / 3600 : 0.4)
+        }
+        return acc
+      }, 0)
+
+      days.push({
+        dateStr: dateString,
+        dayName,
+        hours: Number(durationHours.toFixed(1)),
+        count: videoCount,
+        isDemo: false,
+      })
+    }
+
+    // If no videos, provide a beautiful baseline demonstration curve
+    const hasAnyActivity = days.some((d) => d.count > 0)
+    if (!hasAnyActivity) {
+      const demoHours = [0.8, 1.6, 1.2, 2.8, 1.5, 3.4, 2.2]
+      const demoCounts = [1, 2, 1, 3, 2, 4, 2]
+      return days.map((day, idx) => ({
+        ...day,
+        hours: demoHours[idx],
+        count: demoCounts[idx],
+        isDemo: true,
+      }))
+    }
+
+    return days
+  }, [videos])
+
+  // Chart values mapper for SVG coordinates
+  const svgCoordinates = useMemo(() => {
+    const values = chartData.map((d) => (chartMetric === "hours" ? d.hours : d.count))
+    const maxVal = Math.max(...values, 1.5) // Minimum max to prevent dividing by 0 or flat peaks
+
+    const width = 460
+    const height = 140
+    const paddingLeft = 40
+    const paddingRight = 15
+    const paddingTop = 15
+    const paddingBottom = 25
+
+    const chartWidth = width - paddingLeft - paddingRight
+    const chartHeight = height - paddingTop - paddingBottom
+
+    const points = chartData.map((d, i) => {
+      const val = chartMetric === "hours" ? d.hours : d.count
+      const x = paddingLeft + (i * chartWidth) / 6
+      const y = paddingTop + chartHeight - (val / maxVal) * chartHeight
+      return { x, y, value: val, date: d.dateStr, day: d.dayName }
+    })
+
+    // Generate SVG path using bezier curves
+    let pathD = ""
+    let areaD = ""
+
+    if (points.length > 0) {
+      pathD = `M ${points[0].x} ${points[0].y}`
+      areaD = `M ${points[0].x} ${paddingTop + chartHeight} L ${points[0].x} ${points[0].y}`
+
+      for (let i = 0; i < points.length - 1; i++) {
+        const curr = points[i]
+        const next = points[i + 1]
+        const cpX1 = curr.x + (next.x - curr.x) / 3.2
+        const cpY1 = curr.y
+        const cpX2 = curr.x + (2 * (next.x - curr.x)) / 3.2
+        const cpY2 = next.y
+
+        pathD += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${next.x} ${next.y}`
+        areaD += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${next.x} ${next.y}`
+      }
+      areaD += ` L ${points[points.length - 1].x} ${paddingTop + chartHeight} Z`
+    }
+
+    return { points, pathD, areaD, chartHeight, paddingTop, paddingLeft, chartWidth }
+  }, [chartData, chartMetric])
+
+  // Handles mouse hover over the chart
+  const handleChartMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!chartSvgRef.current) return
+    const rect = chartSvgRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left
+
+    // Find the closest point index
+    let closestIdx = 0
+    let minDiff = Infinity
+
+    svgCoordinates.points.forEach((p, idx) => {
+      const diff = Math.abs(p.x - x)
+      if (diff < minDiff) {
+        minDiff = diff
+        closestIdx = idx
+      }
+    })
+
+    setHoveredChartIndex(closestIdx)
+    setTooltipPos({
+      x: svgCoordinates.points[closestIdx].x,
+      y: svgCoordinates.points[closestIdx].y,
+    })
+  }
+
+  const handleChartMouseLeave = () => {
+    setHoveredChartIndex(null)
+  }
+
+  // Circular progress stroke calculation
+  const radius = 16
+  const strokeCircumference = 2 * Math.PI * radius
+  const strokeDashoffset = strokeCircumference - (stats.digestRate / 100) * strokeCircumference
+
+  // Filter out recent done / active learning videos (max 3)
+  const recentVideos = useMemo(() => {
+    return videos.slice(0, 3)
+  }, [videos])
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("zh-CN", {
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto">
-      <div className="flex flex-col gap-6 px-6 py-6 max-w-6xl w-full mx-auto">
-        {/* Page Header */}
-        <div className="flex flex-col gap-1 select-none">
-          <h1 className="text-[18px] font-semibold tracking-tight text-foreground/90">工作空间仪表盘</h1>
-          <p className="text-xs text-muted-foreground/80">概览个人视频库分析状态与当前知识状态</p>
-        </div>
-
-        {/* Stats Grid - Divided Panel */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border border-border/45 bg-card/55 rounded-lg overflow-hidden divide-y sm:divide-y-0 sm:divide-x divide-border/40 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-          <div className="flex flex-col gap-1.5 p-4.5">
-            <span className="text-[11px] font-medium text-muted-foreground/75 uppercase tracking-wider">视频总数</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[26px] font-semibold tracking-tight leading-none">0</span>
-              <span className="text-xs text-muted-foreground/60">暂无视频</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5 p-4.5">
-            <span className="text-[11px] font-medium text-muted-foreground/75 uppercase tracking-wider">已完成分析</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[26px] font-semibold tracking-tight leading-none">0</span>
-              <span className="text-xs text-muted-foreground/60">等待添加</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5 p-4.5">
-            <span className="text-[11px] font-medium text-muted-foreground/75 uppercase tracking-wider">分析总时长</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[26px] font-semibold tracking-tight leading-none font-mono">0</span>
-              <span className="text-xs text-muted-foreground/60">分钟</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5 p-4.5">
-            <span className="text-[11px] font-medium text-muted-foreground/75 uppercase tracking-wider">学习总进度</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[26px] font-semibold tracking-tight leading-none font-mono">0%</span>
-              <span className="text-xs text-muted-foreground/60">开始学习之旅</span>
+    <div className="flex flex-1 flex-col overflow-y-auto scrollbar-hide bg-gradient-to-b from-zinc-50/20 via-background to-background dark:from-zinc-950/20">
+      <div className="flex flex-col gap-6 px-6 py-6 max-w-6xl w-full mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
+        
+        {/* Dynamic Welcome Header Section */}
+        <div className="relative overflow-hidden rounded-2xl border border-zinc-200/50 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10 p-6 sm:p-7 shadow-[0_1px_3px_rgba(0,0,0,0.01)] select-none">
+          <div className="relative z-10">
+            <div className="space-y-1">
+              <h1 className="text-[20px] font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-700 dark:from-zinc-100 dark:via-zinc-200 dark:to-zinc-300">
+                {greeting}，Admin
+              </h1>
+              <p className="text-xs text-muted-foreground/80 leading-relaxed max-w-xl">
+                您的智能学习助理已就绪。在这里查阅学习动力走势、核心知识关联度，以及大模型的音视频转化深度摘要。
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Two-column layout: knowledge gaps + agent recommendations */}
-        <div className="grid gap-5 md:grid-cols-2">
-          {/* Knowledge gaps */}
-          <div className="flex flex-col rounded-lg border border-border/45 bg-card/40 p-4.5">
-            <div className="flex items-center justify-between pb-4">
-              <div className="flex items-center gap-2">
-                <LightbulbIcon className="size-4 text-amber-500/80 dark:text-amber-400/80" />
-                <h2 className="text-xs font-semibold text-foreground/90">知识主题掌握情况</h2>
-              </div>
-              <span className="text-[10px] text-muted-foreground/60">实时进度</span>
-            </div>
-            <div className="space-y-4">
-              {learningTopics.map((topic) => (
-                <div key={topic.name} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-foreground/80">{topic.name}</span>
-                    <span className="text-[10px] text-muted-foreground/60">
-                      {topic.totalVideos} 个视频 · {topic.progress}%
-                    </span>
+        {/* Metrics Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 select-none">
+          
+          {/* Card 1: Library Size */}
+          <Link href="/videos" className="block group">
+            <Card className="relative overflow-hidden h-[96px] bg-card/45 border-zinc-200/50 dark:border-zinc-800/40 hover:border-zinc-400/40 transition-all duration-300 hover:shadow-xs cursor-pointer">
+              <CardContent className="p-4 flex items-center justify-between h-full">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest block">视频库规模</span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold tracking-tight font-mono">{stats.total}</span>
+                    <span className="text-[10px] text-muted-foreground">个</span>
                   </div>
-                  <div className="h-1 w-full overflow-hidden rounded-full bg-muted/60">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all duration-500",
-                        topic.progress >= 70
-                          ? "bg-emerald-500/80 dark:bg-emerald-500/70"
-                          : topic.progress >= 40
-                            ? "bg-amber-500/80 dark:bg-amber-500/70"
-                            : "bg-primary/80 dark:bg-primary/70"
-                      )}
-                      style={{ width: `${topic.progress}%` }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground/60 font-light">
-                    缺口：{topic.gap}
-                  </p>
+
                 </div>
+                <div className="flex size-10 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800/60 text-muted-foreground/80 group-hover:bg-foreground/5 group-hover:text-foreground transition-all duration-300 border border-zinc-200/20 dark:border-zinc-700/20">
+                  <VideoIcon className="size-4.5" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Card 2: Knowledge Points */}
+          <Link href="/knowledge-graph" className="block group">
+            <Card className="relative overflow-hidden h-[96px] bg-card/45 border-zinc-200/50 dark:border-zinc-800/40 hover:border-zinc-400/40 transition-all duration-300 hover:shadow-xs cursor-pointer">
+              <CardContent className="p-4 flex items-center justify-between h-full">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest block">核心知识点</span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold tracking-tight font-mono">{stats.knowledgePoints}</span>
+                    <span className="text-[10px] text-muted-foreground">概念</span>
+                  </div>
+
+                </div>
+                <div className="flex size-10 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800/60 text-muted-foreground/80 group-hover:bg-foreground/5 group-hover:text-foreground transition-all duration-300 border border-zinc-200/20 dark:border-zinc-700/20">
+                  <GitGraphIcon className="size-4.5" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Card 3: Study Time & Heartbeat sparkline */}
+          <Card className="relative overflow-hidden h-[96px] bg-card/45 border-zinc-200/50 dark:border-zinc-800/40 transition-all duration-300">
+            <CardContent className="p-4 flex items-center justify-between h-full">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest block">系统学习时间</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold tracking-tight font-mono">{stats.totalDurationHours.toFixed(1)}</span>
+                  <span className="text-[10px] text-muted-foreground">小时</span>
+                </div>
+
+              </div>
+              <div className="flex flex-col items-end gap-1 select-none">
+                <svg className="w-14 h-7 text-zinc-400 dark:text-zinc-600 overflow-visible" viewBox="0 0 60 20" fill="none">
+                  <path
+                    d="M0,10 L12,10 L16,4 L20,16 L24,10 L36,10 L40,6 L44,14 L48,10 L60,10"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="animate-[pulse_3s_infinite]"
+                  />
+                </svg>
+                <span className="text-[8px] font-mono text-muted-foreground/45 tracking-wide scale-90">STUDY BEAT</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 4: AI Digest Rate */}
+          <Card className="relative overflow-hidden h-[96px] bg-card/45 border-zinc-200/50 dark:border-zinc-800/40 transition-all duration-300">
+            <CardContent className="p-4 flex items-center justify-between h-full">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest block">大模型转化率</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold tracking-tight font-mono">{stats.digestRate}</span>
+                  <span className="text-[10px] text-muted-foreground">%</span>
+                </div>
+
+              </div>
+              <div className="relative flex items-center justify-center scale-95 select-none">
+                <svg className="w-12 h-12 -rotate-90" viewBox="0 0 40 40">
+                  <circle
+                    cx="20"
+                    cy="20"
+                    r={radius}
+                    className="stroke-zinc-200/50 dark:stroke-zinc-800/50"
+                    strokeWidth="3.2"
+                    fill="transparent"
+                  />
+                  <circle
+                    cx="20"
+                    cy="20"
+                    r={radius}
+                    className="stroke-zinc-800 dark:stroke-zinc-200 transition-all duration-500 ease-out"
+                    strokeWidth="3.2"
+                    fill="transparent"
+                    strokeDasharray={strokeCircumference}
+                    strokeDashoffset={strokeDashoffset}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-[9px] font-mono font-bold text-foreground/80">
+                  {stats.digestRate}%
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+        </div>
+
+        {/* Dynamic Analytics & Info Cloud Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Custom Interactive SVG Chart */}
+          <div className="lg:col-span-2 flex flex-col gap-3 rounded-xl border border-zinc-200/50 dark:border-zinc-800/40 bg-card/35 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.01)] relative select-none">
+            <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-zinc-800/30 pb-3">
+              <div className="flex items-center gap-1.5 pb-0.5">
+                <h3 className="text-xs font-semibold text-foreground/90 uppercase tracking-wider">最近学习动力曲线</h3>
+                {chartData[0]?.isDemo && (
+                  <span className="rounded-xs bg-zinc-500/10 text-zinc-500 border border-zinc-500/20 px-1 py-[0.5px] text-[7.5px] scale-90 font-medium">
+                    效果展示数据
+                  </span>
+                )}
+              </div>
+
+              {/* Minimal Dual-Tab switch */}
+              <div className="flex p-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/30 dark:border-zinc-700/10">
+                <button
+                  onClick={() => setChartMetric("hours")}
+                  className={cn(
+                    "px-2 py-0.5 rounded-sm text-[9.5px] font-medium transition-all cursor-pointer",
+                    chartMetric === "hours"
+                      ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 shadow-xs"
+                      : "text-muted-foreground/80 hover:text-foreground"
+                  )}
+                >
+                  时长 (Hr)
+                </button>
+                <button
+                  onClick={() => setChartMetric("count")}
+                  className={cn(
+                    "px-2 py-0.5 rounded-sm text-[9.5px] font-medium transition-all cursor-pointer",
+                    chartMetric === "count"
+                      ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 shadow-xs"
+                      : "text-muted-foreground/80 hover:text-foreground"
+                  )}
+                >
+                  视频 (个)
+                </button>
+              </div>
+            </div>
+
+            {/* Custom SVG Drawing Area */}
+            <div className="relative w-full h-[140px] mt-2 group/chart" style={{ touchAction: "none" }}>
+              
+              {/* Responsive SVG */}
+              <svg
+                ref={chartSvgRef}
+                viewBox="0 0 460 140"
+                className="w-full h-full overflow-visible"
+                onMouseMove={handleChartMouseMove}
+                onMouseLeave={handleChartMouseLeave}
+              >
+                <defs>
+                  {/* Glowing gray area gradient */}
+                  <linearGradient id="grayGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="currentColor" stopOpacity="0.05" />
+                    <stop offset="100%" stopColor="currentColor" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+
+                {/* Horizontal grid lines */}
+                {[0, 0.25, 0.5, 0.75, 1].map((r, idx) => {
+                  const y = svgCoordinates.paddingTop + r * svgCoordinates.chartHeight
+                  return (
+                    <line
+                      key={idx}
+                      x1={svgCoordinates.paddingLeft}
+                      y1={y}
+                      x2={svgCoordinates.paddingLeft + svgCoordinates.chartWidth}
+                      y2={y}
+                      stroke="currentColor"
+                      className="text-zinc-200/40 dark:text-zinc-800/30"
+                      strokeWidth="0.75"
+                    />
+                  )
+                })}
+
+                {/* Area under the line */}
+                <path d={svgCoordinates.areaD} fill="url(#grayGradient)" className="text-zinc-500/30 dark:text-zinc-400/20" />
+
+                {/* The main Bezier trend line */}
+                <path
+                  d={svgCoordinates.pathD}
+                  fill="none"
+                  className="stroke-zinc-800 dark:stroke-zinc-200"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+
+                {/* Data Points */}
+                {svgCoordinates.points.map((p, idx) => (
+                  <circle
+                    key={idx}
+                    cx={p.x}
+                    cy={p.y}
+                    r="3.5"
+                    className={cn(
+                      "fill-white dark:fill-zinc-950 stroke-zinc-800 transition-all duration-150",
+                      hoveredChartIndex === idx ? "stroke-zinc-900 dark:stroke-white stroke-[3] r-5 scale-125" : "stroke-zinc-400 dark:stroke-zinc-600 stroke-[1.75]"
+                    )}
+                  />
+                ))}
+
+                {/* Interactive coordinate tracking line */}
+                {hoveredChartIndex !== null && (
+                  <line
+                    x1={tooltipPos.x}
+                    y1={svgCoordinates.paddingTop}
+                    x2={tooltipPos.x}
+                    y2={svgCoordinates.paddingTop + svgCoordinates.chartHeight}
+                    stroke="currentColor"
+                    className="text-zinc-400/30 dark:text-zinc-600/35"
+                    strokeWidth="1.25"
+                    strokeDasharray="4 3"
+                  />
+                )}
+
+                {/* X Axis Labels */}
+                {chartData.map((d, idx) => {
+                  const x = svgCoordinates.paddingLeft + (idx * svgCoordinates.chartWidth) / 6
+                  return (
+                    <text
+                      key={idx}
+                      x={x}
+                      y={136}
+                      textAnchor="middle"
+                      className="fill-muted-foreground/60 text-[9px] font-mono select-none"
+                    >
+                      {d.dayName}
+                    </text>
+                  )
+                })}
+              </svg>
+
+              {/* Absolute Glassmorphic Hover Tooltip */}
+              {hoveredChartIndex !== null && (
+                <div
+                  className="absolute pointer-events-none -translate-x-1/2 -translate-y-[100%] rounded-lg border border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md px-2.5 py-1.5 text-[10px] leading-tight font-medium shadow-md transition-all duration-75 flex flex-col z-20"
+                  style={{
+                    left: `${(tooltipPos.x / 460) * 100}%`,
+                    top: `${(tooltipPos.y / 140) * 100 - 8}%`,
+                  }}
+                >
+                  <span className="text-muted-foreground text-[8px] font-mono uppercase tracking-wider block">
+                    {chartData[hoveredChartIndex].dateStr} · {chartData[hoveredChartIndex].dayName}
+                  </span>
+                  <span className="text-foreground/90 font-bold block mt-0.5 font-sans">
+                    {chartMetric === "hours" ? (
+                      <>学习时长: <span className="font-mono text-zinc-900 dark:text-zinc-100">{chartData[hoveredChartIndex].hours}</span> 小时</>
+                    ) : (
+                      <>分析视频: <span className="font-mono text-zinc-900 dark:text-zinc-100">{chartData[hoveredChartIndex].count}</span> 个</>
+                    )}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* AI Interactive Prompt Assistant Widget */}
+          <div className="flex flex-col gap-3 rounded-xl border border-zinc-200/50 dark:border-zinc-800/40 bg-card/35 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.01)] select-none relative overflow-hidden">
+            <div className="border-b border-zinc-200/40 dark:border-zinc-800/30 pb-3.5">
+              <h3 className="text-xs font-semibold text-foreground/90 uppercase tracking-wider flex items-center gap-1">
+                <SparklesIcon className="size-3.5 text-zinc-800 dark:text-zinc-200 animate-pulse" />
+                AI 智能探索快捷入口
+              </h3>
+            </div>
+
+            <div className="flex-1 flex flex-col gap-2 mt-2">
+              {QUICK_PROMPTS.map((prompt, idx) => {
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      // Save prompt to session storage to let AI assistant fetch it
+                      if (typeof window !== "undefined") {
+                        sessionStorage.setItem("ai_initial_prompt", prompt.prompt)
+                        router.push("/ai-assistant")
+                      }
+                    }}
+                    className="group flex items-center gap-3 p-2 rounded-lg border border-zinc-200/50 dark:border-zinc-800/40 bg-white/40 dark:bg-zinc-900/10 hover:border-zinc-400/40 hover:bg-white/80 dark:hover:bg-zinc-900/40 text-left text-[11.5px] font-medium leading-none cursor-pointer transition-all duration-300 relative overflow-hidden select-none"
+                  >
+                    {/* Left Accent Indicator Bar */}
+                    <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-zinc-800 dark:bg-zinc-200 scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-center" />
+
+                    {/* Modern Index Indexing */}
+                    <span className="font-mono text-[10px] text-muted-foreground/35 group-hover:text-zinc-800 dark:group-hover:text-zinc-200 transition-colors font-bold pr-1">
+                      {prompt.num}
+                    </span>
+                    <span className="text-zinc-200/80 dark:text-zinc-800/70 text-[10px] font-light">/</span>
+                    
+                    {/* Prompt Title */}
+                    <span className="text-zinc-700 dark:text-zinc-300 group-hover:text-foreground transition-colors truncate flex-1 leading-snug">
+                      {prompt.text}
+                    </span>
+
+                    {/* Soft Hover Arrow */}
+                    <ArrowRightIcon className="size-3 shrink-0 opacity-0 group-hover:opacity-100 translate-x-[-4px] group-hover:translate-x-0 transition-all duration-300 text-muted-foreground" />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Recent Study & Activity Section */}
+        <div className="flex flex-col gap-3 rounded-xl border border-zinc-200/50 dark:border-zinc-800/40 bg-card/35 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.01)] select-none">
+          <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-zinc-800/30 pb-3.5">
+            <h3 className="text-xs font-semibold text-foreground/90 uppercase tracking-wider">最近研究进展</h3>
+            <Link href="/videos" className="text-[10px] font-bold text-zinc-800 dark:text-zinc-200 hover:text-foreground hover:underline flex items-center gap-0.5">
+              前往视频库
+              <ArrowRightIcon className="size-3" />
+            </Link>
+          </div>
+
+          {/* Skeletons or Empty States */}
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-8">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-20 rounded-lg bg-zinc-100 dark:bg-zinc-800/30 animate-pulse border border-border/30" />
               ))}
             </div>
-          </div>
-
-          {/* Agent recommendations */}
-          <div className="flex flex-col rounded-lg border border-border/45 bg-card/40 p-4.5">
-            <div className="flex items-center justify-between pb-3">
-              <div className="flex items-center gap-2">
-                <BotIcon className="size-4 text-primary/80" />
-                <h2 className="text-xs font-semibold text-foreground/90">学习建议 & 推荐</h2>
+          ) : recentVideos.length === 0 ? (
+            /* Premium Empty State */
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200/50 dark:border-zinc-800/50 bg-card/45 text-muted-foreground/60 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                <BookOpenIcon className="size-5" />
               </div>
-              <span className="text-[10px] text-muted-foreground/60">根据知识缺口计算</span>
+              <h4 className="text-xs font-semibold text-foreground/80">目前没有导入视频</h4>
+              <p className="mt-1 max-w-xs text-[10px] text-muted-foreground/70 leading-relaxed">
+                前往视频资源库贴入网页链接或上传本地视频，即刻生成交互式分析控制台。
+              </p>
             </div>
-            <div className="space-y-2.5">
-              {recommendedVideos.map((video) => (
-                <Link
-                  key={video.id}
-                  href="/videos/new"
-                  className="group flex gap-3 rounded border border-border/30 hover:border-border/60 bg-muted/20 hover:bg-muted/40 p-2 transition-all duration-150"
-                >
-                  <div className="relative h-11 w-20 shrink-0 overflow-hidden rounded bg-muted/80 flex items-center justify-center border border-border/10">
-                    <VideoIcon className="size-4.5 text-muted-foreground/35" />
-                    <span className="absolute bottom-0.5 right-0.5 rounded bg-black/60 px-0.5 py-[1px] text-[8px] font-mono text-white/95">
-                      {video.duration}
-                    </span>
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
-                    <p className="truncate text-[12px] font-medium text-foreground/85 group-hover:text-primary transition-colors leading-tight">
-                      {video.title}
-                    </p>
-                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground/75">
-                      <span
-                        className={cn(
-                          "rounded-sm px-1 py-[1px] text-[8px] font-mono",
-                          video.source === "bilibili"
-                            ? "bg-pink-950/20 text-pink-500 dark:text-pink-400/90 border border-pink-500/10"
-                            : "bg-red-950/20 text-red-500 dark:text-red-400/90 border border-red-500/10"
+          ) : (
+            /* Cards Deck Grid (Replacing Recent Activities) */
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              {recentVideos.map((video) => {
+                const isDone = video.status === "done"
+                const isProcessing = video.status === "downloading" || video.status === "transcribing"
+                const isError = video.status === "error"
+
+                // Badge configuration based on state
+                let badgeClass = "text-zinc-500 bg-zinc-50 dark:bg-zinc-900/10 border-zinc-200/20 dark:border-zinc-800/20"
+                let statusText = "待处理"
+                let Dot = () => <span className="inline-block size-1.5 rounded-full bg-zinc-400 mr-1" />
+
+                if (video.status === "downloading") {
+                  badgeClass = "text-zinc-600 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-850 border-zinc-200/30 dark:border-zinc-700/30"
+                  statusText = "下载中"
+                  Dot = () => <span className="inline-block size-1.5 rounded-full bg-zinc-500 animate-ping mr-1" />
+                } else if (video.status === "transcribing") {
+                  badgeClass = "text-zinc-600 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-850 border-zinc-200/30 dark:border-zinc-700/30"
+                  statusText = "转录分析中"
+                  Dot = () => <span className="inline-block size-1.5 rounded-full bg-zinc-500 animate-pulse mr-1" />
+                } else if (isDone) {
+                  badgeClass = "text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200/50 dark:border-zinc-700/50"
+                  statusText = "解析已就绪"
+                  Dot = () => <span className="inline-block size-1.5 rounded-full bg-zinc-850 dark:bg-zinc-150 mr-1" />
+                } else if (isError) {
+                  badgeClass = "text-zinc-500 bg-zinc-50 dark:bg-zinc-900/5 border-zinc-200/20 dark:border-zinc-800/15"
+                  statusText = "处理失败"
+                  Dot = () => <span className="inline-block size-1.5 rounded-full bg-zinc-400 mr-1 animate-bounce" />
+                }
+
+                // Platform badge helper
+                const sourceBadge = (source: string) => {
+                  const base = "rounded px-1.5 py-0.5 text-[8.5px] font-mono border uppercase tracking-wider font-semibold scale-90 origin-left"
+                  if (source === "bilibili") return cn(base, "bg-zinc-500/5 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800")
+                  if (source === "youtube") return cn(base, "bg-zinc-500/5 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800")
+                  return cn(base, "bg-zinc-500/5 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800")
+                }
+
+                return (
+                  <div
+                    key={video.id}
+                    onClick={() => isDone && router.push(`/videos/${video.id}`)}
+                    className={cn(
+                      "group relative flex items-center gap-3 p-2.5 rounded-xl border border-zinc-200/50 dark:border-zinc-800/40 bg-card/45 transition-all duration-300 overflow-hidden shadow-xs",
+                      isDone ? "cursor-pointer hover:border-zinc-400/40 hover:shadow-xs" : "bg-zinc-100/5 dark:bg-zinc-900/5",
+                      isProcessing && "opacity-95"
+                    )}
+                  >
+                    {/* Left Accent Shimmer Bar on Done Hover */}
+                    {isDone && (
+                      <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-transparent via-zinc-400/30 to-transparent translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-300" />
+                    )}
+
+                    {/* Left Thumbnail (Miniature Aspect-Video) */}
+                    <div className="relative h-11 w-18 shrink-0 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/30 dark:border-zinc-700/20 flex items-center justify-center select-none">
+                      {video.thumbnail ? (
+                        <img
+                          src={video.thumbnail}
+                          alt={video.title || "封面"}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-103 group-hover:brightness-105"
+                        />
+                      ) : (
+                        <VideoIcon className="size-4 text-muted-foreground/35" />
+                      )}
+                      
+                      {/* Play overlay */}
+                      {isDone && (
+                        <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                          <div className="h-6 w-6 rounded-full bg-white/95 dark:bg-zinc-950/90 shadow-md flex items-center justify-center text-zinc-900 dark:text-zinc-100 group-hover:scale-105 transition-transform duration-300">
+                            <PlayIcon className="size-2.5 fill-current ml-0.5" />
+                          </div>
+                        </div>
+                      )}
+
+                      {isProcessing && (
+                        <div className="absolute inset-0 bg-black/15 dark:bg-black/35 backdrop-blur-[0.5px] flex items-center justify-center">
+                          <Loader2Icon className="size-4 animate-spin text-white" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right Info Details */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+                      <h4 className="truncate text-xs font-semibold text-foreground/85 leading-tight group-hover:text-zinc-800 dark:group-hover:text-zinc-200 transition-colors">
+                        {video.title || "未命名视频或解析中..."}
+                      </h4>
+                      
+                      <div className="flex items-center gap-1.5 select-none overflow-hidden">
+                        {/* Source badge */}
+                        <span className={sourceBadge(video.source)}>
+                          {video.source === "bilibili" ? "BiliBili" : video.source === "youtube" ? "YouTube" : "Local"}
+                        </span>
+
+                        {/* Status text badge (only show if not done) */}
+                        {!isDone && (
+                          <span className={cn("inline-flex items-center rounded-xs px-1 py-[0.5px] text-[8px] font-bold border scale-90 origin-left leading-none", badgeClass)}>
+                            <Dot />
+                            {statusText}
+                          </span>
                         )}
-                      >
-                        {video.source === "bilibili" ? "B站" : "YouTube"}
-                      </span>
-                      <span className="truncate">{video.reason}</span>
+
+                        {/* Date string */}
+                        <span className="text-[8.5px] text-muted-foreground/45 font-mono ml-auto shrink-0 pr-0.5">
+                          {formatDate(video.createdAt).split(" ")[0]}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </Link>
-              ))}
+                )
+              })}
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Recent activity */}
-        <div className="flex flex-col rounded-lg border border-border/45 bg-card/40 p-4.5">
-          <div className="pb-3 select-none">
-            <h2 className="text-xs font-semibold text-foreground/90">最近动态</h2>
-            <p className="text-[10px] text-muted-foreground/60">最近分析记录与学习记录</p>
-          </div>
-          <div className="divide-y divide-border/30">
-            {recentActivity.map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 py-2 text-xs transition-colors duration-100 hover:bg-muted/10"
-              >
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted/50 border border-border/30 text-muted-foreground/70">
-                  <item.icon className="size-3" />
-                </div>
-                <p className="min-w-0 flex-1 text-foreground/80 leading-none">
-                  <span className="text-muted-foreground/75">{item.action}</span>{" "}
-                  <span className="font-medium text-foreground/85">{item.target}</span>
-                </p>
-                <span className="text-[10px] text-muted-foreground/50 shrink-0 font-mono">{item.time}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Quick actions - Minimal outline tiles */}
-        
       </div>
     </div>
   )

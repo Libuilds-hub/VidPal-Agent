@@ -22,6 +22,10 @@ import {
   Link2Icon,
   HelpCircleIcon,
   XIcon,
+  SlidersHorizontalIcon,
+  LayoutGridIcon,
+  ListIcon,
+  ChevronDownIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -41,42 +45,33 @@ const statusConfig: Record<string, { label: string; icon: any; className: string
   pending: {
     label: "待处理",
     icon: ClockIcon,
-    className: "text-muted-foreground/80 bg-muted/10 border-border/40",
+    className: "text-zinc-500 bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200/40 dark:border-zinc-800/40",
   },
   downloading: {
     label: "下载中",
     icon: Loader2Icon,
-    className: "text-amber-500 bg-amber-500/5 border-amber-500/10",
+    className: "text-zinc-700 dark:text-zinc-300 bg-zinc-100/80 dark:bg-zinc-800/80 border-zinc-200/50 dark:border-zinc-700/50",
   },
   transcribing: {
     label: "转录中",
     icon: Loader2Icon,
-    className: "text-blue-500 bg-blue-500/5 border-blue-500/10",
+    className: "text-zinc-700 dark:text-zinc-300 bg-zinc-100/80 dark:bg-zinc-800/80 border-zinc-200/50 dark:border-zinc-700/50",
   },
   done: {
-    label: "已完成",
+    label: "已就绪",
     icon: CheckCircle2Icon,
-    className: "text-emerald-500 bg-emerald-500/5 border-emerald-500/10",
+    className: "text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200/50 dark:border-zinc-700/50",
   },
   error: {
-    label: "失败",
+    label: "处理失败",
     icon: AlertCircleIcon,
-    className: "text-rose-500 bg-rose-500/5 border-rose-500/10",
+    className: "text-zinc-500 bg-zinc-500/5 border-zinc-200/20 dark:border-zinc-800/20",
   },
 }
 
 const sourceBadge = (source: string) => {
-  const base = "rounded px-1.5 py-0.5 text-[9px] font-mono border uppercase tracking-wider font-semibold"
-  switch (source) {
-    case "bilibili":
-      return cn(base, "bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800")
-    case "youtube":
-      return cn(base, "bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800")
-    case "local":
-      return cn(base, "bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800")
-    default:
-      return cn(base, "bg-muted text-muted-foreground border-border/40")
-  }
+  const base = "rounded-md px-1.5 py-0.5 text-[9px] font-mono border uppercase tracking-wider font-bold select-none scale-95 origin-left"
+  return cn(base, "bg-zinc-100 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 border-zinc-200/60 dark:border-zinc-800")
 }
 
 const sourceLabel = (source: string) => {
@@ -94,6 +89,14 @@ export default function VideosPage() {
   const [search, setSearch] = useState("")
   const router = useRouter()
 
+  // View state and dynamic filters
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [filterPlatform, setFilterPlatform] = useState<string>("all")
+  const [filterTimeframe, setFilterTimeframe] = useState<string>("all")
+  const [customStartDate, setCustomStartDate] = useState<string>("")
+  const [customEndDate, setCustomEndDate] = useState<string>("")
+
   // Import modal states
   const [isImportOpen, setIsImportOpen] = useState(false)
   const [inputValue, setInputValue] = useState("")
@@ -103,6 +106,14 @@ export default function VideosPage() {
   const [activeTab, setActiveTab] = useState<"link" | "file">("link")
 
   useEffect(() => {
+    // Hydrate view mode from localStorage safely
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("videos_view_mode") as "grid" | "list"
+      if (saved === "grid" || saved === "list") {
+        setViewMode(saved)
+      }
+    }
+
     fetchVideos()
 
     // Detect import query parameter from direct navigations
@@ -126,6 +137,13 @@ export default function VideosPage() {
       clearInterval(interval)
     }
   }, [])
+
+  const handleViewModeChange = (mode: "grid" | "list") => {
+    setViewMode(mode)
+    if (typeof window !== "undefined") {
+      localStorage.setItem("videos_view_mode", mode)
+    }
+  }
 
   const fetchVideos = async () => {
     try {
@@ -243,6 +261,7 @@ export default function VideosPage() {
   const filteredVideos = videos
     .filter((v) => v.title)
     .filter((v) => {
+      // 1. Search filter
       if (!search.trim()) return true
       const q = search.toLowerCase()
       return (
@@ -250,92 +269,485 @@ export default function VideosPage() {
         sourceLabel(v.source).toLowerCase().includes(q)
       )
     })
+    .filter((v) => {
+      // 2. Platform filter
+      if (filterPlatform === "all") return true
+      return v.source.toLowerCase() === filterPlatform.toLowerCase()
+    })
+    .filter((v) => {
+      // 3. Timeframe filter
+      if (filterTimeframe === "all") return true
+
+      const createdTime = new Date(v.createdAt).getTime()
+      const now = new Date().getTime()
+
+      if (filterTimeframe === "7days") {
+        const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000
+        return createdTime >= sevenDaysAgo
+      }
+
+      if (filterTimeframe === "30days") {
+        const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000
+        return createdTime >= thirtyDaysAgo
+      }
+
+      if (filterTimeframe === "custom") {
+        let match = true
+        if (customStartDate) {
+          const start = new Date(customStartDate)
+          start.setHours(0, 0, 0, 0)
+          match = match && createdTime >= start.getTime()
+        }
+        if (customEndDate) {
+          const end = new Date(customEndDate)
+          end.setHours(23, 59, 59, 999)
+          match = match && createdTime <= end.getTime()
+        }
+        return match
+      }
+
+      return true
+    })
 
   return (
     <div className="flex flex-1 flex-col overflow-y-auto bg-background">
       <div className="flex flex-col gap-5 px-6 py-6 max-w-6xl w-full mx-auto">
         
-        {/* Header */}
-        <div className="flex items-center justify-between select-none">
-          <div className="space-y-0.5">
-            <h1 className="text-[18px] font-semibold tracking-tight text-foreground/90">视频资源库</h1>
-            <p className="text-xs text-muted-foreground/80">
-              管理已导入的音视频资源，查阅解析状态与智能摘要
-            </p>
+        {/* Sleek Action & Toolbar Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 pb-3 border-b border-zinc-200/50 dark:border-zinc-800/40 select-none animate-in fade-in duration-200">
+          
+          <div className="flex flex-1 items-center gap-2 max-w-xl">
+            {/* Search Input Bar */}
+            <div className="relative flex-1 max-w-xs">
+              <SearchIcon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="在视频库中搜索..."
+                className="h-8 w-full rounded-lg border border-zinc-200/60 dark:border-zinc-800/50 bg-background/50 pl-8 pr-3 text-xs outline-none transition-all duration-150 focus:border-zinc-400/80 focus:bg-background focus:ring-1 focus:ring-zinc-400/10 placeholder:text-muted-foreground/45 font-medium"
+              />
+            </div>
+
+            {/* Premium Floating Dropdown Filter Button Wrapper */}
+            <div className="relative z-30">
+              <button
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className={cn(
+                  "flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg border transition-all duration-200 cursor-pointer select-none active:scale-97",
+                  isFilterOpen || filterPlatform !== "all" || filterTimeframe !== "all"
+                    ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100"
+                    : "bg-background border-zinc-200/60 dark:border-zinc-800/50 text-muted-foreground/80 hover:text-foreground hover:bg-muted/40"
+                )}
+              >
+                <SlidersHorizontalIcon className="size-3.5" />
+                <span>筛选</span>
+                <ChevronDownIcon className={cn("size-3.5 transition-transform duration-250", isFilterOpen && "rotate-180")} />
+              </button>
+
+              {/* Floating Popover Dropdown Panel */}
+              {isFilterOpen && (
+                <>
+                  {/* Transparent overlay to close popover when clicking outside */}
+                  <div 
+                    className="fixed inset-0 z-30 cursor-default" 
+                    onClick={() => setIsFilterOpen(false)}
+                  />
+
+                  {/* Absolute Dropdown Panel */}
+                  <div className="absolute left-0 mt-1.5 z-40 w-80 rounded-xl border border-zinc-200/60 dark:border-zinc-800/50 bg-background/98 dark:bg-zinc-950/98 backdrop-blur-md p-4.5 shadow-xl select-none animate-in fade-in slide-in-from-top-2 duration-150 space-y-4">
+                    
+                    {/* Platform Filter */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest block font-mono">
+                        平台来源
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {["all", "bilibili", "youtube", "local"].map((p) => {
+                          const label = p === "all" ? "全部" : p === "bilibili" ? "BiliBili" : p === "youtube" ? "YouTube" : "本地视频"
+                          const active = filterPlatform === p
+                          return (
+                            <button
+                              key={p}
+                              onClick={() => setFilterPlatform(p)}
+                              className={cn(
+                                "px-2.5 py-1 text-xs rounded-md border transition-all duration-200 cursor-pointer select-none",
+                                active 
+                                  ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100 font-semibold shadow-xs"
+                                  : "bg-white/40 dark:bg-zinc-900/5 border-zinc-200/60 dark:border-zinc-800/40 text-muted-foreground hover:text-foreground hover:bg-white/80 dark:hover:bg-zinc-900/30"
+                              )}
+                            >
+                              {label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Time timeframe filter */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest block font-mono">
+                        导入时间
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { key: "all", label: "全部时间" },
+                          { key: "7days", label: "最近 7 天" },
+                          { key: "30days", label: "最近 30 天" },
+                          { key: "custom", label: "自定义日期" },
+                        ].map((t) => {
+                          const active = filterTimeframe === t.key
+                          return (
+                            <button
+                              key={t.key}
+                              onClick={() => setFilterTimeframe(t.key)}
+                              className={cn(
+                                "px-2.5 py-1 text-xs rounded-md border transition-all duration-200 cursor-pointer select-none",
+                                active 
+                                  ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100 font-semibold shadow-xs"
+                                  : "bg-white/40 dark:bg-zinc-900/5 border-zinc-200/60 dark:border-zinc-800/40 text-muted-foreground hover:text-foreground hover:bg-white/80 dark:hover:bg-zinc-900/30"
+                              )}
+                            >
+                              {t.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Custom Date selections */}
+                    <div className={cn(
+                      "grid transition-all duration-250 ease-in-out overflow-hidden",
+                      filterTimeframe === "custom" ? "grid-rows-[1fr] opacity-100 pt-3.5 border-t border-zinc-200/40 dark:border-zinc-800/20" : "grid-rows-[0fr] opacity-0"
+                    )}>
+                      <div className="overflow-hidden space-y-2.5">
+                        <div className="flex flex-col gap-2.5 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-muted-foreground font-medium select-none">开始日期:</span>
+                            <input
+                              type="date"
+                              value={customStartDate}
+                              onChange={(e) => setCustomStartDate(e.target.value)}
+                              className="h-8 rounded-lg border border-zinc-200/60 dark:border-zinc-800/50 bg-background/50 px-2.5 text-xs outline-none transition-all focus:border-zinc-400 focus:bg-background font-mono"
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-muted-foreground font-medium select-none">结束日期:</span>
+                            <input
+                              type="date"
+                              value={customEndDate}
+                              onChange={(e) => setCustomEndDate(e.target.value)}
+                              className="h-8 rounded-lg border border-zinc-200/60 dark:border-zinc-800/50 bg-background/50 px-2.5 text-xs outline-none transition-all focus:border-zinc-400 focus:bg-background font-mono"
+                            />
+                          </div>
+                        </div>
+                        {(customStartDate || customEndDate) && (
+                          <button
+                            onClick={() => {
+                              setCustomStartDate("")
+                              setCustomEndDate("")
+                            }}
+                            className="w-full h-7 rounded border border-zinc-200 dark:border-zinc-800 text-[10px] text-muted-foreground/60 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors font-semibold flex items-center justify-center gap-1 cursor-pointer bg-white/40 dark:bg-zinc-900/10"
+                          >
+                            清空日期
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Quick Panel Actions Footer */}
+                    <div className="pt-3.5 border-t border-zinc-200/40 dark:border-zinc-800/20 flex items-center justify-between">
+                      <button
+                        onClick={() => {
+                          setFilterPlatform("all")
+                          setFilterTimeframe("all")
+                          setCustomStartDate("")
+                          setCustomEndDate("")
+                        }}
+                        className="text-[10px] text-muted-foreground hover:text-zinc-950 dark:hover:text-zinc-100 font-bold tracking-wider uppercase transition-colors cursor-pointer"
+                      >
+                        重置所有
+                      </button>
+                      <button
+                        onClick={() => setIsFilterOpen(false)}
+                        className="h-7 px-3 rounded bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 font-bold text-[10px] tracking-wider uppercase transition-colors cursor-pointer hover:bg-zinc-800 dark:hover:bg-zinc-200"
+                      >
+                        完成
+                      </button>
+                    </div>
+
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Premium Upload Button - Relocated to the right of Filter */}
+            <Button
+              onClick={() => setIsImportOpen(true)}
+              size="sm"
+              className="gap-1.5 h-8 px-3 text-xs font-semibold bg-background border border-zinc-200/60 dark:border-zinc-800/50 text-muted-foreground/80 hover:text-foreground hover:bg-muted/40 rounded-lg shadow-none active:scale-97 cursor-pointer shrink-0 transition-all duration-200"
+            >
+              <UploadIcon className="size-3.5" />
+              上传
+            </Button>
           </div>
-          <Button onClick={() => setIsImportOpen(true)} size="sm" className="gap-1.5 h-7.5 px-3 text-xs bg-foreground text-background hover:bg-foreground/90 rounded border-none shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-            <PlusIcon className="size-3.5" />
-            导入视频
-          </Button>
+
+          <div className="flex items-center gap-3">
+            {/* Segmented View Switcher */}
+            <div className="flex p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/70 border border-zinc-200/30 dark:border-zinc-800/30 select-none items-center h-8">
+              <button
+                onClick={() => handleViewModeChange("grid")}
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1 rounded-md text-[10.5px] font-bold transition-all duration-200 cursor-pointer h-full",
+                  viewMode === "grid"
+                    ? "bg-white dark:bg-zinc-900 text-foreground shadow-xs border border-zinc-200/35 dark:border-zinc-800/35"
+                    : "text-muted-foreground/75 hover:text-foreground"
+                )}
+                title="网格视图"
+              >
+                <LayoutGridIcon className="size-3.5" />
+                <span>网格</span>
+              </button>
+              <button
+                onClick={() => handleViewModeChange("list")}
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1 rounded-md text-[10.5px] font-bold transition-all duration-200 cursor-pointer h-full",
+                  viewMode === "list"
+                    ? "bg-white dark:bg-zinc-900 text-foreground shadow-xs border border-zinc-200/35 dark:border-zinc-800/35"
+                    : "text-muted-foreground/75 hover:text-foreground"
+                )}
+                title="列表视图"
+              >
+                <ListIcon className="size-3.5" />
+                <span>列表</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Search bar & Filter summary */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-border/30">
-          <div className="relative w-full max-w-xs">
-            <SearchIcon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="搜索标题或平台来源..."
-              className="h-7.5 w-full rounded border border-border/45 bg-muted/20 pl-8 pr-3 text-xs outline-none transition-all duration-150 focus:border-primary/50 focus:bg-background focus:ring-1 focus:ring-primary/10 placeholder:text-muted-foreground/45"
-            />
-          </div>
+        {/* Active Filter Badges */}
+        {(filterPlatform !== "all" || filterTimeframe !== "all") && (
+          <div className="flex flex-wrap items-center gap-2.5 py-1 select-none animate-in fade-in slide-in-from-top-1 duration-200">
+            <span className="text-[10px] text-muted-foreground/45 font-mono uppercase tracking-wider font-bold">已启用筛选:</span>
+            
+            {filterPlatform !== "all" && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10.5px] font-semibold border border-zinc-200/60 dark:border-zinc-700">
+                <span>平台: {filterPlatform === "bilibili" ? "BiliBili" : filterPlatform === "youtube" ? "YouTube" : "本地视频"}</span>
+                <button
+                  onClick={() => setFilterPlatform("all")}
+                  className="hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded p-0.5 transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
+                >
+                  <XIcon className="size-3" />
+                </button>
+              </span>
+            )}
 
-          <div className="flex items-center text-[11px] text-muted-foreground/75 font-mono select-none">
-            <span>共 {filteredVideos.length} 个视频</span>
-            {search && <span className="ml-1 text-primary">· 已过滤 "{search}"</span>}
-          </div>
-        </div>
+            {filterTimeframe !== "all" && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10.5px] font-semibold border border-zinc-200/60 dark:border-zinc-700">
+                <span>
+                  时间: {
+                    filterTimeframe === "7days" ? "最近 7 天" : 
+                    filterTimeframe === "30days" ? "最近 30 天" : 
+                    `自定义日期 (${customStartDate || "未设"} ~ ${customEndDate || "未设"})`
+                  }
+                </span>
+                <button
+                  onClick={() => {
+                    setFilterTimeframe("all")
+                    setCustomStartDate("")
+                    setCustomEndDate("")
+                  }}
+                  className="hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded p-0.5 transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
+                >
+                  <XIcon className="size-3" />
+                </button>
+              </span>
+            )}
 
-        {/* Content */}
+            <button
+              onClick={() => {
+                setFilterPlatform("all")
+                setFilterTimeframe("all")
+                setCustomStartDate("")
+                setCustomEndDate("")
+              }}
+              className="text-xs text-muted-foreground hover:text-zinc-950 dark:hover:text-zinc-100 font-semibold transition-colors cursor-pointer ml-1 underline underline-offset-2"
+            >
+              全部清空
+            </button>
+          </div>
+        )}
+
+        {/* Content Section */}
         {loading ? (
-          <div className="flex flex-1 items-center justify-center py-28 select-none">
-            <div className="flex flex-col items-center gap-3 text-muted-foreground/80">
-              <Loader2Icon className="size-5 animate-spin text-primary" />
-              <p className="text-xs font-mono">数据加载中...</p>
+          <div className="flex flex-1 items-center justify-center py-32 select-none">
+            <div className="flex flex-col items-center gap-3.5 text-muted-foreground/80">
+              <Loader2Icon className="size-5.5 animate-spin text-zinc-450 dark:text-zinc-550" />
+              <p className="text-xs font-mono tracking-wider text-muted-foreground/50">正在同步云端资源...</p>
             </div>
           </div>
         ) : filteredVideos.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/50 bg-card/10 select-none">
-            <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded border border-border/40 bg-card/85 text-muted-foreground/60 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          /* Premium minimal empty state */
+          <div className="rounded-xl border border-dashed border-zinc-200/80 dark:border-zinc-800/80 bg-card/10 select-none transition-colors">
+            <div className="flex flex-col items-center justify-center py-24 text-center px-4">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-800 bg-card/85 text-muted-foreground/60 shadow-xs">
                 <VideoIcon className="size-5" />
               </div>
               <h3 className="text-xs font-semibold text-foreground/80">
-                {search ? "无符合过滤条件的视频" : "视频库为空"}
+                {search || filterPlatform !== "all" || filterTimeframe !== "all" ? "未检索到匹配的视频" : "视频库内暂无内容"}
               </h3>
-              <p className="mt-1 max-w-xs text-[11px] text-muted-foreground/70 leading-normal">
-                {search
-                  ? "请尝试精简或更换您的搜索关键词"
-                  : "从外部平台粘贴链接或上传本地视频，即刻让 AI 建立深度知识网络"}
+              <p className="mt-1 max-w-xs text-[11px] text-muted-foreground/65 leading-normal">
+                {search || filterPlatform !== "all" || filterTimeframe !== "all"
+                  ? "请重置或精简您的搜索关键字与筛选条件"
+                  : "支持粘贴外部平台播放页链接或直接拖拽本地文件，即刻启动分布式解析"}
               </p>
-              {!search && (
+              {(search || filterPlatform !== "all" || filterTimeframe !== "all") ? (
+                <div className="mt-5">
+                  <Button
+                    onClick={() => {
+                      setSearch("")
+                      setFilterPlatform("all")
+                      setFilterTimeframe("all")
+                      setCustomStartDate("")
+                      setCustomEndDate("")
+                    }}
+                    size="sm"
+                    className="gap-1.5 h-7 text-xs bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 rounded-lg cursor-pointer"
+                  >
+                    重置所有筛选
+                  </Button>
+                </div>
+              ) : (
                 <div className="mt-5 flex gap-2.5">
                   <Link href="/ai-assistant">
-                    <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs border-border/50 text-foreground/80 hover:bg-muted/30">
+                    <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs border-zinc-200 dark:border-zinc-800 text-foreground/80 hover:bg-muted/30">
                       <SearchIcon className="size-3.5" />
                       AI 对话查找
                     </Button>
                   </Link>
                   <Button onClick={() => setIsImportOpen(true)} size="sm" className="gap-1.5 h-7 text-xs bg-foreground text-background hover:bg-foreground/90">
-                    <PlusIcon className="size-3.5" />
-                    手动导入
+                    <UploadIcon className="size-3.5" />
+                    立即上传
                   </Button>
                 </div>
               )}
             </div>
           </div>
+        ) : viewMode === "grid" ? (
+          /* --- Modern Premium Grid Layout --- */
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 animate-in fade-in duration-200">
+            {filteredVideos.map((video) => {
+              const isDone = video.status === "done"
+              const isProcessing = video.status === "downloading" || video.status === "transcribing"
+              const isError = video.status === "error"
+              const status = statusConfig[video.status] || statusConfig.pending
+              const StatusIcon = status.icon
+
+              return (
+                <div
+                  key={video.id}
+                  onClick={() => isDone && router.push(`/videos/${video.id}`)}
+                  className={cn(
+                    "group relative flex flex-col rounded-xl border border-zinc-200/50 dark:border-zinc-800/40 bg-card/45 overflow-hidden transition-all duration-300 shadow-xs",
+                    isDone ? "cursor-pointer hover:border-zinc-400/40 hover:shadow-md" : "bg-zinc-150/5 dark:bg-zinc-900/5",
+                    isProcessing && "opacity-95"
+                  )}
+                >
+                  {/* Thumbnail Cover aspect 16:9 */}
+                  <div className="relative aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-850 border-b border-zinc-200/20 dark:border-zinc-800/20 flex items-center justify-center select-none">
+                    {video.thumbnail ? (
+                      <img
+                        src={video.thumbnail}
+                        alt={video.title || "视频封面"}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-1025 group-hover:brightness-103"
+                      />
+                    ) : (
+                      <VideoIcon className="size-5.5 text-muted-foreground/35" />
+                    )}
+
+                    {/* Semi-transparent Play Button overlay on Hover */}
+                    {isDone && (
+                      <div className="absolute inset-0 bg-black/15 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[0.5px]">
+                        <div className="h-9 w-9 rounded-full bg-white/95 dark:bg-zinc-950/90 shadow-md flex items-center justify-center text-zinc-900 dark:text-zinc-100 scale-95 group-hover:scale-100 transition-transform duration-300">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="size-3.5 ml-0.5"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Micro loading overlay */}
+                    {isProcessing && (
+                      <div className="absolute inset-0 bg-black/10 dark:bg-black/35 backdrop-blur-[0.5px] flex items-center justify-center">
+                        <Loader2Icon className="size-4.5 animate-spin text-white" />
+                      </div>
+                    )}
+
+                    {/* Status corner badge - strictly hidden for done */}
+                    {!isDone && (
+                      <div className="absolute top-2.5 right-2.5 select-none">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-semibold border backdrop-blur-md shadow-xs",
+                            status.className
+                          )}
+                        >
+                          {StatusIcon && (
+                            <StatusIcon
+                              className={cn(
+                                "size-3",
+                                (video.status === "downloading" || video.status === "transcribing") && "animate-spin"
+                              )}
+                            />
+                          )}
+                          {status.label}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info details */}
+                  <div className="p-3.5 flex flex-col justify-between flex-1 gap-2.5">
+                    <div className="space-y-1">
+                      <h4 className="line-clamp-2 text-xs font-semibold text-foreground/85 leading-snug group-hover:text-zinc-800 dark:group-hover:text-zinc-200 transition-colors">
+                        {video.title || "未命名视频或解析中..."}
+                      </h4>
+                    </div>
+
+                    <div className="flex items-center justify-between select-none">
+                      <div className="flex items-center gap-1.5">
+                        <span className={sourceBadge(video.source)}>
+                          {sourceLabel(video.source)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/45 font-mono">
+                          {formatDate(video.createdAt)}
+                        </span>
+                      </div>
+
+                      {/* Float reveal trash button */}
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={(e) => handleDelete(e, video.id)}
+                          className="flex h-6.5 w-6.5 items-center justify-center rounded-md text-muted-foreground/35 opacity-0 group-hover:opacity-100 hover:bg-zinc-150/80 dark:hover:bg-zinc-800 hover:text-rose-500 transition-all duration-200 cursor-pointer"
+                          title="删除视频"
+                        >
+                          <TrashIcon className="size-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         ) : (
-          <div className="border border-border/45 bg-card/35 rounded-lg overflow-hidden divide-y divide-border/35 shadow-[0_1px_3px_rgba(0,0,0,0.01)]">
-            
-            {/* Table Header Row */}
-            <div className="hidden sm:flex items-center gap-4 bg-muted/20 px-3.5 py-2 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider select-none">
-              <div className="w-14 shrink-0">封面</div>
-              <div className="flex-1">视频标题</div>
-              <div className="w-24 shrink-0">平台来源</div>
-              <div className="w-24 shrink-0">导入日期</div>
-              <div className="w-28 shrink-0">解析状态</div>
-              <div className="w-10 shrink-0 text-right">操作</div>
+          /* --- Premium Elegant List Layout --- */
+          <div className="border border-zinc-200/50 dark:border-zinc-800/40 bg-card/35 rounded-xl overflow-hidden divide-y divide-zinc-200/30 dark:divide-zinc-800/20 shadow-[0_1px_3px_rgba(0,0,0,0.01)] animate-in fade-in duration-200">
+            {/* Table Header */}
+            <div className="hidden sm:flex items-center gap-5 bg-muted/10 px-5 py-2.5 select-none">
+              <div className="w-28 shrink-0 text-[10px] font-bold text-muted-foreground/55 uppercase tracking-widest font-mono">封面</div>
+              <div className="flex-1 text-[10px] font-bold text-muted-foreground/55 uppercase tracking-widest font-mono">视频标题</div>
+              <div className="w-28 shrink-0 text-[10px] font-bold text-muted-foreground/55 uppercase tracking-widest font-mono">平台来源</div>
+              <div className="w-28 shrink-0 text-[10px] font-bold text-muted-foreground/55 uppercase tracking-widest font-mono">导入日期</div>
+              <div className="w-28 shrink-0 text-[10px] font-bold text-muted-foreground/55 uppercase tracking-widest font-mono">状态</div>
+              <div className="w-10 shrink-0 text-right text-[10px] font-bold text-muted-foreground/55 uppercase tracking-widest font-mono">操作</div>
             </div>
 
             {/* List Rows */}
@@ -350,26 +762,33 @@ export default function VideosPage() {
                   key={video.id}
                   onClick={() => isDone && router.push(`/videos/${video.id}`)}
                   className={cn(
-                    "group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-3.5 py-2.5 text-xs transition-colors duration-150",
-                    isDone ? "cursor-pointer hover:bg-muted/25" : "bg-muted/5",
-                    !isDone && !isProcessing && "opacity-60",
+                    "group flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 px-5 py-4 transition-colors duration-150 select-none",
+                    isDone ? "cursor-pointer hover:bg-muted/20" : "bg-muted/5",
+                    !isDone && !isProcessing && "opacity-55",
                     isProcessing && "opacity-85"
                   )}
                 >
-                  {/* Thumbnail Column */}
-                  <div className="relative h-9 w-16 shrink-0 overflow-hidden rounded bg-muted/65 border border-border/30 flex items-center justify-center">
+                  {/* Thumbnail Cover — enlarged to 16:9 at w-28 */}
+                  <div className="relative h-[63px] w-28 shrink-0 overflow-hidden rounded-lg bg-muted/65 border border-zinc-200/40 dark:border-zinc-800/45 flex items-center justify-center">
                     {video.thumbnail ? (
                       <img
                         src={video.thumbnail}
                         alt={video.title || "视频封面"}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
-                      <VideoIcon className="size-4 text-muted-foreground/35" />
+                      <VideoIcon className="size-5 text-muted-foreground/30" />
                     )}
                     {isProcessing && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/15">
-                        <Loader2Icon className="size-3.5 animate-spin text-white" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[0.5px]">
+                        <Loader2Icon className="size-4 animate-spin text-white" />
+                      </div>
+                    )}
+                    {isDone && (
+                      <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                        <div className="h-7 w-7 rounded-full bg-white/90 dark:bg-zinc-950/90 flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-3 ml-0.5 text-zinc-900 dark:text-zinc-100"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -377,17 +796,17 @@ export default function VideosPage() {
                   {/* Title Column */}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <p className="truncate text-[12px] font-medium text-foreground/85 group-hover:text-primary transition-colors leading-tight">
+                      <p className="truncate text-[13px] font-semibold text-foreground/85 group-hover:text-foreground transition-colors leading-snug tracking-tight">
                         {video.title || "未命名视频或解析中"}
                       </p>
                       {isDone && (
-                        <ExternalLinkIcon className="size-3 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <ExternalLinkIcon className="size-3.5 shrink-0 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity" />
                       )}
                     </div>
                   </div>
 
                   {/* Platform Column */}
-                  <div className="w-24 shrink-0 sm:block flex items-center gap-2">
+                  <div className="w-28 shrink-0 sm:block flex items-center gap-2">
                     <span className="sm:hidden text-[10px] text-muted-foreground/50">平台：</span>
                     <span className={sourceBadge(video.source)}>
                       {sourceLabel(video.source)}
@@ -395,43 +814,47 @@ export default function VideosPage() {
                   </div>
 
                   {/* Date Column */}
-                  <div className="w-24 shrink-0 sm:block flex items-center gap-2 text-muted-foreground/75 font-mono text-[11px]">
+                  <div className="w-28 shrink-0 sm:block flex items-center gap-2 text-muted-foreground/70 font-mono text-xs">
                     <span className="sm:hidden text-[10px] text-muted-foreground/50">时间：</span>
                     <span>{formatDate(video.createdAt)}</span>
                   </div>
 
-                  {/* Status Column */}
-                  <div className="w-28 shrink-0 sm:block flex items-center gap-2 select-none">
+                  {/* Status Column - strictly clean, hide done */}
+                  <div className="w-28 shrink-0 sm:block flex items-center gap-2">
                     <span className="sm:hidden text-[10px] text-muted-foreground/50">状态：</span>
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium border",
-                        status.className
-                      )}
-                    >
-                      {StatusIcon && (
-                        <StatusIcon
-                          className={cn(
-                            "size-3",
-                            (video.status === "downloading" || video.status === "transcribing") && "animate-spin"
-                          )}
-                        />
-                      )}
-                      {status.label}
-                    </span>
+                    {!isDone ? (
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold border shadow-xs",
+                          status.className
+                        )}
+                      >
+                        {StatusIcon && (
+                          <StatusIcon
+                            className={cn(
+                              "size-3",
+                              (video.status === "downloading" || video.status === "transcribing") && "animate-spin"
+                            )}
+                          />
+                        )}
+                        {status.label}
+                      </span>
+                    ) : (
+                      // Clean subtle dot for done — no text clutter
+                      <span className="size-2 rounded-full bg-zinc-300 dark:bg-zinc-700 hidden sm:inline-block ml-1 opacity-50" />
+                    )}
                   </div>
 
                   {/* Actions Column */}
                   <div className="w-10 shrink-0 flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={(e) => handleDelete(e, video.id)}
-                      className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/40 opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 hover:text-rose-500 dark:hover:bg-rose-950/20 transition-all"
+                      className="flex h-6.5 w-6.5 items-center justify-center rounded-md text-muted-foreground/45 opacity-0 group-hover:opacity-100 hover:bg-zinc-150/80 dark:hover:bg-zinc-800 hover:text-rose-500 transition-all duration-200 cursor-pointer"
                       title="删除视频"
                     >
                       <TrashIcon className="size-3.5" />
                     </button>
                   </div>
-
                 </div>
               )
             })}
@@ -439,18 +862,18 @@ export default function VideosPage() {
         )}
       </div>
 
-      {/* Import Video Modal */}
+      {/* --- Premium Glassmorphic Import Video Modal --- */}
       {isImportOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/70 animate-in fade-in duration-250 select-none">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 dark:bg-black/70 backdrop-blur-xs animate-in fade-in duration-250 select-none">
           <div 
-            className="relative w-full max-w-md rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-background dark:bg-zinc-900 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-250 flex flex-col"
+            className="relative w-full max-w-md rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-background/95 dark:bg-zinc-950/95 backdrop-blur-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-250 flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between bg-muted/10 px-5.5 py-4 border-b border-border/30">
+            <div className="flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/30 px-5.5 py-4 border-b border-zinc-200/40 dark:border-zinc-800/20">
               <div className="flex items-center gap-2">
-                <div className="h-1.5 w-1.5 rounded-full bg-primary/75 animate-pulse" />
-                <span className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">导入视频资源</span>
+                <div className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-pulse" />
+                <span className="text-xs font-semibold text-foreground/85 uppercase tracking-wider font-mono">导入视频资源</span>
               </div>
               <button 
                 onClick={() => {
@@ -459,24 +882,24 @@ export default function VideosPage() {
                   setInputValue("")
                   setFileName(null)
                 }}
-                className="flex h-6.5 w-6.5 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-muted/40 hover:text-foreground transition-all duration-150"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-muted/40 hover:text-foreground transition-all duration-150"
               >
                 <XIcon className="size-4" />
               </button>
             </div>
 
-            {/* Body Content */}
+            {/* Body */}
             <div className="p-5.5 space-y-4">
               
               {/* Segmented Control Tabs */}
-              <div className="flex p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200/30 dark:border-zinc-700/10">
+              <div className="flex p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-250/20 dark:border-zinc-800/40">
                 <button
                   onClick={() => {
                     setActiveTab("link")
                     setImportMessage(null)
                   }}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-all duration-200 cursor-pointer",
+                    "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 cursor-pointer",
                     activeTab === "link"
                       ? "bg-white dark:bg-zinc-950 text-foreground shadow-xs border border-zinc-200/40 dark:border-zinc-800/30"
                       : "text-muted-foreground/80 hover:text-foreground"
@@ -492,7 +915,7 @@ export default function VideosPage() {
                     setImportMessage(null)
                   }}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-all duration-200 cursor-pointer",
+                    "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 cursor-pointer",
                     activeTab === "file"
                       ? "bg-white dark:bg-zinc-950 text-foreground shadow-xs border border-zinc-200/40 dark:border-zinc-800/30"
                       : "text-muted-foreground/80 hover:text-foreground"
@@ -508,29 +931,29 @@ export default function VideosPage() {
               {importMessage && (
                 <div
                   className={cn(
-                    "flex items-start gap-2.5 px-3.5 py-3 rounded-lg border text-xs leading-normal font-medium animate-in fade-in slide-in-from-top-2 duration-200 shadow-2xs",
+                    "flex items-start gap-2.5 px-3.5 py-3 rounded-lg border text-xs leading-normal font-semibold animate-in fade-in slide-in-from-top-2 duration-200 shadow-3xs",
                     importMessage.type === "success"
-                      ? "border-emerald-500/15 bg-emerald-500/5 text-emerald-500"
-                      : "border-rose-500/15 bg-rose-500/5 text-rose-500"
+                      ? "border-zinc-200/60 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-150"
+                      : "border-zinc-200/60 dark:border-zinc-850 bg-zinc-50 dark:bg-zinc-900 text-zinc-500"
                   )}
                 >
                   {importMessage.type === "success" ? (
-                    <CheckCircle2Icon className="size-4 shrink-0 mt-0.5" />
+                    <CheckCircle2Icon className="size-4 shrink-0 mt-0.5 text-zinc-700 dark:text-zinc-300" />
                   ) : (
-                    <AlertCircleIcon className="size-4 shrink-0 mt-0.5" />
+                    <AlertCircleIcon className="size-4 shrink-0 mt-0.5 text-zinc-400" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <span className="block font-semibold">{importMessage.type === "success" ? "操作成功" : "导入失败"}</span>
-                    <span className="block text-[11px] text-muted-foreground/80 mt-0.5 leading-relaxed">{importMessage.text}</span>
+                    <span className="block font-bold">{importMessage.type === "success" ? "任务已创建" : "导入异常"}</span>
+                    <span className="block text-[11px] text-muted-foreground/85 mt-0.5 leading-relaxed">{importMessage.text}</span>
                   </div>
                 </div>
               )}
 
-              {/* Tab Content 1: URL Link */}
+              {/* URL input tab */}
               {activeTab === "link" && (
                 <div className="space-y-3.5 animate-in fade-in duration-150">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">
+                    <label className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest font-mono">
                       视频链接地址
                     </label>
                     <div className="relative group">
@@ -539,7 +962,7 @@ export default function VideosPage() {
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         placeholder="粘贴 B站 或 YouTube 视频网页链接..."
-                        className="h-10 w-full rounded-lg border border-border/45 bg-muted/10 px-3 pl-9.5 text-xs outline-none transition-all focus:border-primary/80 focus:bg-background focus:ring-1 focus:ring-primary/10 placeholder:text-muted-foreground/45"
+                        className="h-10 w-full rounded-lg border border-zinc-200/60 dark:border-zinc-800/50 bg-muted/10 px-3 pl-9.5 text-xs outline-none transition-all focus:border-zinc-400/80 focus:bg-background focus:ring-1 focus:ring-zinc-400/10 placeholder:text-muted-foreground/45"
                         disabled={isImporting}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
@@ -552,18 +975,11 @@ export default function VideosPage() {
                     </div>
                   </div>
 
-                  {/* Brand detection capsules */}
+                  {/* Detection badge */}
                   {platform && (
-                    <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground/80 animate-in slide-in-from-left-2 duration-200">
-                      <span>识别到目标平台:</span>
-                      <span className={cn(
-                        "rounded-md px-2 py-0.5 font-bold uppercase tracking-wider text-[9px] border",
-                        platform === "BiliBili"
-                          ? "bg-pink-500/10 text-pink-500 dark:bg-pink-500/15 border-pink-500/20"
-                          : platform === "YouTube"
-                            ? "bg-rose-500/10 text-rose-500 dark:bg-rose-500/15 border-rose-500/20"
-                            : "bg-primary/10 text-primary border-primary/20"
-                      )}>
+                    <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground/85 animate-in slide-in-from-left-2 duration-200">
+                      <span>已识别目标平台:</span>
+                      <span className="rounded px-2 py-0.5 font-bold uppercase tracking-wider text-[9px] border bg-zinc-100 dark:bg-zinc-850 border-zinc-200/80 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200">
                         {platform}
                       </span>
                     </div>
@@ -571,42 +987,40 @@ export default function VideosPage() {
                 </div>
               )}
 
-              {/* Tab Content 2: Upload File Area */}
+              {/* Upload file tab */}
               {activeTab === "file" && (
                 <div className="space-y-3.5 animate-in fade-in duration-150">
                   {fileName ? (
-                    /* Elegant file uploading status block */
-                    <div className="flex items-center gap-3 px-3.5 py-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-muted/5 text-xs font-medium shadow-xs">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-900/5 dark:bg-zinc-100/5 text-muted-foreground/80 border border-border/40">
+                    <div className="flex items-center gap-3 px-3.5 py-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-muted/5 text-xs font-semibold shadow-3xs">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/40 dark:border-zinc-800/30 text-muted-foreground">
                         <FileVideoIcon className="size-4.5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-foreground/85 font-semibold text-[11.5px] leading-tight">{fileName}</p>
+                        <p className="truncate text-foreground/85 font-bold text-[11.5px] leading-tight">{fileName}</p>
                         <p className="text-[10px] text-muted-foreground/60 font-mono mt-0.5 leading-tight">
-                          {isImporting ? "文件正在安全上传至服务器..." : "准备解析中..."}
+                          {isImporting ? "正在安全传输文件至云端..." : "准备就绪"}
                         </p>
                       </div>
                       {isImporting && (
                         <div className="flex h-6 w-6 shrink-0 items-center justify-center">
-                          <Loader2Icon className="size-4 animate-spin text-primary" />
+                          <Loader2Icon className="size-4 animate-spin text-zinc-400" />
                         </div>
                       )}
                     </div>
                   ) : (
-                    /* Premium drag and drop trigger zone */
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">
+                      <label className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest font-mono">
                         本地视频文件
                       </label>
                       <label
                         htmlFor="video-upload-area"
                         className={cn(
-                          "flex flex-col items-center justify-center border border-dashed border-zinc-300 dark:border-zinc-800 rounded-xl py-9 px-4 bg-muted/5 hover:bg-muted/15 hover:border-primary/40 dark:hover:border-primary/30 transition-all duration-200 cursor-pointer group text-center min-h-[160px]",
+                          "flex flex-col items-center justify-center border border-dashed border-zinc-300 dark:border-zinc-800 rounded-xl py-9 px-4 bg-muted/5 hover:bg-muted/15 hover:border-zinc-400/45 transition-all duration-200 cursor-pointer group text-center min-h-[160px]",
                           isImporting && "opacity-60 pointer-events-none"
                         )}
                       >
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/30 dark:border-zinc-700/20 text-muted-foreground group-hover:text-primary group-hover:scale-105 group-hover:border-primary/20 transition-all duration-250 mb-3.5 shadow-sm">
-                          <FileVideoIcon className="size-5 transition-colors" />
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-150/50 dark:bg-zinc-900 border border-zinc-250/20 dark:border-zinc-800/25 text-muted-foreground group-hover:text-foreground group-hover:scale-105 transition-all duration-250 mb-3.5 shadow-3xs">
+                          <FileVideoIcon className="size-4.5" />
                         </div>
                         <span className="text-xs font-semibold text-foreground/80 group-hover:text-foreground transition-colors">
                           拖拽视频文件到此处，或点击浏览
@@ -628,15 +1042,15 @@ export default function VideosPage() {
                 </div>
               )}
 
-              {/* Modal Tip Footer text */}
-              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 font-medium select-none pt-1">
+              {/* Tip block */}
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 font-semibold select-none pt-1">
                 <HelpCircleIcon className="size-3" />
                 <span>视频提取会自动切分音轨并基于大模型生成知识图谱</span>
               </div>
             </div>
 
-            {/* Footer Action Bar */}
-            <div className="bg-muted/10 px-6 py-4 border-t border-border/30 flex items-center justify-end gap-2.5">
+            {/* Footer */}
+            <div className="bg-zinc-50/50 dark:bg-zinc-900/30 px-6 py-4 border-t border-zinc-200/40 dark:border-zinc-800/20 flex items-center justify-end gap-2.5">
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -646,7 +1060,7 @@ export default function VideosPage() {
                   setFileName(null)
                 }}
                 disabled={isImporting}
-                className="h-8.5 px-4 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-lg transition-all duration-150 cursor-pointer"
+                className="h-8.5 px-4 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-lg transition-all duration-150 cursor-pointer"
               >
                 取消
               </Button>
@@ -654,7 +1068,7 @@ export default function VideosPage() {
                 <Button
                   onClick={handleImportSend}
                   disabled={isImporting || !inputValue.trim()}
-                  className="h-8.5 px-4 text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 active:scale-98 rounded-lg border-none shadow-[0_1px_2px_rgba(0,0,0,0.05)] gap-1.5 transition-all duration-150 cursor-pointer"
+                  className="h-8.5 px-4 text-xs font-semibold bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 active:scale-98 rounded-lg border-none shadow-xs gap-1.5 transition-all duration-150 cursor-pointer"
                 >
                   {isImporting ? (
                     <>
@@ -662,7 +1076,7 @@ export default function VideosPage() {
                       <span>正在分析...</span>
                     </>
                   ) : (
-                    <span>创建</span>
+                    <span>开始分析</span>
                   )}
                 </Button>
               )}

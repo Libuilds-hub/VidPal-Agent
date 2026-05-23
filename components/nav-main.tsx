@@ -40,7 +40,11 @@ export function NavMain({
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               {group.items.map((item) => {
-                const isActive = pathname === item.url || (item.url !== "/dashboard" && pathname.startsWith(item.url))
+                const isActive = pathname === item.url || (
+                  item.url !== "/dashboard" &&
+                  item.url !== "/ai-assistant" &&
+                  pathname.startsWith(item.url)
+                )
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
@@ -54,14 +58,14 @@ export function NavMain({
                           : "text-muted-foreground/65 hover:bg-transparent! hover:text-muted-foreground/65!"
                       )}
                     >
-                      <Link href={item.url} className="flex items-center gap-2.5! pl-3">
+                      <Link href={item.url} className="flex items-center gap-2.5! pl-3 group-data-[collapsible=icon]:pl-0 group-data-[collapsible=icon]:justify-center">
                         <item.icon className={cn(
                           "size-4 transition-colors duration-150",
                           isActive
                             ? "text-foreground"
                             : "text-muted-foreground/45"
                         )} />
-                        <span className="tracking-wide">{item.title}</span>
+                        <span className="tracking-wide group-data-[collapsible=icon]:hidden">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

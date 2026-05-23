@@ -23,7 +23,7 @@ export function SettingsNavContent({
   items,
   activeId,
   backHref = "/dashboard",
-  backLabel = "返回工作台",
+  backLabel = "返回工作空间",
 }: {
   items: SettingsNavItem[]
   activeId: string
@@ -33,13 +33,13 @@ export function SettingsNavContent({
   return (
     <>
       {/* Back button */}
-      <div className="px-2 pt-1 pb-1">
+      <div className="px-2 pt-1 pb-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
         <Link
           href={backHref}
-          className="inline-flex items-center gap-2.5 rounded-md px-1.5 py-1 text-[13.5px] font-medium text-sidebar-foreground/60 hover:text-sidebar-foreground/90 hover:bg-sidebar-accent/40 transition-all duration-200"
+          className="inline-flex items-center gap-2.5 rounded-md px-1.5 py-1 text-[13.5px] font-medium text-sidebar-foreground/60 hover:text-sidebar-foreground/90 hover:bg-sidebar-accent/40 transition-all duration-200 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:py-1"
         >
           <ArrowLeft className="size-4 text-muted-foreground/50" />
-          <span>{backLabel}</span>
+          <span className="group-data-[collapsible=icon]:hidden">{backLabel}</span>
         </Link>
       </div>
 
@@ -56,7 +56,7 @@ export function SettingsNavContent({
                     isActive={isActive}
                     onClick={() => navigateSettings(item.id)}
                     className={cn(
-                      "group relative transition-all duration-150 py-1.5 h-8.5 text-[13.5px] rounded select-none",
+                      "group relative transition-all duration-150 py-1.5 h-8.5 text-[13.5px] rounded select-none group-data-[collapsible=icon]:justify-center",
                       isActive
                         ? "bg-sidebar-accent/80 text-sidebar-accent-foreground font-semibold"
                         : "text-sidebar-foreground/65 hover:bg-transparent! hover:text-sidebar-foreground/65!"
@@ -70,7 +70,7 @@ export function SettingsNavContent({
                           : "text-muted-foreground/45"
                       )}
                     />
-                    <span className="tracking-wide">{item.label}</span>
+                    <span className="tracking-wide group-data-[collapsible=icon]:hidden">{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )
