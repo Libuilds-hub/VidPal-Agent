@@ -310,7 +310,7 @@ export default function CollectionsPage() {
               className="flex items-center gap-1.5 h-8 px-3 text-xs font-semibold bg-background border border-zinc-200/60 dark:border-zinc-800/50 text-muted-foreground/80 hover:text-foreground hover:bg-muted/40 rounded-lg shadow-none active:scale-97 cursor-pointer shrink-0 transition-all duration-200"
             >
               <PlusIcon className="size-3.5" />
-              新建合集
+              新建
             </button>
           </div>
         </div>
