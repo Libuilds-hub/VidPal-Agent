@@ -2,22 +2,16 @@
 
 import { useEffect, useState, useMemo, useRef } from "react"
 import dynamic from "next/dynamic"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { 
-  SlidersHorizontal, 
-  Maximize2, 
-  Minimize2, 
-  Play, 
-  ExternalLink, 
-  Sparkles, 
-  Video, 
-  Tag, 
-  RefreshCw, 
+import {
+  SlidersHorizontal,
+  Maximize2,
+  Play,
+  ExternalLink,
+  Sparkles,
+  Video,
+  Tag,
   Settings,
-  HelpCircle,
-  ChevronRight,
-  Calendar,
   Clock,
   Layers,
   X
@@ -32,13 +26,51 @@ const ForceGraph2D = dynamic(
   { 
     ssr: false,
     loading: () => (
-      <div className="flex flex-1 items-center justify-center bg-background/50 backdrop-blur-xs h-full min-h-[500px]">
-        <div className="flex flex-col items-center gap-3">
-          <RefreshCw className="size-6 text-primary animate-spin" />
-          <span className="text-xs text-muted-foreground font-mono tracking-widest uppercase">
-            加载交互式力导图模型...
-          </span>
+      <div className="flex flex-1 items-center justify-center bg-background h-full min-h-[500px]">
+        <div className="relative flex flex-col items-center gap-8">
+          {/* Animated node cloud */}
+          <div className="relative w-32 h-32">
+            {/* Center node */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-4 rounded-full bg-primary shadow-[0_0_20px_rgba(94,106,210,0.5)] animate-pulse" />
+            {/* Orbiting nodes */}
+            {[0, 60, 120, 180, 240, 300].map((angle, i) => (
+              <div
+                key={angle}
+                className="absolute size-2 rounded-full bg-foreground/25"
+                style={{
+                  animation: `orbit 3s cubic-bezier(0.4, 0, 0.2, 1) infinite`,
+                  animationDelay: `${i * 0.3}s`,
+                  top: `${50 - 35 * Math.sin((angle * Math.PI) / 180)}%`,
+                  left: `${50 + 35 * Math.cos((angle * Math.PI) / 180)}%`,
+                }}
+              />
+            ))}
+            {/* Connection lines */}
+            <div className="absolute inset-0 rounded-full border border-foreground/8 animate-[spin_12s_linear_infinite]" />
+            <div className="absolute inset-[12%] rounded-full border border-foreground/8 animate-[spin_8s_linear_infinite_reverse]" />
+            <div className="absolute inset-[24%] rounded-full border border-primary/10 animate-[spin_6s_linear_infinite]" />
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-sm font-semibold text-foreground/70 tracking-wide">
+              知识图谱引擎加载中
+            </span>
+            <div className="flex gap-1">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="size-1.5 rounded-full bg-primary/50 animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
+        <style>{`
+          @keyframes orbit {
+            0%, 100% { transform: scale(0.6); opacity: 0.3; }
+            50% { transform: scale(1.4); opacity: 1; }
+          }
+        `}</style>
       </div>
     )
   }
@@ -81,70 +113,46 @@ interface GraphLink {
   color?: string
 }
 
-// Draw a beautifully calculated 5-point star
-const drawStar = (
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  spikes: number,
-  outerRadius: number,
-  innerRadius: number
-) => {
-  let rot = (Math.PI / 2) * 3
-  let x = cx
-  let y = cy
-  const step = Math.PI / spikes
-
-  ctx.beginPath()
-  ctx.moveTo(cx, cy - outerRadius)
-  for (let i = 0; i < spikes; i++) {
-    x = cx + Math.cos(rot) * outerRadius
-    y = cy + Math.sin(rot) * outerRadius
-    ctx.lineTo(x, y)
-    rot += step
-
-    x = cx + Math.cos(rot) * innerRadius
-    y = cy + Math.sin(rot) * innerRadius
-    ctx.lineTo(x, y)
-    rot += step
-  }
-  ctx.lineTo(cx, cy - outerRadius)
-  ctx.closePath()
-  ctx.fill()
-}
-
-// Hexagon drawer
-const drawHexagon = (ctx: CanvasRenderingContext2D, x: number, y: number, r: number) => {
-  ctx.beginPath()
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 3) * i
-    ctx.lineTo(x + r * Math.cos(angle), y + r * Math.sin(angle))
-  }
-  ctx.closePath()
-  ctx.fill()
-}
-
 export default function KnowledgeGraphPage() {
   const router = useRouter()
   const fgRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
-  
+
+  const STORAGE_KEY = "kg-v1"
+
+  const loadSaved = () => {
+    try {
+      if (typeof window === "undefined") return {}
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) return JSON.parse(raw)
+    } catch {}
+    return {}
+  }
+
+  const saveSettings = (partial: Record<string, unknown>) => {
+    const current = loadSaved()
+    const next = { ...current, ...partial }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)) } catch {}
+  }
+
+  const saved = loadSaved()
+
   // States
   const [videos, setVideos] = useState<VideoData[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null)
   const [zoomScale, setZoomScale] = useState<number>(1.0)
-  
+
   // Custom View Controls
-  const [shapeMode, setShapeMode] = useState<string>("circle") // 'mixed', 'byType', 'circle', 'rect', 'triangle', 'star', 'hexagon'
-  const [showLabels, setShowLabels] = useState<boolean>(true)
+  const [showLabels, setShowLabels] = useState<boolean>(saved.showLabels ?? true)
   const [showControls, setShowControls] = useState<boolean>(false)
-  
+
   // Physics Settings
-  const [linkDistance, setLinkDistance] = useState<number>(30)
-  const [chargeStrength, setChargeStrength] = useState<number>(-40)
+  const [linkDistance, setLinkDistance] = useState<number>(saved.linkDistance ?? 50)
+  const [chargeStrength, setChargeStrength] = useState<number>(saved.chargeStrength ?? -100)
+  const [centripetalStrength, setCentripetalStrength] = useState<number>(saved.centripetalStrength ?? 0.2)
   const [cooldownTicks, setCooldownTicks] = useState<number>(200)
 
   // Highlight Sets for reactive interactive graphs
@@ -153,6 +161,7 @@ export default function KnowledgeGraphPage() {
 
   // Dynamic Theme state
   const [isDark, setIsDark] = useState<boolean>(true)
+  const forcesInitialized = useRef(false)
 
   useEffect(() => {
     // Detect theme class on load
@@ -187,31 +196,37 @@ export default function KnowledgeGraphPage() {
     return () => resizeObserver.disconnect()
   }, [])
 
-  // Configure d3 forces for compact circular Obsidian-style layout
+  // One-time d3 force initialization — runs once when graph ref becomes available
   useEffect(() => {
-    if (!fgRef.current) return
+    if (!fgRef.current || forcesInitialized.current) return
+
+    import('d3-force').then(d3Force => {
+      const fg = fgRef.current
+      if (!fg) return
+
+      fg.d3Force('center', d3Force.forceCenter(0, 0))
+      fg.d3Force('charge')?.strength(chargeStrength)
+      fg.d3Force('link')?.distance(linkDistance)
+      fg.d3Force('radial', d3Force.forceRadial(0, 0, 0).strength(centripetalStrength))
+      fg.d3Force('collision', d3Force.forceCollide(12))
+
+      forcesInitialized.current = true
+      fg.d3ReheatSimulation()
+    })
+  })
+
+  // Sync physics params to d3 forces on slider changes
+  useEffect(() => {
+    if (!fgRef.current || !forcesInitialized.current) return
     const fg = fgRef.current
 
     import('d3-force').then(d3Force => {
-      // Strong center gravity to prevent scattering
-      fg.d3Force('center', d3Force.forceCenter(0, 0))
-
-      // Reduce charge repulsion for tighter clustering
       fg.d3Force('charge')?.strength(chargeStrength)
-
-      // Shorter link distances for compact groups
       fg.d3Force('link')?.distance(linkDistance)
-
-      // Add radial force to pull all nodes toward center in a circular formation
-      fg.d3Force('radial', d3Force.forceRadial(120, 0, 0).strength(0.15))
-
-      // Add collision force to prevent node overlap
-      fg.d3Force('collision', d3Force.forceCollide(12))
-
-      // Reheat simulation to apply new forces
+      fg.d3Force('radial', d3Force.forceRadial(0, 0, 0).strength(centripetalStrength))
       fg.d3ReheatSimulation()
     })
-  }, [chargeStrength, linkDistance])
+  }, [chargeStrength, linkDistance, centripetalStrength])
 
   const fetchVideos = async () => {
     try {
@@ -425,6 +440,90 @@ export default function KnowledgeGraphPage() {
       })
     }
 
+    // 5. Add 100 test concept nodes for layout stress-testing
+    const testPrefixes = ["量子", "神经", "分布式", "并行", "语义", "向量", "递归", "对抗", "生成", "优化",
+      "图", "流", "微", "元", "超", "多模态", "自监督", "强化", "知识", "时序",
+      "加密", "联邦", "边缘", "协同", "自适应", "异构", "因果", "扩散", "稀疏", "稠密"]
+    const testSuffixes = ["网络", "引擎", "协议", "模型", "算法", "框架", "架构", "算子", "策略", "系统",
+      "编码器", "解码器", "索引", "缓存", "调度", "路由", "推理", "训练", "集群", "存储"]
+
+    const testCount = 100
+    const allSourceIds = nodes.map(n => n.id)
+
+    // Create 3 super-hub nodes with 25+ connections each
+    const hubs = [
+      { id: "hub-ai", name: "AI 全景枢纽", color: "oklch(0.55 0.22 340)" },
+      { id: "hub-infra", name: "基础设施中枢", color: "oklch(0.55 0.18 30)" },
+      { id: "hub-arch", name: "架构设计中心", color: "oklch(0.65 0.20 200)" }
+    ]
+    hubs.forEach(hub => {
+      nodes.push({ id: hub.id, name: hub.name, val: 8, color: hub.color, type: "concept", overview: "高连接度枢纽测试节点" })
+    })
+
+    for (let i = 0; i < testCount; i++) {
+      const prefix = testPrefixes[i % testPrefixes.length]
+      const suffix = testSuffixes[Math.floor(i / testPrefixes.length) % testSuffixes.length]
+      const testId = `test-${i}`
+      nodes.push({
+        id: testId,
+        name: `${prefix}${suffix} #${i + 1}`,
+        val: 3,
+        color: isDark ? "rgba(180, 180, 190, 0.7)" : "rgba(100, 100, 110, 0.7)",
+        type: "concept",
+        overview: `测试节点 ${i + 1}：用于验证力导向布局在高密度场景下的表现。`
+      })
+    }
+
+    // Hub nodes each connect to 25+ test nodes + some existing nodes
+    hubs.forEach(hub => {
+      // Connect to 6 existing nodes
+      const existingTargets = allSourceIds.slice(0, 6)
+      existingTargets.forEach(t => links.push({ source: hub.id, target: t }))
+      // Connect to 25 test nodes
+      for (let i = 0; i < 25; i++) {
+        links.push({ source: hub.id, target: `test-${i * 4 + (hubs.indexOf(hub))}` })
+      }
+    })
+
+    // 6. Star cluster: 1 parent → 20 leaf nodes (leaves only connect to parent)
+    nodes.push({
+      id: "star-hub", name: "中心母节点 (星型拓扑)", val: 8, color: "oklch(0.53 0.19 275)", type: "concept",
+      overview: "星型拓扑中心枢纽，连接 20 个仅与其相连的叶子节点。"
+    })
+    for (let i = 0; i < 20; i++) {
+      const leafId = `star-leaf-${i}`
+      nodes.push({
+        id: leafId, name: `叶子节点 ${i + 1}`, val: 2,
+        color: isDark ? "rgba(180, 180, 190, 0.7)" : "rgba(100, 100, 110, 0.7)",
+        type: "concept",
+        overview: "星型拓扑叶子节点，仅与中心母节点相连。"
+      })
+      links.push({ source: "star-hub", target: leafId })
+    }
+
+    // Remaining test nodes: connect each to 1-2 random nodes
+    const allIds = nodes.map(n => n.id)
+    for (let i = 0; i < testCount; i++) {
+      const testId = `test-${i}`
+      const linkCount = 1 + Math.floor(Math.random() * 2)
+      const connected = new Set<string>()
+      for (let j = 0; j < linkCount; j++) {
+        const target = allIds[Math.floor(Math.random() * allIds.length)]
+        if (target !== testId && !connected.has(target)) {
+          connected.add(target)
+          links.push({ source: testId, target })
+        }
+      }
+    }
+
+    // Apply saved positions from previous session
+    if (saved.positions) {
+      nodes.forEach(n => {
+        const pos = saved.positions[n.id]
+        if (pos) { n.x = pos.x; n.y = pos.y }
+      })
+    }
+
     return { nodes, links }
   }, [videos, isDark])
 
@@ -436,7 +535,7 @@ export default function KnowledgeGraphPage() {
     globalScale: number,
     drawLabels: boolean
   ) => {
-    const { x, y, id, name, val, type } = node
+    const { x, y, id, name } = node
     if (x === undefined || y === undefined) return
 
     // Highlight states
@@ -444,89 +543,22 @@ export default function KnowledgeGraphPage() {
     const isSelected = selectedNode?.id === id
     const isNeighbor = highlightedNodes.has(id)
 
-    // Determine shape style
-    let shapeToDraw = "circle"
-    if (shapeMode === "mixed") {
-      const code = typeof id === "number" ? id : (id.charCodeAt(0) || 0) + (id.charCodeAt(id.length - 1) || 0)
-      const shapes = ["rect", "triangle", "circle", "star", "hexagon"]
-      shapeToDraw = shapes[code % 5]
-    } else if (shapeMode === "byType") {
-      if (type === "category") shapeToDraw = "hexagon"
-      else if (type === "video") shapeToDraw = "rect"
-      else shapeToDraw = "triangle"
-    } else {
-      shapeToDraw = shapeMode
-    }
+    const conns = rawConnMap.get(id) || 0
+    const ratio = rawMaxConn > 1 ? Math.sqrt(conns) / Math.sqrt(rawMaxConn) : 0.5
+    const size = 2.5 + ratio * 5
 
-    // Circular nodes are exactly the same size, others use dynamic sizes
-    const isObsidian = shapeToDraw === "circle"
-    const size = isObsidian ? 5.5 : Math.max(val || 6, 3)
-
-    // Colors mapping & highlighted glow effects
     ctx.save()
     ctx.fillStyle = color
 
-    // Draw main shape
-    switch (shapeToDraw) {
-      case "rect": {
-        const w = size * 1.8
-        const h = size * 1.2
-        ctx.fillRect(x - w / 2, y - h / 2, w, h)
-        
-        if (drawLabels && (isHovered || isSelected || isNeighbor)) {
-          ctx.strokeStyle = isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.6)"
-          ctx.lineWidth = isSelected ? 2 / globalScale : 1.2 / globalScale
-          ctx.strokeRect(x - w / 2 - 1.5, y - h / 2 - 1.5, w + 3, h + 3)
-        }
-        break
-      }
-      case "triangle": {
-        ctx.beginPath()
-        ctx.moveTo(x, y - size * 1.1)
-        ctx.lineTo(x - size * 1.1, y + size * 1.1)
-        ctx.lineTo(x + size * 1.1, y + size * 1.1)
-        ctx.closePath()
-        ctx.fill()
-        
-        if (drawLabels && (isHovered || isSelected || isNeighbor)) {
-          ctx.strokeStyle = isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.6)"
-          ctx.lineWidth = isSelected ? 2 / globalScale : 1.2 / globalScale
-          ctx.stroke()
-        }
-        break
-      }
-      case "star": {
-        drawStar(ctx, x, y, 5, size * 1.3, size * 0.6)
-        
-        if (drawLabels && (isHovered || isSelected || isNeighbor)) {
-          ctx.strokeStyle = isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.6)"
-          ctx.lineWidth = isSelected ? 2 / globalScale : 1.2 / globalScale
-          ctx.stroke()
-        }
-        break
-      }
-      case "hexagon": {
-        drawHexagon(ctx, x, y, size * 1.2)
-        
-        if (drawLabels && (isHovered || isSelected || isNeighbor)) {
-          ctx.strokeStyle = isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.6)"
-          ctx.lineWidth = isSelected ? 2 / globalScale : 1.2 / globalScale
-          ctx.stroke()
-        }
-        break
-      }
-      default: { // circle (Obsidian Style)
-        ctx.beginPath()
-        ctx.arc(x, y, size, 0, 2 * Math.PI, false)
-        ctx.fill()
-        
-        if (drawLabels && (isHovered || isSelected || isNeighbor)) {
-          ctx.strokeStyle = isSelected ? "oklch(0.53 0.19 275)" : "rgba(94, 106, 210, 0.45)"
-          ctx.lineWidth = isSelected ? 2.5 / globalScale : 1.5 / globalScale
-          ctx.stroke()
-        }
-        break
-      }
+    // Draw circle
+    ctx.beginPath()
+    ctx.arc(x, y, size, 0, 2 * Math.PI, false)
+    ctx.fill()
+
+    if (drawLabels && (isHovered || isSelected || isNeighbor)) {
+      ctx.strokeStyle = isSelected ? "oklch(0.53 0.19 275)" : "rgba(94, 106, 210, 0.45)"
+      ctx.lineWidth = isSelected ? 2.5 / globalScale : 1.5 / globalScale
+      ctx.stroke()
     }
 
     ctx.restore()
@@ -549,60 +581,25 @@ export default function KnowledgeGraphPage() {
       ctx.font = `${fontSize}px system-ui, -apple-system, sans-serif`
       
       const labelText = name.length > 18 ? name.slice(0, 16) + "..." : name
-      const textWidth = ctx.measureText(labelText).width
       const textOffset = size + 5
 
       ctx.save()
-      
-      // Determine Obsidian theme or standard shape themed label
-      const isObsidianStyle = shapeToDraw === "circle"
-      
-      if (isObsidianStyle) {
-        // Obsidian style: Centered clean text below circle with transparent card background!
-        // To ensure high contrast against any link lines, we draw a very subtle shadow glow
-        ctx.shadowColor = isDark ? `rgba(0, 0, 0, ${0.9 * labelAlpha})` : `rgba(255, 255, 255, ${0.9 * labelAlpha})`
-        ctx.shadowBlur = 4 / globalScale
-        
-        ctx.fillStyle = isDark ? `rgba(200, 200, 200, ${0.9 * labelAlpha})` : `rgba(70, 70, 70, ${0.9 * labelAlpha})`
-        if (isSelected) {
-          ctx.fillStyle = `rgba(94, 106, 210, ${labelAlpha})` // Brand Indigo highlight
-          ctx.font = `bold ${fontSize}px system-ui, sans-serif`
-        } else if (isHovered || isNeighbor) {
-          ctx.fillStyle = isDark ? `rgba(255, 255, 255, ${labelAlpha})` : `rgba(17, 17, 17, ${labelAlpha})`
-        }
-        
-        ctx.textAlign = "center"
-        ctx.textBaseline = "top"
-        ctx.fillText(labelText, x, y + textOffset)
-      } else {
-        // Bounding box styled card for other geometric shapes
-        const padding = 2 / globalScale
-        ctx.fillStyle = isDark ? `rgba(11, 11, 15, ${0.82 * labelAlpha})` : `rgba(247, 247, 248, ${0.85 * labelAlpha})`
-        ctx.fillRect(
-          x - textWidth / 2 - padding, 
-          y + textOffset, 
-          textWidth + padding * 2, 
-          fontSize + padding * 2
-        )
 
-        ctx.strokeStyle = isDark ? `rgba(255, 255, 255, ${0.08 * labelAlpha})` : `rgba(0, 0, 0, ${0.08 * labelAlpha})`
-        ctx.lineWidth = 0.5 / globalScale
-        ctx.strokeRect(
-          x - textWidth / 2 - padding, 
-          y + textOffset, 
-          textWidth + padding * 2, 
-          fontSize + padding * 2
-        )
+      // Obsidian style: Centered clean text below circle with shadow glow
+      ctx.shadowColor = isDark ? `rgba(0, 0, 0, ${0.9 * labelAlpha})` : `rgba(255, 255, 255, ${0.9 * labelAlpha})`
+      ctx.shadowBlur = 4 / globalScale
 
-        ctx.fillStyle = isDark ? `rgba(240, 240, 245, ${0.9 * labelAlpha})` : `rgba(10, 10, 15, ${0.9 * labelAlpha})`
-        if (isSelected) {
-          ctx.fillStyle = `rgba(94, 106, 210, ${labelAlpha})`
-          ctx.font = `bold ${fontSize}px system-ui, sans-serif`
-        }
-        ctx.textAlign = "center"
-        ctx.textBaseline = "top"
-        ctx.fillText(labelText, x, y + textOffset + padding)
+      ctx.fillStyle = isDark ? `rgba(200, 200, 200, ${0.9 * labelAlpha})` : `rgba(70, 70, 70, ${0.9 * labelAlpha})`
+      if (isSelected) {
+        ctx.fillStyle = `rgba(94, 106, 210, ${labelAlpha})`
+        ctx.font = `bold ${fontSize}px system-ui, sans-serif`
+      } else if (isHovered || isNeighbor) {
+        ctx.fillStyle = isDark ? `rgba(255, 255, 255, ${labelAlpha})` : `rgba(17, 17, 17, ${labelAlpha})`
       }
+
+      ctx.textAlign = "center"
+      ctx.textBaseline = "top"
+      ctx.fillText(labelText, x, y + textOffset)
       
       ctx.restore()
     }
@@ -664,31 +661,36 @@ export default function KnowledgeGraphPage() {
     return map
   }, [graphData.nodes])
 
-  // Calculate degree (connection count + hierarchical type weight) for each node
-  const degreeMap = useMemo(() => {
+  // Raw connection count (no boost) — used for node sizing
+  const rawConnMap = useMemo(() => {
     const map = new Map<string, number>()
-    
-    // 1. Calculate raw connections first
     graphData.links.forEach(link => {
       const sourceId = typeof link.source === "object" ? link.source.id : link.source
       const targetId = typeof link.target === "object" ? link.target.id : link.target
-      
       if (sourceId) map.set(sourceId, (map.get(sourceId) || 0) + 1)
       if (targetId) map.set(targetId, (map.get(targetId) || 0) + 1)
     })
+    return map
+  }, [graphData.links])
 
-    // 2. Add hierarchical boost weights based on node type
+  const rawMaxConn = useMemo(() => {
+    let max = 1
+    rawConnMap.forEach(c => { if (c > max) max = c })
+    return max
+  }, [rawConnMap])
+
+  // Calculate degree (connection count + hierarchical type weight) for color mapping
+  const degreeMap = useMemo(() => {
+    const map = new Map(rawConnMap)
     map.forEach((count, id) => {
       const type = nodeTypeMap.get(id) || "concept"
       let boost = 0
       if (type === "category") boost = 20
       else if (type === "video") boost = 8
-      
       map.set(id, count + boost)
     })
-
     return map
-  }, [graphData.links, nodeTypeMap])
+  }, [rawConnMap, nodeTypeMap])
 
   const maxDegree = useMemo(() => {
     let max = 1
@@ -767,23 +769,17 @@ export default function KnowledgeGraphPage() {
             const isSel = selectedNode?.id === node.id
             const isHov = hoveredNode?.id === node.id
             const isNeigh = highlightedNodes.has(node.id)
-            
-            // Check if Obsidian style (circle) is active
-            const isObsidian = shapeMode === "circle"
+
             const baseGrey = getNodeBaseColor(node.id)
-            
-            let color = node.color
-            if (isObsidian) {
-              color = baseGrey
-            }
-            
+            let color = baseGrey
+
             if (highlightedNodes.size > 0) {
               if (isSel) {
-                color = "oklch(0.53 0.19 275)" // highlight Indigo
+                color = "oklch(0.53 0.19 275)"
               } else if (isHov) {
                 color = "oklch(0.60 0.18 275)"
               } else if (isNeigh) {
-                color = isObsidian ? baseGrey : node.color
+                color = baseGrey
               } else {
                 color = isDark ? "rgba(63, 63, 70, 0.15)" : "rgba(228, 228, 231, 0.25)"
               }
@@ -804,21 +800,16 @@ export default function KnowledgeGraphPage() {
           // Link properties
           linkWidth={link => {
             const isHl = highlightedLinks.has(link)
-            const isObsidian = shapeMode === "circle"
-            return isHl ? (isObsidian ? 1.5 : 2.5) : (isObsidian ? 0.75 : 1)
+            return isHl ? 1.5 : 0.75
           }}
           linkColor={link => {
             const isHl = highlightedLinks.has(link)
-            const isObsidian = shapeMode === "circle"
             if (highlightedNodes.size > 0 && !isHl) {
               return isDark ? "rgba(63, 63, 70, 0.05)" : "rgba(228, 228, 231, 0.12)"
             }
-            if (isObsidian) {
-              return isHl 
-                ? "rgba(94, 106, 210, 0.75)" 
-                : (isDark ? "rgba(255, 255, 255, 0.14)" : "rgba(9, 9, 11, 0.14)")
-            }
-            return isDark ? "rgba(100, 116, 139, 0.28)" : "rgba(100, 116, 139, 0.32)"
+            return isHl
+              ? "rgba(94, 106, 210, 0.75)"
+              : (isDark ? "rgba(255, 255, 255, 0.14)" : "rgba(9, 9, 11, 0.14)")
           }}
           
           // Interactive particles
@@ -835,8 +826,19 @@ export default function KnowledgeGraphPage() {
           onNodeHover={handleNodeHover}
           onBackgroundClick={() => setSelectedNode(null)}
           cooldownTicks={cooldownTicks}
+          onEngineStop={() => {
+            const fg = fgRef.current
+            if (!fg) return
+            const positions: Record<string, { x: number; y: number }> = {}
+            graphData.nodes.forEach(n => {
+              if (n.x !== undefined && n.y !== undefined) {
+                positions[n.id] = { x: Math.round(n.x * 100) / 100, y: Math.round(n.y * 100) / 100 }
+              }
+            })
+            saveSettings({ positions })
+          }}
           onZoom={({ k }) => {
-            setZoomScale(k)
+            requestAnimationFrame(() => setZoomScale(k))
           }}
         />
 
@@ -887,33 +889,6 @@ export default function KnowledgeGraphPage() {
             </CardHeader>
             <Separator className="bg-border/45" />
             <CardContent className="p-4 space-y-4">
-              
-              {/* Custom shapes dropdown options */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest">二维节点形状</label>
-                <div className="grid grid-cols-3 gap-1">
-                  {[
-                    { id: "mixed", label: "循环混合" },
-                    { id: "byType", label: "按类别" },
-                    { id: "rect", label: "矩形" },
-                    { id: "triangle", label: "三角形" },
-                    { id: "circle", label: "经典圆形" },
-                    { id: "star", label: "星形" }
-                  ].map(shape => (
-                    <button
-                      key={shape.id}
-                      onClick={() => setShapeMode(shape.id)}
-                      className={`h-7 px-1.5 text-[9.5px] font-medium border rounded transition-all truncate cursor-pointer ${
-                        shapeMode === shape.id 
-                          ? "bg-primary text-white border-primary shadow-xs" 
-                          : "bg-muted/40 hover:bg-muted/70 text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {shape.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               {/* Labels Toggle */}
               <div className="flex items-center justify-between bg-muted/20 p-2 rounded-lg border border-border/30">
@@ -945,6 +920,7 @@ export default function KnowledgeGraphPage() {
                     onChange={(e) => {
                       const val = parseInt(e.target.value)
                       setLinkDistance(val)
+                      saveSettings({ linkDistance: val })
                       if (fgRef.current) {
                         fgRef.current.d3Force("link").distance(val)
                         fgRef.current.d3ReheatSimulation()
@@ -961,12 +937,13 @@ export default function KnowledgeGraphPage() {
                   </div>
                   <input
                     type="range"
-                    min="-400"
-                    max="-30"
+                    min="-200"
+                    max="0"
                     value={chargeStrength}
                     onChange={(e) => {
                       const val = parseInt(e.target.value)
                       setChargeStrength(val)
+                      saveSettings({ chargeStrength: val })
                       if (fgRef.current) {
                         fgRef.current.d3Force("charge").strength(val)
                         fgRef.current.d3ReheatSimulation()
@@ -975,6 +952,32 @@ export default function KnowledgeGraphPage() {
                     className="w-full h-1 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                   />
                 </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] font-medium text-muted-foreground">
+                    <span>中心向心力</span>
+                    <span className="font-mono text-foreground/90 font-bold">{centripetalStrength.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="50"
+                    value={Math.round(centripetalStrength * 100)}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) / 100
+                      setCentripetalStrength(val)
+                      saveSettings({ centripetalStrength: val })
+                      if (fgRef.current) {
+                        const radial = fgRef.current.d3Force("radial")
+                        if (radial) {
+                          radial.strength(val)
+                          fgRef.current.d3ReheatSimulation()
+                        }
+                      }
+                    }}
+                    className="w-full h-1 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+              </div>
               </div>
 
             </CardContent>
