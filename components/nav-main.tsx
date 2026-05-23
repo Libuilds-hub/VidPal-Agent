@@ -34,9 +34,13 @@ export function NavMain({
     <div className="space-y-4">
       {groups.map((group) => (
         <SidebarGroup key={group.label} className="px-0 py-0">
-          <SidebarGroupLabel className="px-3 text-[11px] uppercase tracking-wider font-semibold text-sidebar-foreground/40 mb-1.5 transition-opacity duration-200">
-            {group.label}
-          </SidebarGroupLabel>
+          {group.label ? (
+            <SidebarGroupLabel className="px-3 text-[11px] uppercase tracking-wider font-semibold text-sidebar-foreground/40 mb-1.5 transition-opacity duration-200">
+              {group.label}
+            </SidebarGroupLabel>
+          ) : (
+            <div className="h-1" />
+          )}
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               {group.items.map((item) => {

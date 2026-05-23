@@ -25,11 +25,16 @@ import {
 
 const navGroups = [
   {
-    label: "工作空间",
+    label: "",
     items: [
       { title: "仪表盘", url: "/dashboard", icon: LayoutDashboardIcon },
+    ],
+  },
+  {
+    label: "工作空间",
+    items: [
       { title: "聊天对话", url: "/ai-assistant", icon: MessageSquareIcon },
-      { title: "知识图谱", url: "/knowledge-graph", icon: GitGraphIcon },
+      { title: "历史对话", url: "/ai-assistant/history", icon: HistoryIcon },
     ],
   },
   {
@@ -37,7 +42,7 @@ const navGroups = [
     items: [
       { title: "视频库", url: "/videos", icon: LibraryIcon },
       { title: "合集", url: "/collections", icon: FolderHeartIcon },
-      { title: "历史对话", url: "/ai-assistant/history", icon: HistoryIcon },
+      { title: "知识图谱", url: "/knowledge-graph", icon: GitGraphIcon },
     ],
   },
 ]
