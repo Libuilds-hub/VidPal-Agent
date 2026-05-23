@@ -1,5 +1,6 @@
 "use client"
 
+import { useRef } from "react"
 import dynamic from "next/dynamic"
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false })
@@ -92,9 +93,12 @@ function drawDiamond(ctx: CanvasRenderingContext2D, r: number) {
 }
 
 export default function KnowledgeGraphPage() {
+  const fgRef = useRef<any>(null)
+
   return (
     <div className="w-full h-full">
       <ForceGraph2D
+        ref={fgRef}
         graphData={{ nodes, links }}
         nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
           const label = node.name
@@ -166,7 +170,7 @@ export default function KnowledgeGraphPage() {
         height={typeof window !== "undefined" ? window.innerHeight - 56 : 800}
         warmupTicks={80}
         cooldownTicks={150}
-        onEngineStop={(fg: any) => fg.zoomToFit(400, 80)}
+        onEngineStop={() => fgRef.current?.zoomToFit(400, 80)}
         enableNodeDrag
         enableZoomInteraction
         enablePanInteraction
