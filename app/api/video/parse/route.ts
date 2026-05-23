@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { getVideoInfo, downloadVideo, downloadThumbnail } from "@/lib/yt-dlp"
+import { getChatModel, LLMNotConfiguredError } from "@/lib/llm"
+import { HumanMessage } from "@langchain/core/messages"
 
 export async function POST(request: NextRequest) {
   try {
@@ -298,24 +300,6 @@ ${transcriptText}
 }
 
 async function generateSummary(transcripts: { start: string; startTime: number; text: string }[]): Promise<SummaryResult> {
-  // 读取 LLM 设置
-  const settings = await prisma.setting.findMany()
-  const settingMap: Record<string, string> = {}
-  settings.forEach((s) => { settingMap[s.key] = s.value })
-
-  const provider = settingMap.llmProvider || "minimax"
-  const apiKey = settingMap.llmApiKey
-  const model = settingMap.llmModel || (provider === "deepseek" ? "deepseek-v4-flash" : "MiniMax-M2.7")
-
-  if (!apiKey) {
-    console.warn("LLM API key not configured, skipping summary generation")
-    return { overview: "", keyPoints: [], segments: [] }
-  }
-
-  const baseUrl = provider === "deepseek"
-    ? "https://api.deepseek.com"
-    : "https://api.minimaxi.com/v1"
-
   // 构建字幕文本
   const transcriptText = transcripts
     .map((t) => `[${t.start}] ${t.text}`)
@@ -334,58 +318,22 @@ ${transcriptText}
 只输出 JSON，不要有其他内容。`
 
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    })
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}))
-      throw new Error(err.error?.message || `LLM API error: ${response.status}`)
-    }
-
-    const data = await response.json()
-    const content = data.choices?.[0]?.message?.content
-
-    if (!content) {
-      throw new Error("LLM returned empty response")
-    }
-
+    const llm = await getChatModel()
+    const response = await llm.invoke([new HumanMessage(prompt)])
+    const content = response.content as string
     console.log("Summary LLM raw (first 500 chars):", content.slice(0, 500))
     return extractJson(content, false) as SummaryResult
   } catch (error) {
+    if (error instanceof LLMNotConfiguredError) {
+      console.warn("LLM API key not configured, skipping summary generation")
+      return { overview: "", keyPoints: [], segments: [] }
+    }
     console.error("Generate summary error:", error)
-    // 摘要生成失败不中断流程，返回空摘要
     return { overview: "", keyPoints: [], segments: [] }
   }
 }
 
 async function generateMindmap(transcripts: { start: string; startTime: number; text: string }[], videoTitle: string | null): Promise<string | null> {
-  // 读取 LLM 设置
-  const settings = await prisma.setting.findMany()
-  const settingMap: Record<string, string> = {}
-  settings.forEach((s) => { settingMap[s.key] = s.value })
-
-  const provider = settingMap.llmProvider || "minimax"
-  const apiKey = settingMap.llmApiKey
-  const model = settingMap.llmModel || (provider === "deepseek" ? "deepseek-v4-flash" : "MiniMax-M2.7")
-
-  if (!apiKey) {
-    console.warn("LLM API key not configured, skipping mindmap generation")
-    return null
-  }
-
-  const baseUrl = provider === "deepseek"
-    ? "https://api.deepseek.com"
-    : "https://api.minimaxi.com/v1"
-
   // 构建字幕文本，截取前 4000 字控制 token
   const transcriptText = transcripts
     .map((t) => `[${t.start}] ${t.text}`)
@@ -421,33 +369,12 @@ ${transcriptText}
 }`
 
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    })
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}))
-      throw new Error(err.error?.message || `LLM API error: ${response.status}`)
-    }
-
-    const data = await response.json()
-    const content = data.choices?.[0]?.message?.content
-
-    if (!content) {
-      throw new Error("LLM returned empty response")
-    }
-
+    const llm = await getChatModel()
+    const response = await llm.invoke([new HumanMessage(prompt)])
+    const content = response.content as string
+    console.log("Mindmap LLM raw (first 500 chars):", content.slice(0, 500))
     const parsed = extractJson(content, false) as Record<string, unknown>
 
-    console.log("Mindmap LLM raw (first 500 chars):", content.slice(0, 500))
     console.log("Mindmap parsed keys:", Object.keys(parsed).join(", "))
 
     // Unwrap if LLM wrapped data in a key like { "mindmap": { nodes, edges } }
@@ -461,6 +388,10 @@ ${transcriptText}
     console.log("Mindmap OK: %d nodes, %d edges", (mindmapData.nodes as any[]).length, (mindmapData.edges as any[]).length)
     return JSON.stringify(mindmapData)
   } catch (error) {
+    if (error instanceof LLMNotConfiguredError) {
+      console.warn("LLM API key not configured, skipping mindmap generation")
+      return null
+    }
     console.error("Generate mindmap error:", error)
     return null
   }
