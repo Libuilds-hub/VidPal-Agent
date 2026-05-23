@@ -1,6 +1,5 @@
 // lib/llm.ts
-import { ChatOpenAI } from "@langchain/openai"
-import { OpenAIEmbeddings } from "@langchain/openai"
+import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai"
 import { prisma } from "./db"
 
 export class LLMNotConfiguredError extends Error {
@@ -35,34 +34,48 @@ async function getLLMConfig(): Promise<LLMConfig> {
   return { provider, apiKey, model, baseUrl }
 }
 
-// Module-level cache
+// Module-level cache with promise-based dedup to prevent race conditions
 let _chatModel: ChatOpenAI | null = null
+let _chatModelPromise: Promise<ChatOpenAI> | null = null
 let _embeddings: OpenAIEmbeddings | null = null
+let _embeddingsPromise: Promise<OpenAIEmbeddings> | null = null
 
 export async function getChatModel(): Promise<ChatOpenAI> {
   if (_chatModel) return _chatModel
-  const config = await getLLMConfig()
-  _chatModel = new ChatOpenAI({
-    modelName: config.model,
-    openAIApiKey: config.apiKey,
-    configuration: { baseURL: config.baseUrl },
-    temperature: 0.7,
-    streaming: true,
-  })
-  return _chatModel
+  if (!_chatModelPromise) {
+    _chatModelPromise = (async () => {
+      const config = await getLLMConfig()
+      _chatModel = new ChatOpenAI({
+        modelName: config.model,
+        openAIApiKey: config.apiKey,
+        configuration: { baseURL: config.baseUrl },
+        temperature: 0.7,
+        streaming: true,
+      })
+      return _chatModel
+    })()
+  }
+  return _chatModelPromise
 }
 
 export async function getEmbeddings(): Promise<OpenAIEmbeddings> {
   if (_embeddings) return _embeddings
-  const config = await getLLMConfig()
-  _embeddings = new OpenAIEmbeddings({
-    openAIApiKey: config.apiKey,
-    configuration: { baseURL: config.baseUrl },
-  })
-  return _embeddings
+  if (!_embeddingsPromise) {
+    _embeddingsPromise = (async () => {
+      const config = await getLLMConfig()
+      _embeddings = new OpenAIEmbeddings({
+        openAIApiKey: config.apiKey,
+        configuration: { baseURL: config.baseUrl },
+      })
+      return _embeddings
+    })()
+  }
+  return _embeddingsPromise
 }
 
 export function clearLLMCache(): void {
   _chatModel = null
+  _chatModelPromise = null
   _embeddings = null
+  _embeddingsPromise = null
 }
