@@ -42,7 +42,7 @@ const THEME_OPTIONS = ["浅色", "深色", "跟随系统"]
 const LANG_OPTIONS = ["自动检测", "中文", "English", "日本語", "한국어"]
 const DENSITY_OPTIONS = ["舒适", "紧凑"]
 
-type SectionId = "profile" | "preferences" | "llm" | "ai" | "storage" | "cookies" | "integrations" | "help" | "updates"
+type SectionId = "profile" | "preferences" | "llm" | "ai" | "assistant" | "storage" | "cookies" | "integrations" | "help" | "updates"
 
 /* -------------------------------------------------------------------------- */
 /*  Dropdown Component                                                        */
@@ -220,6 +220,10 @@ function SettingsDialogContent() {
   const [ffmpegPath, setFfmpegPath] = useState("ffmpeg")
   const [cacheDays, setCacheDays] = useState(30)
 
+  // Assistant
+  const [assistantName, setAssistantName] = useState("AI 智能助手")
+  const [assistantAvatar, setAssistantAvatar] = useState("")
+
   // Cookies
   const [bilibiliCookie, setBilibiliCookie] = useState("")
   const [youtubeCookie, setYoutubeCookie] = useState("")
@@ -233,7 +237,7 @@ function SettingsDialogContent() {
   // Synchronize URL active tab
   useEffect(() => {
     if (settingsParam && settingsParam !== "true") {
-      const validSections: SectionId[] = ["profile", "preferences", "llm", "ai", "storage", "cookies", "integrations", "help", "updates"]
+      const validSections: SectionId[] = ["profile", "preferences", "llm", "ai", "assistant", "storage", "cookies", "integrations", "help", "updates"]
       if (validSections.includes(settingsParam as SectionId)) {
         setActiveSection(settingsParam as SectionId)
       }
@@ -275,6 +279,16 @@ function SettingsDialogContent() {
         if (data.cacheDays) setCacheDays(Number(data.cacheDays))
         if (data.bilibiliCookie) setBilibiliCookie(data.bilibiliCookie)
         if (data.youtubeCookie) setYoutubeCookie(data.youtubeCookie)
+
+        // Load assistant settings from localStorage
+        try {
+          const raw = localStorage.getItem("assistant-settings")
+          if (raw) {
+            const parsed = JSON.parse(raw)
+            if (parsed.name) setAssistantName(parsed.name)
+            if (parsed.avatar) setAssistantAvatar(parsed.avatar)
+          }
+        } catch {}
       } catch { /* silent */ }
       finally { setLoading(false) }
     }
@@ -396,6 +410,7 @@ function SettingsDialogContent() {
       items: [
         { id: "llm" as SectionId, label: "LLM API", icon: BotIcon },
         { id: "ai" as SectionId, label: "AI & Agent", icon: SparklesIcon },
+        { id: "assistant" as SectionId, label: "AI 助手", icon: BotIcon },
         { id: "cookies" as SectionId, label: "Cookie 配置", icon: Key },
         { id: "integrations" as SectionId, label: "集成合作", icon: Plug },
       ]
@@ -414,6 +429,7 @@ function SettingsDialogContent() {
     preferences: "偏好设置",
     llm: "LLM API",
     ai: "AI & Agent",
+    assistant: "AI 助手",
     storage: "存储配置",
     cookies: "Cookie 配置",
     integrations: "集成合作",
@@ -426,6 +442,7 @@ function SettingsDialogContent() {
     preferences: "定制界面的个性化展现与转写默认值",
     llm: "配置 AI 辅助模型连接与测试 API 状态",
     ai: "自动化调度与辅助 Agent 参数配置",
+    assistant: "自定义 AI 智能助手的名称与头像外观",
     storage: "配置本地 SQLite 数据库及第三方工具的运行环境",
     cookies: "配置解析和视频抓取的登录 Cookies 以支持更高清下载",
     integrations: "连接飞书、Slack 或 GitHub 等办公协同插件",
@@ -673,6 +690,79 @@ function SettingsDialogContent() {
                           </SettingRow>
                         </div>
                       )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. Storage section */}
+                {/* Assistant Customization */}
+                {activeSection === "assistant" && (
+                  <div className="space-y-5 animate-in fade-in-50 duration-150">
+                    <p className="text-[11.5px] text-muted-foreground/80 mb-3 leading-normal">自定义 AI 智能助手的显示名称和头像，打造属于你的个性化学习伙伴</p>
+
+                    {/* Avatar preview + upload area */}
+                    <div className="flex items-center gap-4 pb-4 border-b border-border/20">
+                      <label className="relative cursor-pointer group shrink-0">
+                        <div className="size-16 rounded-2xl border border-border/40 bg-muted/50 flex items-center justify-center overflow-hidden shadow-sm group-hover:border-primary/40 transition-all duration-200">
+                          {assistantAvatar ? (
+                            <img src={assistantAvatar} alt="助手头像" className="size-full object-cover" />
+                          ) : (
+                            <BotIcon className="size-7 text-muted-foreground/40 group-hover:text-primary/60 transition-colors" />
+                          )}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 rounded-2xl flex items-center justify-center">
+                            <span className="text-[10px] text-white font-semibold opacity-0 group-hover:opacity-100 transition-opacity">更换</span>
+                          </div>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            const reader = new FileReader()
+                            reader.onload = () => {
+                              const dataUrl = reader.result as string
+                              setAssistantAvatar(dataUrl)
+                              const settings = { name: assistantName, avatar: dataUrl }
+                              localStorage.setItem("assistant-settings", JSON.stringify(settings))
+                            }
+                            reader.readAsDataURL(file)
+                          }}
+                        />
+                      </label>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-foreground">助手头像</div>
+                        <div className="text-[11px] text-muted-foreground/60 mt-0.5">点击头像上传自定义图片，支持 PNG / JPG / WebP</div>
+                        {assistantAvatar && (
+                          <button
+                            onClick={() => {
+                              setAssistantAvatar("")
+                              const settings = { name: assistantName, avatar: "" }
+                              localStorage.setItem("assistant-settings", JSON.stringify(settings))
+                            }}
+                            className="mt-2 text-[10px] text-muted-foreground/50 hover:text-red-500 transition-colors cursor-pointer"
+                          >
+                            移除自定义头像
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Name input */}
+                    <div className="space-y-1">
+                      <SettingRow label="助手名称" description="显示在对话页面顶部的助手名字">
+                        <Input
+                          value={assistantName}
+                          onChange={(e) => setAssistantName(e.target.value)}
+                          onBlur={() => {
+                            const settings = { name: assistantName, avatar: assistantAvatar }
+                            localStorage.setItem("assistant-settings", JSON.stringify(settings))
+                          }}
+                          placeholder="AI 智能助手"
+                          className="w-[200px] h-8 text-[12px]"
+                        />
+                      </SettingRow>
                     </div>
                   </div>
                 )}

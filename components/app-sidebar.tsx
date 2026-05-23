@@ -33,7 +33,7 @@ const navGroups = [
   {
     label: "工作空间",
     items: [
-      { title: "聊天对话", url: "/ai-assistant", icon: MessageSquareIcon },
+      { title: "新对话", url: "/ai-assistant", icon: MessageSquareIcon },
       { title: "历史对话", url: "/ai-assistant/history", icon: HistoryIcon },
     ],
   },
