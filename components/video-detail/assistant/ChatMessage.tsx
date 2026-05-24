@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Bot, CopyIcon, RefreshCwIcon, PencilIcon, CheckIcon, UserIcon, SparklesIcon } from "lucide-react"
+import { useState, useMemo } from "react"
+import { Bot, CopyIcon, RefreshCwIcon, PencilIcon, CheckIcon, UserIcon, SparklesIcon, Brain, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChatMessage } from "./types"
 
@@ -11,11 +11,32 @@ interface ChatMessageProps {
   onEdit?: (newContent: string) => void
 }
 
+function stripThinkTags(text: string): { thinking: string | null; display: string } {
+  const thinkRegex = /<think>\s*([\s\S]*?)\s*<\/think>/gi
+  const matches = text.matchAll(thinkRegex)
+  const thoughts: string[] = []
+  let cleaned = text
+  for (const m of matches) {
+    thoughts.push(m[1].trim())
+  }
+  cleaned = cleaned.replace(thinkRegex, "").replace(/\n{3,}/g, "\n\n").trim()
+  return {
+    thinking: thoughts.length > 0 ? thoughts.join("\n\n") : null,
+    display: cleaned,
+  }
+}
+
 export function ChatMessageBubble({ message, onRegenerate, onEdit }: ChatMessageProps) {
   const isUser = message.role === "user"
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(message.content)
+  const [showThinking, setShowThinking] = useState(false)
+
+  const { thinking, display } = useMemo(() => {
+    if (isUser) return { thinking: null, display: message.content }
+    return stripThinkTags(message.content)
+  }, [message.content, isUser])
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(message.content)
@@ -63,6 +84,25 @@ export function ChatMessageBubble({ message, onRegenerate, onEdit }: ChatMessage
           </span>
         </div>
 
+        {/* Thinking process — collapsible */}
+        {thinking && (
+          <div className="mb-1">
+            <button
+              onClick={() => setShowThinking(!showThinking)}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] bg-amber-500/5 border border-amber-500/10 text-amber-600/70 hover:bg-amber-500/10 transition-colors"
+            >
+              <Brain className="h-2.5 w-2.5" />
+              <span>思考过程</span>
+              <ChevronDown className={cn("h-2.5 w-2.5 transition-transform", showThinking && "rotate-180")} />
+            </button>
+            {showThinking && (
+              <div className="mt-1.5 p-2.5 rounded-lg bg-amber-500/[0.04] border border-amber-500/10 text-[11px] text-muted-foreground/60 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto">
+                {thinking}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Message body */}
         {editing ? (
           <div className="space-y-2">
@@ -90,7 +130,9 @@ export function ChatMessageBubble({ message, onRegenerate, onEdit }: ChatMessage
             </div>
           </div>
         ) : (
-          <p className="text-[13px] leading-[1.7] text-foreground/80 whitespace-pre-wrap">{message.content}</p>
+          <p className="text-[13px] leading-[1.7] text-foreground/80 whitespace-pre-wrap">
+            {display || (!thinking && message.content)}
+          </p>
         )}
 
         {/* Action buttons — appear on hover */}

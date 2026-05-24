@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, Wrench, Loader2, CheckCircle2 } from "lucide-react"
+import { ChevronDown, Wrench, Loader2, CheckCircle2, Search, Eye, Download, FileSearch } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export interface ToolEvent {
   id: string
@@ -15,40 +16,104 @@ interface ToolPanelProps {
   events: ToolEvent[]
 }
 
-function ToolResultView({ name, result }: { name: string; result: string }) {
-  if (name === "searchVideos") {
-    try {
-      const data = JSON.parse(result)
-      if (data.results && Array.isArray(data.results)) {
-        return (
-          <div className="space-y-1.5">
-            {data.results.slice(0, 5).map((v: any, i: number) => (
-              <div key={i} className="flex items-center gap-2 text-[11px] text-muted-foreground/70">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary/50 shrink-0" />
-                <span className="truncate">{v.title}</span>
-                <span className="text-[10px] px-1 py-px rounded bg-muted/50 border border-border/30 shrink-0">
-                  {v.source === "bilibili" ? "B站" : "YT"}
-                </span>
-              </div>
-            ))}
-            {data.results.length > 5 && (
-              <div className="text-[10px] text-muted-foreground/40 pl-4">
-                ...还有 {data.results.length - 5} 个结果
-              </div>
-            )}
-          </div>
-        )
-      }
-    } catch {}
-  }
+const TOOL_META: Record<string, { icon: typeof Search; label: string; color: string }> = {
+  searchVideos: { icon: Search, label: "搜索视频", color: "text-sky-500" },
+  searchTranscripts: { icon: FileSearch, label: "语义检索", color: "text-violet-500" },
+  getVideoContext: { icon: Eye, label: "查看摘要", color: "text-emerald-500" },
+  importVideo: { icon: Download, label: "导入视频", color: "text-orange-500" },
+}
 
-  // Default: show truncated JSON
-  const text = typeof result === "string" ? result : JSON.stringify(result, null, 2)
-  return (
-    <pre className="text-[10px] text-muted-foreground/60 leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
-      {text.length > 500 ? text.slice(0, 500) + "..." : text}
-    </pre>
+function formatArgValue(v: unknown): string {
+  if (typeof v === "string") return v
+  if (typeof v === "number") return String(v)
+  if (Array.isArray(v)) return v.map(String).join("、")
+  return JSON.stringify(v)
+}
+
+function ToolArgsBadges({ name, args }: { name: string; args: Record<string, unknown> }) {
+  const displayArgs = Object.entries(args).filter(
+    ([, v]) => v !== undefined && v !== null && v !== ""
   )
+  if (displayArgs.length === 0) return null
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {displayArgs.map(([key, val]) => (
+        <span
+          key={key}
+          className="inline-flex items-center gap-1 px-1.5 py-px rounded text-[10px] bg-muted/60 border border-border/30 text-muted-foreground/60"
+        >
+          <span className="text-muted-foreground/40">{key}</span>
+          <span className="text-foreground/70 font-medium truncate max-w-[160px]">
+            {formatArgValue(val)}
+          </span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function SearchResultCards({ result }: { result: string }) {
+  try {
+    const data = JSON.parse(result)
+    if (!data.results || !Array.isArray(data.results) || data.results.length === 0) {
+      return (
+        <div className="text-[10px] text-muted-foreground/40 py-1">
+          未找到相关视频
+        </div>
+      )
+    }
+    return (
+      <div className="space-y-1">
+        {data.results.slice(0, 5).map((v: Record<string, unknown>, i: number) => (
+          <a
+            key={i}
+            href={(v.url as string) || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/40 transition-colors group/link"
+          >
+            <span className="w-5 h-5 rounded bg-muted/60 border border-border/30 flex items-center justify-center shrink-0">
+              {v.thumbnail ? (
+                <img
+                  src={v.thumbnail as string}
+                  alt=""
+                  className="w-full h-full rounded object-cover"
+                />
+              ) : (
+                <Search className="h-2.5 w-2.5 text-muted-foreground/30" />
+              )}
+            </span>
+            <span className="flex-1 text-[11px] text-foreground/70 truncate group-hover/link:text-foreground/85 transition-colors">
+              {v.title as string || "未知标题"}
+            </span>
+            <span
+              className={cn(
+                "text-[9px] px-1.5 py-px rounded font-medium shrink-0",
+                v.source === "bilibili"
+                  ? "bg-pink-500/10 text-pink-500/70"
+                  : "bg-red-500/10 text-red-500/70"
+              )}
+            >
+              {v.source === "bilibili" ? "B站" : "YouTube"}
+            </span>
+          </a>
+        ))}
+        {data.results.length > 5 && (
+          <div className="text-[10px] text-muted-foreground/30 pl-7">
+            还有 {data.results.length - 5} 个结果...
+          </div>
+        )}
+      </div>
+    )
+  } catch {
+    // fallback: show truncated text
+    return (
+      <pre className="text-[10px] text-muted-foreground/60 leading-relaxed whitespace-pre-wrap max-h-24 overflow-y-auto m-0 select-text">
+        {result.length > 300 ? result.slice(0, 300) + "..." : result}
+      </pre>
+    )
+  }
 }
 
 export function ToolPanel({ events }: ToolPanelProps) {
@@ -65,40 +130,75 @@ export function ToolPanel({ events }: ToolPanelProps) {
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {events.map((ev) => {
+        const meta = TOOL_META[ev.name] || { icon: Wrench, label: ev.name, color: "text-muted-foreground/50" }
+        const Icon = meta.icon
         const isCollapsed = collapsed.has(ev.id)
+
         return (
           <div
             key={ev.id}
-            className="rounded-lg border border-border/40 bg-muted/20 overflow-hidden text-[12px]"
+            className="rounded-lg border border-border/30 bg-card/50 overflow-hidden transition-all duration-200"
           >
+            {/* Header bar */}
             <button
               onClick={() => toggle(ev.id)}
-              className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-muted/30 transition-colors"
+              className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-muted/20 transition-colors"
             >
-              {ev.status === "running" ? (
-                <Loader2 className="h-3 w-3 text-primary animate-spin shrink-0" />
-              ) : (
-                <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+              {/* Status indicator */}
+              <span className="relative flex h-2 w-2 shrink-0">
+                {ev.status === "running" ? (
+                  <>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400/60" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-400" />
+                  </>
+                ) : (
+                  <span className="inline-flex rounded-full h-2 w-2 bg-emerald-400/80" />
+                )}
+              </span>
+
+              <Icon className={cn("h-3 w-3 shrink-0", meta.color)} />
+              <span className="text-[11px] font-medium text-foreground/70">{meta.label}</span>
+
+              {/* Running arg preview */}
+              {ev.status === "running" && (
+                <span className="text-[10px] text-muted-foreground/40 ml-1 truncate">
+                  {Object.values(ev.args).filter(v => v).map(String).join(" · ").slice(0, 40)}
+                </span>
               )}
-              <Wrench className="h-3 w-3 text-muted-foreground/50 shrink-0" />
-              <span className="font-medium text-foreground/80">{ev.name}</span>
+
+              <span className="ml-auto text-[9px] text-muted-foreground/30">
+                {ev.status === "running" ? "执行中" : "已完成"}
+              </span>
+
               <ChevronDown
-                className={`h-3 w-3 ml-auto text-muted-foreground/40 transition-transform ${
-                  isCollapsed ? "" : "rotate-180"
-                }`}
+                className={cn(
+                  "h-3 w-3 text-muted-foreground/30 transition-transform duration-200",
+                  !isCollapsed && "rotate-180"
+                )}
               />
             </button>
+
+            {/* Expanded body */}
             {!isCollapsed && (
-              <div className="px-3 pb-2.5 space-y-1.5 border-t border-border/20 pt-2">
-                <div className="text-[10px] text-muted-foreground/50">
-                  参数: {JSON.stringify(ev.args)}
-                </div>
+              <div className="px-3 pb-3 pt-1 space-y-2 border-t border-border/10">
+                {/* Args */}
+                <ToolArgsBadges name={ev.name} args={ev.args} />
+
+                {/* Result */}
                 {ev.result && (
-                  <div>
-                    <div className="text-[10px] text-muted-foreground/50 mb-1">结果:</div>
-                    <ToolResultView name={ev.name} result={ev.result} />
+                  <div className="space-y-1">
+                    <div className="text-[9px] text-muted-foreground/30 font-medium tracking-wide">
+                      结果
+                    </div>
+                    {ev.name === "searchVideos" ? (
+                      <SearchResultCards result={ev.result} />
+                    ) : (
+                      <pre className="text-[10px] text-muted-foreground/60 leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto m-0 bg-muted/20 rounded-md p-2 select-text">
+                        {ev.result.length > 500 ? ev.result.slice(0, 500) + "..." : ev.result}
+                      </pre>
+                    )}
                   </div>
                 )}
               </div>
