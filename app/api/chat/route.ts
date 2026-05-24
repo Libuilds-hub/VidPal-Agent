@@ -44,17 +44,24 @@ export async function POST(req: NextRequest) {
 
           // Tool call started
           if (event.event === "on_tool_start") {
+            let args = event.data?.input
+            // DynamicTool receives { input: "json-string" }, unwrap for display
+            if (args && typeof args.input === "string") {
+              try { args = JSON.parse(args.input) } catch { args = args.input }
+            }
             send("tool_start", {
               name: event.name,
-              args: event.data?.input,
+              args: args || {},
             })
           }
 
-          // Tool call finished
+          // Tool call finished — extract content from ToolMessage
           if (event.event === "on_tool_end") {
+            const output = event.data?.output
+            const result = output?.content ?? output
             send("tool_end", {
               name: event.name,
-              result: event.data?.output,
+              result: typeof result === "string" ? result : JSON.stringify(result),
             })
           }
         }
