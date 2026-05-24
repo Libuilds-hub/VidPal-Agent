@@ -487,7 +487,9 @@ function SummaryContent({ video, currentPlaybackTime, onSeek }: { video: Video; 
                 />
               </div>
               {summary.segments.map((item, i) => {
-                  const [segStart, segEnd] = item.time.split("-")
+                  const timeParts = item.time?.split("-") ?? ["0:00", "0:00"]
+                  const segStart = timeParts[0] || "0:00"
+                  const segEnd = timeParts[1] || timeParts[0] || "0:00"
                   const segStartSec = parseTime(segStart)
                   const segEndSec = parseTime(segEnd)
                   const isActive = currentPlaybackTime >= segStartSec && currentPlaybackTime < segEndSec
@@ -531,8 +533,10 @@ function getSourceLabel(source: string): string {
   }
 }
 
-function parseTime(t: string): number {
+function parseTime(t: string | undefined | null): number {
+  if (!t) return 0
   const parts = t.split(":")
+  if (parts.length < 2) return 0
   return parseInt(parts[0]) * 60 + parseInt(parts[1])
 }
 
