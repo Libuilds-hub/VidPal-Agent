@@ -45,9 +45,9 @@ export async function POST(req: NextRequest) {
           // Tool call started
           if (event.event === "on_tool_start") {
             let args = event.data?.input
-            // DynamicTool receives { input: "json-string" }, unwrap for display
-            if (args && typeof args.input === "string") {
-              try { args = JSON.parse(args.input) } catch { args = args.input }
+            // DynamicTool input is deeply nested { input: "{ input: \"{...}\" }" }, unwrap
+            while (args && typeof args.input === "string") {
+              try { args = JSON.parse(args.input) } catch { args = args.input; break }
             }
             send("tool_start", {
               name: event.name,
