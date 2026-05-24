@@ -47,7 +47,7 @@ export async function getChatModel(): Promise<ChatOpenAI> {
       const config = await getLLMConfig()
       _chatModel = new ChatOpenAI({
         modelName: config.model,
-        openAIApiKey: config.apiKey,
+        apiKey: config.apiKey,
         configuration: { baseURL: config.baseUrl },
         temperature: 0.7,
         streaming: true,
@@ -64,7 +64,7 @@ export async function getEmbeddings(): Promise<OpenAIEmbeddings> {
     _embeddingsPromise = (async () => {
       const config = await getLLMConfig()
       _embeddings = new OpenAIEmbeddings({
-        openAIApiKey: config.apiKey,
+        apiKey: config.apiKey,
         configuration: { baseURL: config.baseUrl },
       })
       return _embeddings
