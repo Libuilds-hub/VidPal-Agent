@@ -6,7 +6,7 @@ import { Mic, Send, SparklesIcon, Settings, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { ChatMessageBubble } from "@/components/video-detail/assistant/ChatMessage"
 import { TypingIndicator } from "@/components/video-detail/assistant/TypingIndicator"
-import { ToolPanel, type ToolEvent } from "@/components/chat/tool-panel"
+import type { ToolEvent } from "@/components/chat/tool-panel"
 import type { ChatMessage } from "@/components/video-detail/assistant/types"
 import { cn } from "@/lib/utils"
 
@@ -267,15 +267,12 @@ function AIAssistantPageContent() {
                 message={message}
                 onRegenerate={() => {}}
                 onEdit={() => {}}
+                toolEvents={
+                  message.role === "assistant" && idx === messages.length - 1
+                    ? toolEvents
+                    : undefined
+                }
               />
-              {/* Insert tool panel after the last assistant message */}
-              {message.role === "assistant" &&
-                idx === messages.length - 1 &&
-                toolEvents.length > 0 && (
-                  <div className="mt-3 ml-10">
-                    <ToolPanel events={toolEvents} />
-                  </div>
-                )}
             </div>
           ))}
           {isStreaming && !messages[messages.length - 1]?.content && (

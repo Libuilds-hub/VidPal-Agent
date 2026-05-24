@@ -4,11 +4,13 @@ import { useState, useMemo } from "react"
 import { Bot, CopyIcon, RefreshCwIcon, PencilIcon, CheckIcon, UserIcon, SparklesIcon, Brain, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChatMessage } from "./types"
+import { ToolPanel, type ToolEvent } from "@/components/chat/tool-panel"
 
 interface ChatMessageProps {
   message: ChatMessage
   onRegenerate?: () => void
   onEdit?: (newContent: string) => void
+  toolEvents?: ToolEvent[]
 }
 
 function stripThinkTags(text: string): { thinking: string | null; display: string } {
@@ -26,7 +28,7 @@ function stripThinkTags(text: string): { thinking: string | null; display: strin
   }
 }
 
-export function ChatMessageBubble({ message, onRegenerate, onEdit }: ChatMessageProps) {
+export function ChatMessageBubble({ message, onRegenerate, onEdit, toolEvents }: ChatMessageProps) {
   const isUser = message.role === "user"
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -100,6 +102,13 @@ export function ChatMessageBubble({ message, onRegenerate, onEdit }: ChatMessage
                 {thinking}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Tool calls — between thinking and response */}
+        {toolEvents && toolEvents.length > 0 && (
+          <div className="mb-1.5 mt-0.5">
+            <ToolPanel events={toolEvents} />
           </div>
         )}
 
