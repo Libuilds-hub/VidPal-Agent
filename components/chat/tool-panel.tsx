@@ -1,9 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import {
-  ChevronDown, Wrench, Search, Eye, Download, FileSearch,
-} from "lucide-react"
+import { ChevronDown, Wrench, Search, Eye, Download, FileSearch } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface ToolEvent {
@@ -65,7 +63,11 @@ function SearchResultCards({ result }: { result: string }) {
   try {
     const data = JSON.parse(result)
     if (!data.results || !Array.isArray(data.results) || data.results.length === 0) {
-      return <div className="text-[10px] text-muted-foreground/40 py-1">未找到相关视频</div>
+      return (
+        <div className="text-[10px] text-muted-foreground/40 py-1">
+          {data.keyword ? `未找到"${data.keyword}"的相关视频` : "未找到相关视频"}
+        </div>
+      )
     }
     return (
       <div className="space-y-1">
@@ -145,7 +147,6 @@ export function ToolPanel({ events }: ToolPanelProps) {
             key={ev.id}
             className="rounded-lg border border-border/30 bg-card/50 overflow-hidden transition-all duration-200"
           >
-            {/* Header bar */}
             <button
               onClick={() => toggle(ev.id)}
               className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-muted/20 transition-colors"
@@ -177,16 +178,12 @@ export function ToolPanel({ events }: ToolPanelProps) {
                 )}
               />
             </button>
-
-            {/* Expanded body */}
             {!isCollapsed && (
               <div className="px-3 pb-3 pt-1 space-y-2 border-t border-border/10">
                 <ToolArgsBadges name={ev.name} args={ev.args} />
                 {ev.result && (
                   <div className="space-y-1">
-                    <div className="text-[9px] text-muted-foreground/30 font-medium tracking-wide">
-                      结果
-                    </div>
+                    <div className="text-[9px] text-muted-foreground/30 font-medium tracking-wide">结果</div>
                     {ev.name === "searchVideos" ? (
                       <SearchResultCards result={ev.result} />
                     ) : (

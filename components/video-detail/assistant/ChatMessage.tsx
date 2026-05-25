@@ -5,7 +5,7 @@ import { Bot, CopyIcon, RefreshCwIcon, PencilIcon, CheckIcon, UserIcon, Sparkles
 import { cn } from "@/lib/utils"
 import { ChatMessage } from "./types"
 import { ToolPanel, type ToolEvent } from "@/components/chat/tool-panel"
-import { VideoSelectCards } from "@/components/chat/video-select-cards"
+import { VideoPickCards, extractVideosFromToolEvents } from "@/components/chat/video-pick-cards"
 
 interface ChatMessageProps {
   message: ChatMessage
@@ -107,16 +107,19 @@ export function ChatMessageBubble({ message, onRegenerate, onEdit, toolEvents, o
           </div>
         )}
 
-        {/* Agent's video recommendations — interactive cards */}
-        {toolEvents && toolEvents.length > 0 && (
-          <VideoSelectCards toolEvents={toolEvents} onImport={onImport} />
-        )}
-
-        {/* Tool calls — raw search results (collapsible) */}
+        {/* Tool calls — between thinking and response */}
         {toolEvents && toolEvents.length > 0 && (
           <div className="mb-1.5 mt-0.5">
             <ToolPanel events={toolEvents} />
           </div>
+        )}
+
+        {/* Video pick cards — agent's recommended videos */}
+        {toolEvents && toolEvents.length > 0 && (
+          <VideoPickCards
+            videos={extractVideosFromToolEvents(toolEvents)}
+            onImport={onImport}
+          />
         )}
 
         {/* Message body */}
