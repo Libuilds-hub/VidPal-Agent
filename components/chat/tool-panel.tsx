@@ -31,6 +31,15 @@ function formatArgValue(v: unknown): string {
 }
 
 function ToolArgsBadges({ name, args }: { name: string; args: Record<string, unknown> }) {
+  // Safety: if args is a plain string/array (unwrapping edge case), show as single badge
+  if (typeof args !== "object" || args === null || Array.isArray(args)) {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-px rounded text-[10px] bg-muted/60 border border-border/30 text-foreground/70 font-medium truncate max-w-[240px]">
+        {String(args)}
+      </span>
+    )
+  }
+
   const displayArgs = Object.entries(args).filter(
     ([, v]) => v !== undefined && v !== null && v !== ""
   )

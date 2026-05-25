@@ -43,7 +43,7 @@ export async function runAgent(messages: BaseMessage[]) {
     { messages },
     {
       version: "v2",
-      recursionLimit: 10,
+      recursionLimit: 25,
     }
   )
 }
