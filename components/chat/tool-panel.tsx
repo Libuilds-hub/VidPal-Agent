@@ -3,7 +3,6 @@
 import { useState } from "react"
 import {
   ChevronDown, Wrench, Search, Eye, Download, FileSearch,
-  Circle, CheckCircle2, Play, Clock, User, EyeIcon, ExternalLink,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -17,7 +16,6 @@ export interface ToolEvent {
 
 interface ToolPanelProps {
   events: ToolEvent[]
-  onImport?: (urls: string[]) => void
 }
 
 const TOOL_META: Record<string, { icon: typeof Search; label: string; color: string }> = {
@@ -25,23 +23,6 @@ const TOOL_META: Record<string, { icon: typeof Search; label: string; color: str
   searchTranscripts: { icon: FileSearch, label: "语义检索", color: "text-violet-500" },
   getVideoContext: { icon: Eye, label: "查看摘要", color: "text-emerald-500" },
   importVideo: { icon: Download, label: "导入视频", color: "text-orange-500" },
-}
-
-function formatDuration(sec: number | null): string {
-  if (sec == null) return ""
-  const m = Math.floor(sec / 60)
-  const s = sec % 60
-  if (m >= 60) {
-    const h = Math.floor(m / 60)
-    return `${h}:${String(m % 60).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-  }
-  return `${m}:${String(s).padStart(2, "0")}`
-}
-
-function formatPlay(n: number | null): string {
-  if (n == null) return ""
-  if (n >= 10000) return (n / 10000).toFixed(1) + "万"
-  return String(n)
 }
 
 function formatArgValue(v: unknown): string {
@@ -80,26 +61,56 @@ function ToolArgsBadges({ name, args }: { name: string; args: Record<string, unk
   )
 }
 
-interface VideoItem {
-  id: string
-  title: string
-  url: string
-  thumbnail: string | null
-  uploader: string | null
-  play: number | null
-  duration: number | null
-  source: string
-}
-
-function SearchResultCards({ result, onImport }: { result: string; onImport?: (urls: string[]) => void }) {
-  const [selected, setSelected] = useState<Set<number>>(new Set())
-
-  let videos: VideoItem[] = []
+function SearchResultCards({ result }: { result: string }) {
   try {
     const data = JSON.parse(result)
-    if (data.results && Array.isArray(data.results)) {
-      videos = data.results
+    if (!data.results || !Array.isArray(data.results) || data.results.length === 0) {
+      return <div className="text-[10px] text-muted-foreground/40 py-1">未找到相关视频</div>
     }
+    return (
+      <div className="space-y-1">
+        {data.results.slice(0, 5).map((v: Record<string, unknown>, i: number) => (
+          <a
+            key={i}
+            href={(v.url as string) || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/40 transition-colors group/link"
+          >
+            <span className="relative w-5 h-5 rounded bg-muted/60 border border-border/30 flex items-center justify-center shrink-0 overflow-hidden">
+              <Search className="h-2.5 w-2.5 text-muted-foreground/30" />
+              {(v.thumbnail as string) && (
+                <img
+                  src={v.thumbnail as string}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="absolute inset-0 w-full h-full rounded object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                />
+              )}
+            </span>
+            <span className="flex-1 text-[11px] text-foreground/70 truncate group-hover/link:text-foreground/85 transition-colors">
+              {v.title as string || "未知标题"}
+            </span>
+            <span
+              className={cn(
+                "text-[9px] px-1.5 py-px rounded font-medium shrink-0",
+                v.source === "bilibili"
+                  ? "bg-pink-500/10 text-pink-500/70"
+                  : "bg-red-500/10 text-red-500/70"
+              )}
+            >
+              {v.source === "bilibili" ? "B站" : "YouTube"}
+            </span>
+          </a>
+        ))}
+        {data.results.length > 5 && (
+          <div className="text-[10px] text-muted-foreground/30 pl-7">
+            还有 {data.results.length - 5} 个结果...
+          </div>
+        )}
+      </div>
+    )
   } catch {
     return (
       <pre className="text-[10px] text-muted-foreground/60 leading-relaxed whitespace-pre-wrap max-h-24 overflow-y-auto m-0 select-text">
@@ -107,169 +118,9 @@ function SearchResultCards({ result, onImport }: { result: string; onImport?: (u
       </pre>
     )
   }
-
-  if (videos.length === 0) {
-    return <div className="text-[10px] text-muted-foreground/40 py-1">未找到相关视频</div>
-  }
-
-  const toggle = (idx: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(idx)) next.delete(idx)
-      else next.add(idx)
-      return next
-    })
-  }
-
-  const toggleAll = () => {
-    if (selected.size === videos.length) {
-      setSelected(new Set())
-    } else {
-      setSelected(new Set(videos.map((_, i) => i)))
-    }
-  }
-
-  const handleStart = () => {
-    const urls = videos
-      .filter((_, i) => selected.has(i))
-      .map((v) => v.url)
-      .filter(Boolean)
-    if (urls.length > 0) onImport?.(urls)
-  }
-
-  return (
-    <div className="space-y-0.5">
-      {/* Select all row */}
-      <div className="flex items-center gap-2 pb-1">
-        <button
-          onClick={toggleAll}
-          className={cn(
-            "text-[10px] text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors",
-            selected.size === videos.length && "text-primary/60 hover:text-primary/80"
-          )}
-        >
-          {selected.size === videos.length ? "取消全选" : "全选"}
-        </button>
-        <span className="text-[9px] text-muted-foreground/25">
-          {selected.size > 0 ? `已选 ${selected.size} 个` : ""}
-        </span>
-      </div>
-
-      {/* Video cards */}
-      {videos.map((v, i) => {
-        const isSelected = selected.has(i)
-        return (
-          <div
-            key={i}
-            className={cn(
-              "flex items-start gap-2.5 px-2.5 py-2 rounded-lg border transition-all duration-150 group/card",
-              isSelected
-                ? "bg-primary/[0.04] border-primary/20"
-                : "bg-card/60 border-border/20 hover:border-border/40"
-            )}
-          >
-            {/* Thumbnail */}
-            <a
-              href={v.url || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="relative w-14 h-9 rounded-md bg-muted/60 border border-border/30 flex items-center justify-center shrink-0 overflow-hidden group/img"
-            >
-              <Search className="h-3 w-3 text-muted-foreground/25" />
-              {v.thumbnail && (
-                <img
-                  src={v.thumbnail}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover/img:opacity-100 transition-opacity"
-                  onLoad={(e) => { (e.target as HTMLImageElement).style.opacity = "1" }}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
-                />
-              )}
-            </a>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <a
-                href={v.url || "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[12px] text-foreground/80 font-medium leading-snug line-clamp-2 hover:text-primary/80 transition-colors"
-              >
-                {v.title || "未知标题"}
-              </a>
-              <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground/45">
-                {v.uploader && (
-                  <span className="inline-flex items-center gap-0.5">
-                    <User className="h-2.5 w-2.5" />
-                    {v.uploader}
-                  </span>
-                )}
-                {v.play != null && (
-                  <span className="inline-flex items-center gap-0.5">
-                    <EyeIcon className="h-2.5 w-2.5" />
-                    {formatPlay(v.play)}
-                  </span>
-                )}
-                {v.duration != null && (
-                  <span className="inline-flex items-center gap-0.5">
-                    <Clock className="h-2.5 w-2.5" />
-                    {formatDuration(v.duration)}
-                  </span>
-                )}
-                <span
-                  className={cn(
-                    "text-[9px] px-1.5 py-px rounded font-medium",
-                    v.source === "bilibili"
-                      ? "bg-pink-500/10 text-pink-500/70"
-                      : "bg-red-500/10 text-red-500/70"
-                  )}
-                >
-                  {v.source === "bilibili" ? "B站" : "YouTube"}
-                </span>
-              </div>
-            </div>
-
-            {/* Checkbox + external link */}
-            <div className="flex flex-col items-center gap-1 shrink-0">
-              <button
-                onClick={() => toggle(i)}
-                className="mt-0.5 cursor-pointer"
-              >
-                {isSelected ? (
-                  <CheckCircle2 className="h-4 w-4 text-primary/80" />
-                ) : (
-                  <Circle className="h-4 w-4 text-muted-foreground/20 group-hover/card:text-muted-foreground/40 transition-colors" />
-                )}
-              </button>
-              <a
-                href={v.url || "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground/20 hover:text-muted-foreground/50 transition-colors"
-              >
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-          </div>
-        )
-      })}
-
-      {/* Start button */}
-      {selected.size > 0 && (
-        <button
-          onClick={handleStart}
-          className="flex items-center justify-center gap-2 w-full mt-2 py-2 rounded-lg bg-primary text-primary-foreground text-[12px] font-medium hover:bg-primary/90 active:scale-[0.98] transition-all duration-200 shadow-sm"
-        >
-          <Play className="h-3.5 w-3.5" />
-          开始分析（{selected.size}）
-        </button>
-      )}
-    </div>
-  )
 }
 
-export function ToolPanel({ events, onImport }: ToolPanelProps) {
+export function ToolPanel({ events }: ToolPanelProps) {
   if (events.length === 0) return null
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
@@ -337,7 +188,7 @@ export function ToolPanel({ events, onImport }: ToolPanelProps) {
                       结果
                     </div>
                     {ev.name === "searchVideos" ? (
-                      <SearchResultCards result={ev.result} onImport={onImport} />
+                      <SearchResultCards result={ev.result} />
                     ) : (
                       <pre className="text-[10px] text-muted-foreground/60 leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto m-0 bg-muted/20 rounded-md p-2 select-text">
                         {ev.result.length > 500 ? ev.result.slice(0, 500) + "..." : ev.result}
