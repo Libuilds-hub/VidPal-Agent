@@ -86,6 +86,7 @@ export function VideoResultCards({ result, onImport, importing }: VideoResultCar
                   ? "border-primary/30 bg-primary/[0.03] shadow-sm"
                   : "border-border/40 bg-card/60 hover:border-border/60 hover:bg-card"
               )}
+              onClick={() => toggle(v.url)}
             >
               {/* Checkbox */}
               <div className="flex items-start pt-0.5 shrink-0">
@@ -96,10 +97,6 @@ export function VideoResultCards({ result, onImport, importing }: VideoResultCar
                       ? "bg-primary border-primary text-primary-foreground"
                       : "border-muted-foreground/25"
                   )}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    toggle(v.url)
-                  }}
                 >
                   {isChecked && (
                     <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
