@@ -271,10 +271,22 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-6 px-6 py-6 max-w-6xl w-full mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
         
         {/* Dynamic Welcome Header Section */}
-        <div className="relative overflow-hidden rounded-2xl border border-zinc-200/50 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10 p-6 sm:p-7 shadow-[0_1px_3px_rgba(0,0,0,0.01)] select-none">
-          <div className="relative z-10">
+        <div className="relative overflow-hidden rounded-2xl border border-zinc-200/40 dark:border-zinc-800/30 p-6 sm:p-7 shadow-[0_2px_12px_rgba(99,102,241,0.06),0_0_0_1px_rgba(99,102,241,0.04)] select-none"
+          style={{
+            background: 'linear-gradient(135deg, rgba(238,242,255,0.5) 0%, rgba(224,231,255,0.25) 30%, rgba(248,250,255,0.15) 60%, rgba(255,255,255,0.05) 100%)',
+          }}
+        >
+          {/* Decorative gradient orbs */}
+          <div className="absolute -top-20 -right-16 size-64 rounded-full blur-3xl pointer-events-none"
+            style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, rgba(139,92,246,0.04) 40%, transparent 70%)' }} />
+          <div className="absolute -bottom-24 left-1/4 size-48 rounded-full blur-3xl pointer-events-none"
+            style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, rgba(99,102,241,0.02) 50%, transparent 70%)' }} />
+          <div className="relative z-10 flex items-center gap-4">
+            <div className="size-14 rounded-full overflow-hidden shrink-0">
+              <img alt="logo" className="size-full object-cover" src="https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*s5sNRo5LjfQAAAAAAAAAAAAADgCCAQ/fmt.webp" />
+            </div>
             <div className="space-y-1">
-              <h1 className="text-[20px] font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-700 dark:from-zinc-100 dark:via-zinc-200 dark:to-zinc-300">
+              <h1 className="text-[20px] font-bold tracking-tight bg-gradient-to-r from-indigo-950 via-violet-900 to-zinc-800 dark:from-indigo-200 dark:via-violet-100 dark:to-zinc-100 text-transparent bg-clip-text">
                 {greeting}，Admin
               </h1>
               <p className="text-xs text-muted-foreground/80 leading-relaxed max-w-xl">
