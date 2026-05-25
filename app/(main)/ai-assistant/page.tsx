@@ -87,6 +87,7 @@ function AIAssistantPageContent() {
   const [assistantName, setAssistantName] = useState("AI 智能助手")
   const [assistantAvatar, setAssistantAvatar] = useState("")
   const [convId, setConvId] = useState<string | null>(null)
+  const [importingVideos, setImportingVideos] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -286,6 +287,32 @@ function AIAssistantPageContent() {
     setIsStreaming(false)
   }
 
+  const handleImportVideos = useCallback(async (urls: string[]) => {
+    if (urls.length === 0 || importingVideos) return
+    setImportingVideos(true)
+    try {
+      for (const url of urls) {
+        void fetch("/api/video/parse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        })
+      }
+      // Add a system message about the import
+      const importMsg: ChatMessage = {
+        id: `system-${Date.now()}`,
+        role: "assistant",
+        content: `已开始导入 ${urls.length} 个视频，后台处理中（下载→转写→摘要→导图），大约需要 3-8 分钟。完成后可在视频库查看。`,
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, importMsg])
+    } catch {
+      // silently ignore fetch errors
+    } finally {
+      setImportingVideos(false)
+    }
+  }, [importingVideos])
+
   return (
     <div className="flex flex-col h-[calc(100vh-2.75rem)] bg-background">
       {messages.length === 0 ? (
@@ -354,14 +381,8 @@ function AIAssistantPageContent() {
                     ? toolEvents
                     : undefined
                 }
-                onImportVideos={(urls) => {
-                  const urlList = urls.map((u, i) => `  ${i + 1}. ${u}`).join("\n")
-                  setInputValue(`请帮我分析以下视频：\n${urlList}`)
-                  // auto-send after a tick so state updates
-                  setTimeout(() => {
-                    textareaRef.current?.focus()
-                  }, 50)
-                }}
+                onImportVideos={handleImportVideos}
+                importingVideos={importingVideos}
               />
             </div>
           ))}
