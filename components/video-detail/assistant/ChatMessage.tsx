@@ -5,15 +5,13 @@ import { Bot, CopyIcon, RefreshCwIcon, PencilIcon, CheckIcon, UserIcon, Sparkles
 import { cn } from "@/lib/utils"
 import { ChatMessage } from "./types"
 import { ToolPanel, type ToolEvent } from "@/components/chat/tool-panel"
-import { VideoResultCards } from "@/components/chat/video-result-cards"
 
 interface ChatMessageProps {
   message: ChatMessage
   onRegenerate?: () => void
   onEdit?: (newContent: string) => void
   toolEvents?: ToolEvent[]
-  onImportVideos?: (urls: string[]) => void
-  importingVideos?: boolean
+  onImport?: (urls: string[]) => void
 }
 
 function stripThinkTags(text: string): { thinking: string | null; display: string } {
@@ -31,7 +29,7 @@ function stripThinkTags(text: string): { thinking: string | null; display: strin
   }
 }
 
-export function ChatMessageBubble({ message, onRegenerate, onEdit, toolEvents, onImportVideos, importingVideos }: ChatMessageProps) {
+export function ChatMessageBubble({ message, onRegenerate, onEdit, toolEvents, onImport }: ChatMessageProps) {
   const isUser = message.role === "user"
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -42,19 +40,6 @@ export function ChatMessageBubble({ message, onRegenerate, onEdit, toolEvents, o
     if (isUser) return { thinking: null, display: message.content }
     return stripThinkTags(message.content)
   }, [message.content, isUser])
-
-  // Extract search results from completed tool events
-  const searchResults = useMemo(() => {
-    const searchEvent = toolEvents?.find(
-      (e) => e.name === "searchVideos" && e.status === "done" && e.result
-    )
-    return searchEvent?.result || null
-  }, [toolEvents])
-
-  const otherToolEvents = useMemo(() => {
-    if (!toolEvents) return undefined
-    return toolEvents.filter((e) => e.name !== "searchVideos")
-  }, [toolEvents])
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(message.content)
@@ -121,21 +106,10 @@ export function ChatMessageBubble({ message, onRegenerate, onEdit, toolEvents, o
           </div>
         )}
 
-        {/* Video search result cards — interactive checkboxes + import */}
-        {searchResults && (
+        {/* Tool calls — between thinking and response */}
+        {toolEvents && toolEvents.length > 0 && (
           <div className="mb-1.5 mt-0.5">
-            <VideoResultCards
-              result={searchResults}
-              onImport={onImportVideos}
-              importing={importingVideos}
-            />
-          </div>
-        )}
-
-        {/* Other tool calls — collapsible tool panel */}
-        {otherToolEvents && otherToolEvents.length > 0 && (
-          <div className="mb-1.5 mt-0.5">
-            <ToolPanel events={otherToolEvents} />
+            <ToolPanel events={toolEvents} onImport={onImport} />
           </div>
         )}
 

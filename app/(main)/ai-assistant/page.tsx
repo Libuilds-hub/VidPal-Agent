@@ -87,7 +87,6 @@ function AIAssistantPageContent() {
   const [assistantName, setAssistantName] = useState("AI 智能助手")
   const [assistantAvatar, setAssistantAvatar] = useState("")
   const [convId, setConvId] = useState<string | null>(null)
-  const [importingVideos, setImportingVideos] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -287,31 +286,11 @@ function AIAssistantPageContent() {
     setIsStreaming(false)
   }
 
-  const handleImportVideos = useCallback(async (urls: string[]) => {
-    if (urls.length === 0 || importingVideos) return
-    setImportingVideos(true)
-    try {
-      for (const url of urls) {
-        void fetch("/api/video/parse", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url }),
-        })
-      }
-      // Add a system message about the import
-      const importMsg: ChatMessage = {
-        id: `system-${Date.now()}`,
-        role: "assistant",
-        content: `已开始导入 ${urls.length} 个视频，后台处理中（下载→转写→摘要→导图），大约需要 3-8 分钟。完成后可在视频库查看。`,
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, importMsg])
-    } catch {
-      // silently ignore fetch errors
-    } finally {
-      setImportingVideos(false)
-    }
-  }, [importingVideos])
+  const handleImport = useCallback((urls: string[]) => {
+    if (urls.length === 0 || isStreaming) return
+    const lines = urls.map((u) => `- ${u}`).join("\n")
+    setInputValue(`请帮我导入以下视频：\n${lines}`)
+  }, [isStreaming])
 
   return (
     <div className="flex flex-col h-[calc(100vh-2.75rem)] bg-background">
@@ -376,13 +355,12 @@ function AIAssistantPageContent() {
                 message={message}
                 onRegenerate={() => {}}
                 onEdit={() => {}}
+                onImport={handleImport}
                 toolEvents={
                   message.role === "assistant" && idx === messages.length - 1
                     ? toolEvents
                     : undefined
                 }
-                onImportVideos={handleImportVideos}
-                importingVideos={importingVideos}
               />
             </div>
           ))}
