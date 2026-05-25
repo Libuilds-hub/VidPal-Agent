@@ -73,7 +73,7 @@ function SearchResultCards({ result }: { result: string }) {
             rel="noopener noreferrer"
             className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/40 transition-colors group/link"
           >
-            <span className="w-5 h-5 rounded bg-muted/60 border border-border/30 flex items-center justify-center shrink-0 overflow-hidden">
+            <span className="relative w-5 h-5 rounded bg-muted/60 border border-border/30 flex items-center justify-center shrink-0 overflow-hidden">
               <Search className="h-2.5 w-2.5 text-muted-foreground/30" />
               {(v.thumbnail as string) && (
                 <img
