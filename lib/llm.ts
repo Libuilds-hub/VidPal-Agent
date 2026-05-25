@@ -40,7 +40,19 @@ let _chatModelPromise: Promise<ChatOpenAI> | null = null
 let _embeddings: OpenAIEmbeddings | null = null
 let _embeddingsPromise: Promise<OpenAIEmbeddings> | null = null
 
-export async function getChatModel(): Promise<ChatOpenAI> {
+export async function getChatModel(modelOverride?: string): Promise<ChatOpenAI> {
+  // When model is overridden, create a fresh instance (don't cache)
+  if (modelOverride) {
+    const config = await getLLMConfig()
+    return new ChatOpenAI({
+      modelName: modelOverride,
+      apiKey: config.apiKey,
+      configuration: { baseURL: config.baseUrl },
+      temperature: 0.7,
+      streaming: true,
+    })
+  }
+
   if (_chatModel) return _chatModel
   if (!_chatModelPromise) {
     _chatModelPromise = (async () => {

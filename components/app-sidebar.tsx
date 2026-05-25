@@ -15,12 +15,12 @@ import {
 import { NavUser } from "@/components/nav-user"
 import {
   LayoutDashboardIcon,
-  MessageSquareIcon,
   LibraryIcon,
   GitGraphIcon,
   FolderHeartIcon,
   SparklesIcon,
   History as HistoryIcon,
+  MessageSquarePlusIcon,
 } from "lucide-react"
 
 const navGroups = [
@@ -33,7 +33,7 @@ const navGroups = [
   {
     label: "工作空间",
     items: [
-      { title: "新对话", url: "/ai-assistant", icon: MessageSquareIcon },
+      { title: "新对话", url: "/ai-assistant/new-chat", icon: MessageSquarePlusIcon },
       { title: "历史对话", url: "/ai-assistant/history", icon: HistoryIcon },
     ],
   },

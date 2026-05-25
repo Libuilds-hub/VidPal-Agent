@@ -12,7 +12,6 @@ import {
   ClockIcon,
   CheckCircle2Icon,
   AlertCircleIcon,
-  SparklesIcon,
   HelpCircleIcon,
   ArrowRightIcon,
   BookOpenIcon,
@@ -35,30 +34,6 @@ interface Video {
   status: string
   createdAt: string
 }
-
-// Quick AI prompts
-const QUICK_PROMPTS = [
-  {
-    num: "01",
-    text: "总结本周视频所学到的核心脉络",
-    prompt: "请总结我本周导入的所有视频，提炼出核心的学习脉络与关键知识点。",
-  },
-  {
-    num: "02",
-    text: "分析我最近的学习兴趣与领域分布",
-    prompt: "基于我的视频库，分析我最近的学习兴趣主要集中在哪些领域？各领域的占比大约是多少？",
-  },
-  {
-    num: "03",
-    text: "为我生成一份 React Fiber 思维导图说明",
-    prompt: "帮我推荐视频库中与 React/前端 相关的视频，并用 Markdown 或 Mermaid 格式为我生成一份 React 核心原理解析思维导图说明。",
-  },
-  {
-    num: "04",
-    text: "检测我目前的知识网络是否存在盲区",
-    prompt: "深度审视我的知识图谱与视频库，检测我目前的学习内容在系统设计或技术全景上是否存在知识盲区？并给出后续的学习推荐。",
-  },
-]
 
 export default function DashboardPage() {
   const [videos, setVideos] = useState<Video[]>([])
@@ -578,50 +553,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* AI Interactive Prompt Assistant Widget */}
-          <div className="flex flex-col gap-3 rounded-xl border border-zinc-200/50 dark:border-zinc-800/40 bg-card/35 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.01)] select-none relative overflow-hidden">
-            <div className="border-b border-zinc-200/40 dark:border-zinc-800/30 pb-3.5">
-              <h3 className="text-xs font-semibold text-foreground/90 uppercase tracking-wider flex items-center gap-1">
-                <SparklesIcon className="size-3.5 text-zinc-800 dark:text-zinc-200 animate-pulse" />
-                AI 智能探索快捷入口
-              </h3>
-            </div>
-
-            <div className="flex-1 flex flex-col gap-2 mt-2">
-              {QUICK_PROMPTS.map((prompt, idx) => {
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      // Save prompt to session storage to let AI assistant fetch it
-                      if (typeof window !== "undefined") {
-                        sessionStorage.setItem("ai_initial_prompt", prompt.prompt)
-                        router.push("/ai-assistant")
-                      }
-                    }}
-                    className="group flex items-center gap-3 p-2 rounded-lg border border-zinc-200/50 dark:border-zinc-800/40 bg-white/40 dark:bg-zinc-900/10 hover:border-zinc-400/40 hover:bg-white/80 dark:hover:bg-zinc-900/40 text-left text-[11.5px] font-medium leading-none cursor-pointer transition-all duration-300 relative overflow-hidden select-none"
-                  >
-                    {/* Left Accent Indicator Bar */}
-                    <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-zinc-800 dark:bg-zinc-200 scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-center" />
-
-                    {/* Modern Index Indexing */}
-                    <span className="font-mono text-[10px] text-muted-foreground/35 group-hover:text-zinc-800 dark:group-hover:text-zinc-200 transition-colors font-bold pr-1">
-                      {prompt.num}
-                    </span>
-                    <span className="text-zinc-200/80 dark:text-zinc-800/70 text-[10px] font-light">/</span>
-                    
-                    {/* Prompt Title */}
-                    <span className="text-zinc-700 dark:text-zinc-300 group-hover:text-foreground transition-colors truncate flex-1 leading-snug">
-                      {prompt.text}
-                    </span>
-
-                    {/* Soft Hover Arrow */}
-                    <ArrowRightIcon className="size-3 shrink-0 opacity-0 group-hover:opacity-100 translate-x-[-4px] group-hover:translate-x-0 transition-all duration-300 text-muted-foreground" />
-                  </button>
-                )
-              })}
-            </div>
-          </div>
 
         </div>
 

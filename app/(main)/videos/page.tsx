@@ -27,7 +27,6 @@ import {
   ListIcon,
   ChevronDownIcon,
 } from "lucide-react"
-import Link from "next/link"
 import { cn } from "@/lib/utils"
 
 interface Video {
@@ -618,12 +617,10 @@ export default function VideosPage() {
                 </div>
               ) : (
                 <div className="mt-5 flex gap-2.5">
-                  <Link href="/ai-assistant">
-                    <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs border-zinc-200 dark:border-zinc-800 text-foreground/80 hover:bg-muted/30">
-                      <SearchIcon className="size-3.5" />
-                      AI 对话查找
-                    </Button>
-                  </Link>
+                  <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs border-zinc-200 dark:border-zinc-800 text-foreground/80 hover:bg-muted/30">
+                    <SearchIcon className="size-3.5" />
+                    AI 对话查找
+                  </Button>
                   <Button onClick={() => setIsImportOpen(true)} size="sm" className="gap-1.5 h-7 text-xs bg-foreground text-background hover:bg-foreground/90">
                     <UploadIcon className="size-3.5" />
                     立即上传

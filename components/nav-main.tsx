@@ -46,7 +46,6 @@ export function NavMain({
               {group.items.map((item) => {
                 const isActive = pathname === item.url || (
                   item.url !== "/dashboard" &&
-                  item.url !== "/ai-assistant" &&
                   pathname.startsWith(item.url)
                 )
                 return (

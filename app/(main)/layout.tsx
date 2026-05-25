@@ -20,6 +20,7 @@ export default function MainLayout({
 
   const getPageTitle = (path: string) => {
     if (path === "/dashboard") return "仪表盘"
+    if (path.startsWith("/ai-assistant/new-chat")) return "新对话"
     if (path.startsWith("/ai-assistant/history")) return "历史对话"
     if (path.startsWith("/ai-assistant")) return "聊天对话"
     if (path.startsWith("/knowledge-graph")) return "知识图谱"

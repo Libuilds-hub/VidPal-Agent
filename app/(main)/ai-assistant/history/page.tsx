@@ -112,7 +112,6 @@ export default function ChatHistoryPage() {
             {filtered.map((conv) => (
               <div
                 key={conv.id}
-                onClick={() => router.push(`/ai-assistant?id=${conv.id}`)}
                 className="group flex items-center justify-between py-3 px-2.5 -mx-2.5 rounded-lg hover:bg-muted/20 transition-colors duration-150 cursor-pointer select-none"
               >
                 <span className="text-[13px] text-foreground/80 font-medium truncate pr-8 group-hover:text-foreground transition-colors">
@@ -147,7 +146,7 @@ export default function ChatHistoryPage() {
               <p className="mt-1 max-w-xs text-[11px] text-muted-foreground/65 leading-normal">
                 {searchQuery
                   ? "请尝试更换搜索关键词"
-                  : "在 AI 助手页面开始对话后，记录将自动保存到此处"}
+                  : "暂无对话记录"}
               </p>
               {searchQuery && (
                 <button

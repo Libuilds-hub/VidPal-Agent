@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { runAgent, LLMNotConfiguredError, HumanMessage, AIMessage } from "@/lib/agent"
 
 export async function POST(req: NextRequest) {
-  let body: { messages: Array<{ role: string; content: string }> }
+  let body: { messages: Array<{ role: string; content: string }>; model?: string }
   try {
     body = await req.json()
   } catch {
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const events = await runAgent(langchainMessages)
+        const events = await runAgent(langchainMessages, body.model)
 
         for await (const event of events) {
           // LLM streaming token
