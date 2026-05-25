@@ -11,6 +11,7 @@ interface ChatMessageProps {
   onRegenerate?: () => void
   onEdit?: (newContent: string) => void
   toolEvents?: ToolEvent[]
+  onImportVideos?: (urls: string[]) => void
 }
 
 function stripThinkTags(text: string): { thinking: string | null; display: string } {
@@ -28,7 +29,7 @@ function stripThinkTags(text: string): { thinking: string | null; display: strin
   }
 }
 
-export function ChatMessageBubble({ message, onRegenerate, onEdit, toolEvents }: ChatMessageProps) {
+export function ChatMessageBubble({ message, onRegenerate, onEdit, toolEvents, onImportVideos }: ChatMessageProps) {
   const isUser = message.role === "user"
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -108,7 +109,7 @@ export function ChatMessageBubble({ message, onRegenerate, onEdit, toolEvents }:
         {/* Tool calls — between thinking and response */}
         {toolEvents && toolEvents.length > 0 && (
           <div className="mb-1.5 mt-0.5">
-            <ToolPanel events={toolEvents} />
+            <ToolPanel events={toolEvents} onImportVideos={onImportVideos} />
           </div>
         )}
 

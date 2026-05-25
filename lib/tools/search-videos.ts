@@ -12,6 +12,7 @@ interface VideoSearchResult {
   duration: number | null
   thumbnail: string | null
   uploader: string | null
+  playCount: number | null
   source: "bilibili" | "youtube"
 }
 
@@ -42,9 +43,10 @@ async function searchBilibili(keyword: string, limit = 5): Promise<VideoSearchRe
       id: String(v.bvid || v.aid || ""),
       title: stripHtml(String(v.title || "未知标题")),
       url: String(v.arcurl || (v.bvid ? `https://www.bilibili.com/video/${v.bvid}` : "")),
-      duration: typeof v.duration === "string" ? parseDuration(v.duration) : null,
+      duration: typeof v.duration === "string" ? parseDuration(v.duration) : (typeof v.duration === "number" ? v.duration : null),
       thumbnail: String(v.pic || "").startsWith("//") ? "https:" + v.pic : String(v.pic || ""),
       uploader: String(v.author || ""),
+      playCount: typeof v.play === "number" ? v.play : (typeof v.play === "string" ? parseInt(v.play) : null),
       source: "bilibili" as const,
     }))
   } catch {
@@ -74,6 +76,7 @@ async function searchYouTube(keyword: string, limit = 5): Promise<VideoSearchRes
         duration: d.duration ?? null,
         thumbnail: d.thumbnail ?? null,
         uploader: d.uploader || d.channel || null,
+        playCount: null,
         source: "youtube" as const,
       }
     })

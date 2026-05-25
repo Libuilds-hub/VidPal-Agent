@@ -354,6 +354,14 @@ function AIAssistantPageContent() {
                     ? toolEvents
                     : undefined
                 }
+                onImportVideos={(urls) => {
+                  const urlList = urls.map((u, i) => `  ${i + 1}. ${u}`).join("\n")
+                  setInputValue(`请帮我分析以下视频：\n${urlList}`)
+                  // auto-send after a tick so state updates
+                  setTimeout(() => {
+                    textareaRef.current?.focus()
+                  }, 50)
+                }}
               />
             </div>
           ))}
