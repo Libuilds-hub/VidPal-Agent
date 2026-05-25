@@ -167,16 +167,44 @@ export function VideoPickCards({ videos, onImport }: VideoPickCardsProps) {
   )
 }
 
-/** Extract video items from searchVideos tool results */
-export function extractVideosFromToolEvents(events: { name: string; result?: string }[]): VideoItem[] {
+/** Extract video items from searchVideos results, filtered to those mentioned in the LLM's response */
+export function extractVideosFromToolEvents(
+  events: { name: string; result?: string }[],
+  messageContent?: string,
+): VideoItem[] {
+  let allVideos: VideoItem[] = []
   for (const ev of events) {
     if (ev.name !== "searchVideos" || !ev.result) continue
     try {
       const data = JSON.parse(ev.result)
       if (data.results && Array.isArray(data.results)) {
-        return data.results as VideoItem[]
+        allVideos = data.results as VideoItem[]
       }
-    } catch { /* fall through */ }
+    } catch {}
   }
-  return []
+  if (allVideos.length === 0) return []
+
+  // No message content → no LLM recommendation yet → show nothing
+  if (!messageContent || messageContent.trim().length === 0) return []
+
+  // Match videos mentioned in the LLM's response by URL, BV/AV ID, or title substring
+  const text = messageContent.toLowerCase()
+  const mentioned = allVideos.filter((v) => {
+    const url = (v.url || "").toLowerCase()
+    const id = (v.id || "").toLowerCase()
+    const title = (v.title || "").toLowerCase()
+
+    // Check if any part of the video appears in the message
+    if (url && text.includes(url)) return true
+    if (id && id.length > 3 && text.includes(id)) return true
+    // Title match: at least 8 consecutive chars from title appear in message
+    if (title.length >= 8) {
+      for (let i = 0; i <= title.length - 8; i++) {
+        if (text.includes(title.slice(i, i + 8))) return true
+      }
+    }
+    return false
+  })
+
+  return mentioned
 }

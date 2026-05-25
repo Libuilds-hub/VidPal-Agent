@@ -117,7 +117,7 @@ export function ChatMessageBubble({ message, onRegenerate, onEdit, toolEvents, o
         {/* Video pick cards — agent's recommended videos */}
         {toolEvents && toolEvents.length > 0 && (
           <VideoPickCards
-            videos={extractVideosFromToolEvents(toolEvents)}
+            videos={extractVideosFromToolEvents(toolEvents, message.content)}
             onImport={onImport}
           />
         )}
