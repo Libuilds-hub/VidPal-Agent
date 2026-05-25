@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Suspense } from "react"
 import { Mic, Send, SparklesIcon, Settings, AlertCircle } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ChatMessageBubble } from "@/components/video-detail/assistant/ChatMessage"
 import { TypingIndicator } from "@/components/video-detail/assistant/TypingIndicator"
 import type { ToolEvent } from "@/components/chat/tool-panel"
@@ -16,9 +16,21 @@ const WELCOME_QUESTIONS = [
   "我视频库里有没有讲过 Fiber 调度？",
 ]
 
-interface SSEEvent {
-  event: string
-  data: Record<string, unknown>
+const STORAGE_KEY = "video-shancn-chats"
+
+interface StoredMessage {
+  id: string
+  role: "user" | "agent"
+  content: string
+  createdAt: string
+}
+
+interface StoredConversation {
+  id: string
+  title: string
+  messages: StoredMessage[]
+  createdAt: string
+  updatedAt: string
 }
 
 function parseSSELine(line: string): { event?: string; data?: string } {
@@ -27,8 +39,46 @@ function parseSSELine(line: string): { event?: string; data?: string } {
   return {}
 }
 
+function toStoredMessages(msgs: ChatMessage[]): StoredMessage[] {
+  return msgs.map((m) => ({
+    id: m.id,
+    role: m.role === "user" ? "user" : "agent",
+    content: m.content,
+    createdAt: m.timestamp.toISOString(),
+  }))
+}
+
+function fromStoredMessages(stored: StoredMessage[]): ChatMessage[] {
+  return stored.map((m) => ({
+    id: m.id,
+    role: m.role === "user" ? "user" : "assistant",
+    content: m.content,
+    timestamp: new Date(m.createdAt),
+  }))
+}
+
+function genId(): string {
+  return `conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function saveConversations(convs: StoredConversation[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(convs))
+  } catch {}
+}
+
+function loadConversations(): StoredConversation[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
 function AIAssistantPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputValue, setInputValue] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
@@ -36,10 +86,12 @@ function AIAssistantPageContent() {
   const [notConfigured, setNotConfigured] = useState(false)
   const [assistantName, setAssistantName] = useState("AI 智能助手")
   const [assistantAvatar, setAssistantAvatar] = useState("")
+  const [convId, setConvId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
+  // Load assistant settings
   useEffect(() => {
     try {
       const raw = localStorage.getItem("assistant-settings")
@@ -51,6 +103,36 @@ function AIAssistantPageContent() {
     } catch {}
   }, [])
 
+  // Load conversation from URL param
+  useEffect(() => {
+    const id = searchParams.get("id")
+    if (!id || convId) return
+    const convs = loadConversations()
+    const found = convs.find((c) => c.id === id)
+    if (found) {
+      setConvId(found.id)
+      setMessages(fromStoredMessages(found.messages))
+    }
+  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save conversation after state changes (debounced by streaming completion)
+  useEffect(() => {
+    if (!convId || messages.length === 0) return
+    const convs = loadConversations()
+    const idx = convs.findIndex((c) => c.id === convId)
+    const title = messages.find((m) => m.role === "user")?.content.slice(0, 40) || "新对话"
+    const entry: StoredConversation = {
+      id: convId,
+      title,
+      messages: toStoredMessages(messages),
+      createdAt: convs[idx]?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    if (idx >= 0) convs[idx] = entry
+    else convs.unshift(entry)
+    saveConversations(convs)
+  }, [messages, convId])
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, isStreaming])
@@ -58,6 +140,12 @@ function AIAssistantPageContent() {
   const handleSend = useCallback(async () => {
     const trimmed = inputValue.trim()
     if (!trimmed || isStreaming) return
+
+    // Create new conversation ID on first message
+    const cid = convId || genId()
+    if (!convId) {
+      setConvId(cid)
+    }
 
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -72,7 +160,6 @@ function AIAssistantPageContent() {
     setNotConfigured(false)
     setToolEvents([])
 
-    // Create placeholder for streaming assistant message
     const assistantId = `assistant-${Date.now()}`
     const placeholder: ChatMessage = {
       id: assistantId,
@@ -159,7 +246,6 @@ function AIAssistantPageContent() {
               } else if (currentEvent === "error") {
                 if (data.code === "NOT_CONFIGURED") {
                   setNotConfigured(true)
-                  // Remove placeholder message
                   setMessages((prev) => prev.filter((m) => m.id !== assistantId))
                 } else {
                   setMessages((prev) =>
@@ -186,7 +272,7 @@ function AIAssistantPageContent() {
     } finally {
       setIsStreaming(false)
     }
-  }, [inputValue, isStreaming, messages])
+  }, [inputValue, isStreaming, messages, convId])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -203,11 +289,9 @@ function AIAssistantPageContent() {
   return (
     <div className="flex flex-col h-[calc(100vh-2.75rem)] bg-background">
       {messages.length === 0 ? (
-        /* Welcome Empty State */
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="max-w-md w-full text-center">
             {notConfigured ? (
-              /* Not Configured Card */
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 space-y-3">
                 <div className="flex justify-center">
                   <div className="size-12 rounded-full bg-amber-500/10 flex items-center justify-center">
@@ -227,7 +311,6 @@ function AIAssistantPageContent() {
                 </button>
               </div>
             ) : (
-              /* Normal Welcome */
               <>
                 <div className="relative mx-auto mb-6">
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-amber-500/10 to-primary/5 rounded-full blur-2xl" />
@@ -259,7 +342,6 @@ function AIAssistantPageContent() {
           </div>
         </div>
       ) : (
-        /* Messages */
         <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
           {messages.map((message, idx) => (
             <div key={message.id}>
@@ -293,7 +375,6 @@ function AIAssistantPageContent() {
         </div>
       )}
 
-      {/* Input Bar */}
       <div className="border-t border-border/20 p-3 shrink-0">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-end gap-1.5 bg-card rounded-md border border-border/40 p-1.5 transition-all duration-200 focus-within:border-primary/30 focus-within:ring-1 focus-within:ring-primary/10">
