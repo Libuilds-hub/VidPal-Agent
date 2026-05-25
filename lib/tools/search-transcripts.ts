@@ -73,7 +73,14 @@ export const searchTranscriptsTool = new DynamicTool({
     "语义搜索已导入视频的转写内容。当用户问视频中提到了什么概念或想跨视频查找某个主题时使用。" +
     "参数: query(必填,搜索查询), videoId(选填,指定只在该视频内搜索)",
   func: async (input: string) => {
-    const { query, videoId } = JSON.parse(input)
+    let query: string, videoId: string | undefined
+    try {
+      const parsed = JSON.parse(input)
+      query = parsed.query
+      videoId = parsed.videoId
+    } catch {
+      query = String(input).slice(0, 200)
+    }
     const store = await getVectorStore()
     let results = await store.similaritySearchWithScore(query, 5)
 

@@ -88,7 +88,20 @@ export const searchVideosTool = new DynamicTool({
     "在B站和YouTube上搜索学习视频。当用户想找某个主题的视频时使用。" +
     "参数: keyword(必填,搜索关键词), source(选填:bilibili/youtube/all,默认all), count(选填,返回数量,默认5)",
   func: async (input: string) => {
-    const { keyword, source = "all", count = 5 } = JSON.parse(input)
+    let keyword: string, source: string, count: number
+    try {
+      const parsed = JSON.parse(input)
+      keyword = parsed.keyword
+      source = parsed.source || "all"
+      count = parsed.count || 5
+    } catch {
+      // LLM may generate malformed JSON with unescaped special chars, try to salvage
+      const fallback = String(input).replace(/[“”""]/g, '"').replace(/[{}\\]/g, " ").trim()
+      const m = fallback.match(/keyword["\s:=]+([^"',}]+)/i)
+      keyword = m ? m[1].trim() : fallback.slice(0, 80)
+      source = "all"
+      count = 5
+    }
     const tasks: Promise<VideoSearchResult[]>[] = []
     if (source !== "youtube") tasks.push(searchBilibili(keyword, count))
     if (source !== "bilibili") tasks.push(searchYouTube(keyword, count))

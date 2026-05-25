@@ -9,7 +9,8 @@ export const importVideoTool = new DynamicTool({
     "导入视频链接，触发后台下载、转写、摘要和导图生成。导入在后台异步进行，不阻塞对话。" +
     "参数: urls(必填，视频链接数组)。导入前应该先让用户确认要导入哪些视频。",
   func: async (input: string) => {
-    const { urls } = JSON.parse(input) as { urls: string[] }
+    let urls: string[]
+    try { urls = (JSON.parse(input) as { urls: string[] }).urls } catch { return JSON.stringify({ error: "参数解析失败，请提供有效的视频链接数组" }) }
     const results: Array<{ url: string; videoId?: string; title?: string; error?: string }> = []
 
     for (const url of urls) {

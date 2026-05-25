@@ -8,7 +8,8 @@ export const getVideoContextTool = new DynamicTool({
     "获取某个已导入视频的内容摘要和结构。当用户问'这个视频讲了什么'或'视频中有哪些要点'时使用。" +
     "参数: videoId(必填)",
   func: async (input: string) => {
-    const { videoId } = JSON.parse(input)
+    let videoId: string
+    try { videoId = JSON.parse(input).videoId } catch { videoId = String(input).slice(0, 50) }
     const video = await prisma.video.findUnique({ where: { id: videoId } })
     if (!video) return JSON.stringify({ error: "视频未找到，请检查 videoId" })
 
