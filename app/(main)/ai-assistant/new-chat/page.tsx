@@ -17,7 +17,7 @@ import {
   YoutubeOutlined,
 } from '@ant-design/icons'
 import type { GetRef, MenuProps } from 'antd'
-import { Button, Divider, Dropdown, Flex, message } from 'antd'
+import { Button, Divider, Dropdown, Flex, message, Pagination } from 'antd'
 
 interface SpeechRecognition extends EventTarget {
   lang: string
@@ -162,7 +162,7 @@ export default function NewChatPage() {
   const [listening, setListening] = useState(false)
   const [selectedModel, setSelectedModel] = useState('')
 
-  const { messages, onRequest, isRequesting, abort, onReload } = useXChat<
+  const { messages, onRequest, isRequesting, abort, onReload, setMessage } = useXChat<
     ChatMessage,
     ChatMessage,
     ChatInput
@@ -215,6 +215,29 @@ export default function NewChatPage() {
       // localStorage not available
     }
   }, [messages])
+
+  // Track and save multiple versions of assistant messages when successfully finished
+  useEffect(() => {
+    messages.forEach(({ id, message, status, extraInfo }) => {
+      if (message.role === 'assistant' && status === 'success') {
+        const versions = extraInfo?.versions || []
+        const currentContent = message.content
+        
+        if (versions.length === 0 || versions[versions.length - 1] !== currentContent) {
+          const newVersions = [...versions, currentContent]
+          const newIndex = newVersions.length - 1
+          
+          setMessage(id, {
+            extraInfo: {
+              ...extraInfo,
+              versions: newVersions,
+              activeVersionIndex: newIndex
+            }
+          })
+        }
+      }
+    })
+  }, [messages, setMessage])
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -433,33 +456,64 @@ export default function NewChatPage() {
                 },
                 user: { placement: 'end', styles: { content: { backgroundColor: '#e6f4ff' } } },
               }}
-              items={messages.map(({ id, message, status }) => ({
-                key: id,
-                role: message.role as 'user' | 'assistant',
-                content: message.role === 'assistant' ? { ...message, status } : message.content,
-                loading: status === 'loading' || status === 'updating',
-                footer: message.role === 'assistant' && status !== 'loading' && status !== 'updating' && (
-                  <Actions
-                    items={[
-                      {
-                        key: 'copy',
-                        actionRender: () => <Actions.Copy text={message.content} />,
-                      },
-                      {
-                        key: 'retry',
-                        icon: <RedoOutlined />,
-                        label: '重新生成',
-                      },
-                    ]}
-                    onClick={({ key }) => {
-                      if (key === 'retry') {
-                        onReload(id, {})
-                      }
-                    }}
-                    variant="borderless"
-                  />
-                ),
-              }))}
+              items={messages.map(({ id, message, status, extraInfo }) => {
+                const versions = extraInfo?.versions || []
+                const activeIndex = extraInfo?.activeVersionIndex !== undefined 
+                  ? extraInfo.activeVersionIndex 
+                  : (versions.length > 0 ? versions.length - 1 : 0)
+                  
+                const displayedContent = versions.length > 0 
+                  ? versions[activeIndex] 
+                  : message.content
+
+                return {
+                  key: id,
+                  role: message.role as 'user' | 'assistant',
+                  content: message.role === 'assistant' ? { ...message, content: displayedContent, status } : message.content,
+                  loading: status === 'loading' || status === 'updating',
+                  footer: message.role === 'assistant' && status !== 'loading' && status !== 'updating' && (
+                    <Actions
+                      items={[
+                        ...(versions.length > 1 ? [{
+                          key: 'pagination',
+                          actionRender: () => (
+                            <Pagination
+                              simple
+                              size="small"
+                              current={activeIndex + 1}
+                              total={versions.length}
+                              pageSize={1}
+                              onChange={(page) => {
+                                setMessage(id, {
+                                  extraInfo: {
+                                    ...extraInfo,
+                                    activeVersionIndex: page - 1
+                                  }
+                                })
+                              }}
+                            />
+                          )
+                        }] : []),
+                        {
+                          key: 'copy',
+                          actionRender: () => <Actions.Copy text={displayedContent} />,
+                        },
+                        {
+                          key: 'retry',
+                          icon: <RedoOutlined />,
+                          label: '重新生成',
+                        },
+                      ]}
+                      onClick={({ key }) => {
+                        if (key === 'retry') {
+                          onReload(id, {})
+                        }
+                      }}
+                      variant="borderless"
+                    />
+                  ),
+                }
+              })}
             />
           </div>
           {senderNode}
