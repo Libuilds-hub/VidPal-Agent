@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useRef, useState, useCallback, useEffect } from 'react'
-import { Bubble, Sender, SenderProps, Think, CodeHighlighter, Mermaid } from '@ant-design/x'
+import { Bubble, Sender, SenderProps, Think, CodeHighlighter, Mermaid, Actions } from '@ant-design/x'
 import { useXChat, XRequest } from '@ant-design/x-sdk'
 import XMarkdown, { type ComponentProps } from '@ant-design/x-markdown'
 import { ShancnChatProvider } from '@/lib/chat-provider'
@@ -12,6 +12,7 @@ import {
   AudioOutlined,
   ImportOutlined,
   PaperClipOutlined,
+  RedoOutlined,
   RobotOutlined,
   YoutubeOutlined,
 } from '@ant-design/icons'
@@ -161,7 +162,7 @@ export default function NewChatPage() {
   const [listening, setListening] = useState(false)
   const [selectedModel, setSelectedModel] = useState('')
 
-  const { messages, onRequest, isRequesting, abort } = useXChat<
+  const { messages, onRequest, isRequesting, abort, onReload } = useXChat<
     ChatMessage,
     ChatMessage,
     ChatInput
@@ -436,7 +437,28 @@ export default function NewChatPage() {
                 key: id,
                 role: message.role as 'user' | 'assistant',
                 content: message.role === 'assistant' ? { ...message, status } : message.content,
-                loading: status === 'loading',
+                loading: status === 'loading' || status === 'updating',
+                footer: message.role === 'assistant' && status !== 'loading' && status !== 'updating' && (
+                  <Actions
+                    items={[
+                      {
+                        key: 'copy',
+                        actionRender: () => <Actions.Copy text={message.content} />,
+                      },
+                      {
+                        key: 'retry',
+                        icon: <RedoOutlined />,
+                        label: '重新生成',
+                      },
+                    ]}
+                    onClick={({ key }) => {
+                      if (key === 'retry') {
+                        onReload(id, {})
+                      }
+                    }}
+                    variant="borderless"
+                  />
+                ),
               }))}
             />
           </div>
