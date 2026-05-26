@@ -11,6 +11,7 @@ export interface ChatMessage {
 export interface ChatInput {
   messages: ChatMessage[]
   model?: string
+  provider?: string
 }
 
 export class ShancnChatProvider extends AbstractChatProvider<
@@ -28,6 +29,7 @@ export class ShancnChatProvider extends AbstractChatProvider<
         options?.params?.messages ||
         [],
       model: requestParams.model || options?.params?.model,
+      provider: requestParams.provider || options?.params?.provider,
     }
   }
 

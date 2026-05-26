@@ -32,3 +32,14 @@ model Setting {
   key   String @unique
   value String
 }
+
+model LlmProvider {
+  id        String   @id @default(cuid())
+  name      String   // 显示名称，如 "MiniMax", "DeepSeek", "OpenRouter"
+  apiKey    String   // API Key
+  baseUrl   String   // API 端点
+  models    String   // 模型列表，逗号分隔，如 "MiniMax-M2.7,deepseek-v4-flash"
+  isDefault Boolean  @default(false) // 是否为默认供应商
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

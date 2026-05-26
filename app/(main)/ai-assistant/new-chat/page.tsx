@@ -59,13 +59,20 @@ const XSwitch = Sender.Switch
 
 const iconStyle = { fontSize: 16 }
 
-const ModelOptions: Record<string, { label: string; desc: string }> = {
-  '': { label: '默认模型', desc: '使用设置中配置的模型' },
-  'MiniMax-M2.7': { label: 'MiniMax-M2.7', desc: 'MiniMax 旗舰模型' },
-  'deepseek-v4-flash': { label: 'DeepSeek V4 Flash', desc: 'DeepSeek 快速模型' },
-  'deepseek-v4-pro': { label: 'DeepSeek V4 Pro', desc: 'DeepSeek 深度思考' },
-  'deepseek/deepseek-v4-flash:free': { label: 'DeepSeek v4 Flash (OpenRouter)', desc: 'OpenRouter 免费模型' },
-  'z-ai/glm-4.5-air:free': { label: 'GLM 4.5 Air (OpenRouter)', desc: '智谱旗舰免费模型' },
+interface ModelOption { label: string; desc: string; provider?: string }
+
+// Dynamic model options built from configured providers
+function buildModelOptions(providers: Array<{ name: string; models: string }>): Record<string, ModelOption> {
+  const opts: Record<string, ModelOption> = {
+    '': { label: '默认模型', desc: '使用默认供应商的第一个模型' },
+  }
+  for (const p of providers) {
+    const modelList = p.models.split(",").map((m: string) => m.trim()).filter(Boolean)
+    for (const model of modelList) {
+      opts[model] = { label: `${model}`, desc: `${p.name} 供应商`, provider: p.name }
+    }
+  }
+  return opts
 }
 
 const AgentInfo: Record<
@@ -161,6 +168,19 @@ export default function NewChatPage() {
   const [agentSlotConfig, setAgentSlotConfig] = useState<SenderProps['slotConfig']>([])
   const [listening, setListening] = useState(false)
   const [selectedModel, setSelectedModel] = useState('')
+  const [modelOptions, setModelOptions] = useState<Record<string, ModelOption>>(
+    buildModelOptions([])
+  )
+
+  // Fetch providers to build model options
+  useEffect(() => {
+    fetch('/api/llm-providers')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setModelOptions(buildModelOptions(data))
+      })
+      .catch(() => {})
+  }, [])
 
   const { messages, onRequest, isRequesting, abort, onReload, setMessage } = useXChat<
     ChatMessage,
@@ -302,7 +322,7 @@ export default function NewChatPage() {
     label: AgentInfo[key].label,
   }))
 
-  const modelItems: MenuProps['items'] = Object.entries(ModelOptions).map(([key, { label }]) => ({
+  const modelItems: MenuProps['items'] = Object.entries(modelOptions).map(([key, { label }]) => ({
     key,
     icon: <RobotOutlined />,
     label,
@@ -338,7 +358,7 @@ export default function NewChatPage() {
                 }}
               >
                 <XSwitch value={false} icon={<RobotOutlined />}>
-                  {ModelOptions[selectedModel]?.label || '模型'}
+                  {modelOptions[selectedModel]?.label || '模型'}
                 </XSwitch>
               </Dropdown>
               <Dropdown
@@ -373,6 +393,7 @@ export default function NewChatPage() {
           onRequest({
             messages: [{ role: 'user', content: query }],
             model: selectedModel || undefined,
+            provider: selectedModel ? modelOptions[selectedModel]?.provider : undefined,
           })
           senderRef.current?.clear?.()
         }}
@@ -506,7 +527,22 @@ export default function NewChatPage() {
                       ]}
                       onClick={({ key }) => {
                         if (key === 'retry') {
-                          onReload(id, {})
+                          // Find the user message that preceded this assistant message
+                          const msgIndex = messages.findIndex((m) => m.id === id)
+                          let userMsg = null
+                          for (let i = msgIndex - 1; i >= 0; i--) {
+                            if (messages[i].message.role === 'user') {
+                              userMsg = messages[i]
+                              break
+                            }
+                          }
+                          onReload(id, {
+                            messages: userMsg
+                              ? [{ role: userMsg.message.role, content: userMsg.message.content }]
+                              : [],
+                            model: selectedModel || undefined,
+                            provider: selectedModel ? modelOptions[selectedModel]?.provider : undefined,
+                          })
                         }
                       }}
                       variant="borderless"

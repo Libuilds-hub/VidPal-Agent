@@ -26,21 +26,21 @@ const SYSTEM_PROMPT = `你是"视频学习助手"，一个 AI 驱动的视频学
 
 let _agent: ReturnType<typeof createReactAgent> | null = null
 
-async function getAgent(modelOverride?: string) {
-  if (!modelOverride && _agent) return _agent
-  const llm = await getChatModel(modelOverride)
+async function getAgent(modelOverride?: string, providerOverride?: string) {
+  if (!modelOverride && !providerOverride && _agent) return _agent
+  const llm = await getChatModel(modelOverride, providerOverride)
   const agent = createReactAgent({
     llm,
     tools: [searchVideosTool, searchTranscriptsTool, getVideoContextTool, importVideoTool],
     messageModifier: SYSTEM_PROMPT,
   })
-  // Only cache when using default model
-  if (!modelOverride) _agent = agent
+  // Only cache when using default model & provider
+  if (!modelOverride && !providerOverride) _agent = agent
   return agent
 }
 
-export async function runAgent(messages: BaseMessage[], model?: string) {
-  const agent = await getAgent(model)
+export async function runAgent(messages: BaseMessage[], model?: string, provider?: string) {
+  const agent = await getAgent(model, provider)
   return agent.streamEvents(
     { messages },
     {

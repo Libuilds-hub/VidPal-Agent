@@ -27,15 +27,11 @@ import {
   HelpCircleIcon,
   RefreshCw,
 } from "lucide-react"
+import LlmProviderManager from "./llm-provider-manager"
 
 /* -------------------------------------------------------------------------- */
-/*  Constants & Providers                                                     */
+/*  Constants                                                              */
 /* -------------------------------------------------------------------------- */
-
-const PROVIDERS: Record<string, { name: string; baseUrl: string; defaultModel: string }> = {
-  minimax: { name: "MiniMax", baseUrl: "https://api.minimaxi.com/v1", defaultModel: "MiniMax-M2.7" },
-  deepseek: { name: "DeepSeek", baseUrl: "https://api.deepseek.com", defaultModel: "deepseek-v4-flash" },
-}
 
 const EXPORT_FORMATS = ["JSON", "CSV", "TXT"]
 const THEME_OPTIONS = ["浅色", "深色", "跟随系统"]
@@ -196,11 +192,6 @@ function SettingsDialogContent() {
   const [transcribeLang, setTranscribeLang] = useState("自动检测")
   const [uiDensity, setUiDensity] = useState("舒适")
 
-  // LLM
-  const [llmProvider, setLlmProvider] = useState("minimax")
-  const [llmModel, setLlmModel] = useState("")
-  const [llmApiKey, setLlmApiKey] = useState("")
-
   // Updates
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "up-to-date">("idle")
 
@@ -230,7 +221,6 @@ function SettingsDialogContent() {
 
   type SaveStatus = { status: "idle" | "saving"; message: { type: "success" | "error"; text: string } | null }
   const [prefSave, setPrefSave] = useState<SaveStatus>({ status: "idle", message: null })
-  const [llmSave, setLlmSave] = useState<SaveStatus>({ status: "idle", message: null })
   const [storageSave, setStorageSave] = useState<SaveStatus>({ status: "idle", message: null })
   const [cookieSave, setCookieSave] = useState<SaveStatus>({ status: "idle", message: null })
 
@@ -258,13 +248,6 @@ function SettingsDialogContent() {
         if (data.dbPath) setDbPath(data.dbPath)
         if (data.exportPath) setExportPath(data.exportPath)
         if (data.exportFormat) setExportFormat(data.exportFormat.toUpperCase())
-        if (data.llmProvider) {
-          setLlmProvider(data.llmProvider)
-          setLlmModel(data.llmModel || PROVIDERS[data.llmProvider]?.defaultModel || "")
-          setLlmApiKey(data.llmApiKey || "")
-        } else {
-          setLlmModel(PROVIDERS.minimax.defaultModel)
-        }
         if (data.ytdlpPath) setYtdlpPath(data.ytdlpPath)
         if (data.ffmpegPath) setFfmpegPath(data.ffmpegPath)
         if (data.theme) setTheme(data.theme)
@@ -327,31 +310,6 @@ function SettingsDialogContent() {
   // Actions
   const handleSavePref = () => saveSettings({ theme, transcribeLang, uiDensity }, setPrefSave)
 
-  const handleSaveLlm = async () => {
-    if (!llmApiKey || !llmModel) {
-      setLlmSave({ status: "idle", message: { type: "error", text: "请填写 API Key 和模型名称" } })
-      return
-    }
-    setLlmSave({ status: "saving", message: null })
-    try {
-      const provider = Object.entries(PROVIDERS).find(([, v]) => v.name === llmProvider)
-      const testRes = await fetch("/api/llm/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baseUrl: provider?.[1]?.baseUrl || PROVIDERS.minimax.baseUrl, apiKey: llmApiKey, model: llmModel }),
-      })
-      const testData = await testRes.json()
-      if (!testRes.ok) {
-        setLlmSave({ status: "idle", message: { type: "error", text: testData.error || "API 连接失败" } })
-        return
-      }
-    } catch {
-      setLlmSave({ status: "idle", message: { type: "error", text: "网络错误，无法测试连接" } })
-      return
-    }
-    await saveSettings({ llmProvider, llmApiKey, llmModel }, setLlmSave)
-  }
-
   const saveAgentSetting = useCallback(
     (key: string, value: string | boolean) => {
       saveSettings({ [key]: value }, () => {})
@@ -408,7 +366,7 @@ function SettingsDialogContent() {
     {
       label: "AI 服务与连接",
       items: [
-        { id: "llm" as SectionId, label: "LLM API", icon: BotIcon },
+        { id: "llm" as SectionId, label: "AI 供应商", icon: BotIcon },
         { id: "ai" as SectionId, label: "AI & Agent", icon: SparklesIcon },
         { id: "assistant" as SectionId, label: "AI 助手", icon: BotIcon },
         { id: "cookies" as SectionId, label: "Cookie 配置", icon: Key },
@@ -427,7 +385,7 @@ function SettingsDialogContent() {
   const sectionTitles: Record<SectionId, string> = {
     profile: "个人信息",
     preferences: "偏好设置",
-    llm: "LLM API",
+    llm: "AI 供应商",
     ai: "AI & Agent",
     assistant: "AI 助手",
     storage: "存储配置",
@@ -607,33 +565,8 @@ function SettingsDialogContent() {
 
                 {/* 3. LLM section */}
                 {activeSection === "llm" && (
-                  <div className="space-y-4 animate-in fade-in-50 duration-150">
-                    <div className="space-y-1">
-                      <SettingRow label="API 提供商" description="选择您使用的 AI 服务提供商">
-                        <Dropdown
-                          value={PROVIDERS[llmProvider]?.name || "MiniMax"}
-                          options={Object.values(PROVIDERS).map((p) => p.name)}
-                          width="140px"
-                          onChange={(v) => {
-                            const key = Object.entries(PROVIDERS).find(([, p]) => p.name === v)?.[0] || "minimax"
-                            setLlmProvider(key); setLlmModel(PROVIDERS[key].defaultModel); clearMessage(setLlmSave)
-                          }}
-                        />
-                      </SettingRow>
-                      <SettingRow label="模型名称" description="完整的模型标识符">
-                        <Input value={llmModel} onChange={(e) => { setLlmModel(e.target.value); clearMessage(setLlmSave) }} placeholder="输入模型名称" className="w-[200px] h-8 text-[12px]" />
-                      </SettingRow>
-                      <SettingRow label="API Key" description="您的 API 密钥，将安全保存在本地数据库">
-                        <Input type="password" value={llmApiKey} onChange={(e) => { setLlmApiKey(e.target.value); clearMessage(setLlmSave) }} placeholder="输入您的 API Key" className="w-[240px] h-8 text-[12px]" />
-                      </SettingRow>
-                    </div>
-                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-border/20">
-                      <StatusBanner type={llmSave.message?.type ?? "success"} text={llmSave.message?.text ?? ""} onDismiss={() => clearMessage(setLlmSave)} />
-                      <button onClick={handleSaveLlm} disabled={llmSave.status === "saving"} className="ml-auto h-7 px-3.5 flex items-center gap-1.5 text-[11px] font-semibold rounded-md border border-border/40 bg-card hover:bg-muted/70 disabled:opacity-50 transition-all duration-150 cursor-pointer select-none">
-                        {llmSave.status === "saving" && <Loader2 className="h-3 w-3 animate-spin" />}
-                        测试并保存
-                      </button>
-                    </div>
+                  <div className="animate-in fade-in-50 duration-150">
+                    <LlmProviderManager />
                   </div>
                 )}
 
