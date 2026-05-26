@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useRef, useState, useCallback } from 'react'
-import { Bubble, Sender, SenderProps } from '@ant-design/x'
+import React, { useRef, useState, useCallback, useEffect } from 'react'
+import { Bubble, Sender, SenderProps, Think, CodeHighlighter } from '@ant-design/x'
 import { useXChat, XRequest } from '@ant-design/x-sdk'
+import XMarkdown, { type ComponentProps } from '@ant-design/x-markdown'
 import { ShancnChatProvider } from '@/lib/chat-provider'
 import type { ChatMessage, ChatInput } from '@/lib/chat-provider'
 import {
@@ -117,7 +118,9 @@ export default function NewChatPage() {
   }
 
   const senderRef = useRef<GetRef<typeof Sender>>(null)
+  const bubbleListRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<InstanceType<typeof SpeechRecognition> | null>(null)
+  const conversationIdRef = useRef<string>('')
   const [activeAgentKey, setActiveAgentKey] = useState('')
   const [agentSkill, setAgentSkill] = useState<SenderProps['skill']>(undefined)
   const [agentSlotConfig, setAgentSlotConfig] = useState<SenderProps['slotConfig']>([])
@@ -138,6 +141,52 @@ export default function NewChatPage() {
       return { content: '请求失败，请稍后重试', role: 'assistant' }
     },
   })
+
+  // Save conversation to localStorage whenever messages change
+  useEffect(() => {
+    if (messages.length === 0) return
+
+    if (!conversationIdRef.current) {
+      conversationIdRef.current = `conv_${Date.now()}`
+    }
+
+    const firstUserMsg = messages.find((m) => m.message.role === 'user')
+    const chatMessages = messages.map((m) => ({
+      id: String(m.id),
+      role: (m.message.role === 'assistant' ? 'agent' : 'user') as 'user' | 'agent',
+      content: m.message.content,
+      createdAt: new Date().toISOString(),
+    }))
+
+    const conversation = {
+      id: conversationIdRef.current,
+      title: firstUserMsg?.message.content?.slice(0, 40) || '新对话',
+      messages: chatMessages,
+      createdAt: conversationIdRef.current.replace('conv_', ''),
+      updatedAt: new Date().toISOString(),
+    }
+
+    try {
+      const raw = localStorage.getItem('video-shancn-chats')
+      const existing = raw ? JSON.parse(raw) : []
+      const idx = existing.findIndex((c: { id: string }) => c.id === conversation.id)
+      if (idx >= 0) {
+        existing[idx] = conversation
+      } else {
+        existing.unshift(conversation)
+      }
+      localStorage.setItem('video-shancn-chats', JSON.stringify(existing))
+    } catch {
+      // localStorage not available
+    }
+  }, [messages])
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (bubbleListRef.current) {
+      bubbleListRef.current.scrollTop = bubbleListRef.current.scrollHeight
+    }
+  }, [messages])
 
   const handleVoiceInput = useCallback(() => {
     const SpeechRecognitionAPI: { new (): SpeechRecognition } | undefined =
@@ -281,16 +330,50 @@ export default function NewChatPage() {
     <div className="flex flex-1 flex-col h-full overflow-hidden bg-background">
       {hasMessages ? (
         <>
-          <div className="flex-1 overflow-y-auto px-6 py-4 scrollbar-hide">
+          <div ref={bubbleListRef} className="flex-1 overflow-y-auto px-6 py-4 scrollbar-hide">
             <Bubble.List
               role={{
-                assistant: { placement: 'start' },
-                user: { placement: 'end' },
+                assistant: {
+                  placement: 'start',
+                  styles: { content: { backgroundColor: '#f5f5f5' } },
+                  contentRender: (msg: ChatMessage & { status?: string }) => (
+                    <div>
+                      {msg.thinking && (
+                        <Think title="思考过程" defaultExpanded={false}>
+                          <pre className="text-xs text-muted-foreground/70 whitespace-pre-wrap font-sans">{msg.thinking}</pre>
+                        </Think>
+                      )}
+                      <div className="markdown-content w-full overflow-x-auto">
+                        <XMarkdown
+                          content={msg.content}
+                          openLinksInNewTab
+                          paragraphTag="div"
+                          streaming={{
+                            hasNextChunk: msg.status === 'updating' || msg.status === 'loading',
+                            enableAnimation: true,
+                            animationConfig: { fadeDuration: 150 },
+                            tail: msg.status === 'updating' || msg.status === 'loading'
+                              ? { content: '▋' }
+                              : undefined,
+                          }}
+                          components={{
+                            code: ({ className, children, ...props }: ComponentProps) => {
+                              const lang = className?.match(/language-(\w+)/)?.[1] || ''
+                              if (typeof children !== 'string') return <code {...props}>{children}</code>
+                              return <CodeHighlighter lang={lang}>{children}</CodeHighlighter>
+                            },
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ),
+                },
+                user: { placement: 'end', styles: { content: { backgroundColor: '#e6f4ff' } } },
               }}
               items={messages.map(({ id, message, status }) => ({
                 key: id,
                 role: message.role as 'user' | 'assistant',
-                content: message.content,
+                content: message.role === 'assistant' ? { ...message, status } : message.content,
                 loading: status === 'loading' || status === 'updating',
               }))}
             />

@@ -170,3 +170,59 @@
   width: 0;
   height: 0;
 }
+
+/* ==========================================
+   Markdown & Chat Bubble Table Styles
+   ========================================== */
+.markdown-content table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 1rem 0 !important;
+  font-size: 0.9em !important;
+  text-align: left !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  border: 1px solid var(--border) !important;
+}
+
+.markdown-content th {
+  background-color: var(--secondary) !important;
+  color: var(--foreground) !important;
+  font-weight: 600 !important;
+  padding: 10px 16px !important;
+  border-bottom: 2px solid var(--border) !important;
+  border-right: 1px solid var(--border) !important;
+  border-left: none !important;
+  border-top: none !important;
+}
+
+.markdown-content th:last-child {
+  border-right: none !important;
+}
+
+.markdown-content td {
+  padding: 10px 16px !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-right: 1px solid var(--border) !important;
+  border-left: none !important;
+  border-top: none !important;
+  color: var(--foreground) !important;
+}
+
+.markdown-content td:last-child {
+  border-right: none !important;
+}
+
+.markdown-content tr:last-child td {
+  border-bottom: none !important;
+}
+
+.markdown-content tr:nth-child(even) {
+  background-color: oklch(from var(--muted) l c h / 0.4) !important;
+}
+
+.markdown-content tr:hover {
+  background-color: oklch(from var(--muted) l c h / 0.8) !important;
+}
+
+
