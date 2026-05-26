@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useRef, useState, useCallback, useEffect } from 'react'
-import { Bubble, Sender, SenderProps, Think, CodeHighlighter } from '@ant-design/x'
+import { Bubble, Sender, SenderProps, Think, CodeHighlighter, Mermaid } from '@ant-design/x'
 import { useXChat, XRequest } from '@ant-design/x-sdk'
 import XMarkdown, { type ComponentProps } from '@ant-design/x-markdown'
 import { ShancnChatProvider } from '@/lib/chat-provider'
@@ -63,6 +63,8 @@ const ModelOptions: Record<string, { label: string; desc: string }> = {
   'MiniMax-M2.7': { label: 'MiniMax-M2.7', desc: 'MiniMax 旗舰模型' },
   'deepseek-v4-flash': { label: 'DeepSeek V4 Flash', desc: 'DeepSeek 快速模型' },
   'deepseek-v4-pro': { label: 'DeepSeek V4 Pro', desc: 'DeepSeek 深度思考' },
+  'deepseek/deepseek-v4-flash:free': { label: 'DeepSeek v4 Flash (OpenRouter)', desc: 'OpenRouter 免费模型' },
+  'z-ai/glm-4.5-air:free': { label: 'GLM 4.5 Air (OpenRouter)', desc: '智谱旗舰免费模型' },
 }
 
 const AgentInfo: Record<
@@ -108,6 +110,38 @@ const AgentInfo: Record<
     ],
   },
 }
+
+const sanitizeMermaid = (code: string) => {
+  if (!code) return code;
+  
+  return code.split('\n').map(line => {
+    // Split the line by common Mermaid link arrows, preserving the delimiters
+    const parts = line.split(/(\s*-[.-]*>\s*|\s*={2,}>\s*|\s*-{3,}\s*)/g);
+    
+    const sanitizedParts = parts.map(part => {
+      // If it is a delimiter, return it unchanged
+      if (/^\s*[-=]+[.-]*>\s*$/.test(part) || /^\s*-{3,}\s*$/.test(part)) {
+        return part;
+      }
+      
+      // Look for ID[text] or ID{text} or ID(text)
+      return part.replace(
+        /\b([A-Za-z0-9_-]+)\s*(\[|\(|\{)\s*([^"'\r\n]+)\s*(\]|\)|\})/g,
+        (match, id, open, text, close) => {
+          // If the text is already quoted, do nothing
+          if (text.trim().startsWith('"') && text.trim().endsWith('"')) {
+            return match;
+          }
+          // Wrap the text in double quotes and escape any inner quotes
+          const sanitizedText = text.replace(/"/g, '\\"');
+          return `${id}${open}"${sanitizedText}"${close}`;
+        }
+      );
+    });
+    
+    return sanitizedParts.join('');
+  }).join('\n');
+};
 
 export default function NewChatPage() {
   const providerRef = useRef<ShancnChatProvider | null>(null)
@@ -357,10 +391,38 @@ export default function NewChatPage() {
                               : undefined,
                           }}
                           components={{
+                            pre: ({ children }: any) => <>{children}</>,
                             code: ({ className, children, ...props }: ComponentProps) => {
-                              const lang = className?.match(/language-(\w+)/)?.[1] || ''
-                              if (typeof children !== 'string') return <code {...props}>{children}</code>
-                              return <CodeHighlighter lang={lang}>{children}</CodeHighlighter>
+                              const codeString = Array.isArray(children)
+                                ? children.join('')
+                                : typeof children === 'string'
+                                  ? children
+                                  : String(children || '')
+
+                              const isBlock = props.block || className?.includes('language-') || codeString.includes('\n')
+
+                              // Render inline code if not block
+                              if (!isBlock) {
+                                return <code className={className} {...props}>{children}</code>
+                              }
+
+                              const lang = (className?.match(/language-(\w+)/)?.[1] || props.lang || 'plaintext').toLowerCase()
+
+                              // Render Mermaid chart if language is mermaid
+                              if (lang === 'mermaid') {
+                                // Only render interactive Mermaid when finished (status is success, error, abort or empty)
+                                const isFinished = !msg.status || msg.status === 'success' || msg.status === 'error' || msg.status === 'abort';
+                                
+                                if (isFinished) {
+                                  const sanitized = sanitizeMermaid(codeString)
+                                  return <Mermaid>{sanitized}</Mermaid>
+                                } else {
+                                  // Show beautiful real-time code highlighting during stream
+                                  return <CodeHighlighter lang="mermaid" prismLightMode={false}>{codeString}</CodeHighlighter>
+                                }
+                              }
+
+                              return <CodeHighlighter lang={lang} prismLightMode={false}>{codeString}</CodeHighlighter>
                             },
                           }}
                         />
@@ -374,7 +436,7 @@ export default function NewChatPage() {
                 key: id,
                 role: message.role as 'user' | 'assistant',
                 content: message.role === 'assistant' ? { ...message, status } : message.content,
-                loading: status === 'loading' || status === 'updating',
+                loading: status === 'loading',
               }))}
             />
           </div>

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
+import { XProviderWrapper } from "@/components/x-provider-wrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +32,9 @@ export default function RootLayout({
     >
       <body className="h-full flex flex-col">
         <AntdRegistry>
-          <TooltipProvider>{children}</TooltipProvider>
+          <XProviderWrapper>
+            <TooltipProvider>{children}</TooltipProvider>
+          </XProviderWrapper>
         </AntdRegistry>
       </body>
     </html>

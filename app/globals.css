@@ -225,4 +225,16 @@
   background-color: oklch(from var(--muted) l c h / 0.8) !important;
 }
 
+/* Inline Code Style */
+.markdown-content code:not(pre code) {
+  background-color: var(--muted) !important;
+  color: var(--destructive) !important;
+  padding: 0.15rem 0.35rem !important;
+  border-radius: 4px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.85em !important;
+  border: 1px solid var(--border) !important;
+}
+
+
 
