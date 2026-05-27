@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import Link from "next/link"
 import {
   SearchIcon,
   Trash2Icon,
@@ -36,7 +36,6 @@ function formatChineseDate(dateStr: string) {
 }
 
 export default function ChatHistoryPage() {
-  const router = useRouter()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -110,8 +109,9 @@ export default function ChatHistoryPage() {
         {filtered.length > 0 ? (
           <div className="flex flex-col">
             {filtered.map((conv) => (
-              <div
+              <Link
                 key={conv.id}
+                href={`/ai-assistant/${conv.id}`}
                 className="group flex items-center justify-between py-3 px-2.5 -mx-2.5 rounded-lg hover:bg-muted/20 transition-colors duration-150 cursor-pointer select-none"
               >
                 <span className="text-[13px] text-foreground/80 font-medium truncate pr-8 group-hover:text-foreground transition-colors">
@@ -131,7 +131,7 @@ export default function ChatHistoryPage() {
                     <Trash2Icon className="h-3.5 w-3.5" />
                   </button>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (
