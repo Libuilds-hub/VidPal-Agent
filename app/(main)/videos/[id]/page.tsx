@@ -357,7 +357,7 @@ function RightPanel({ video, videoId, currentPlaybackTime, onVideoUpdate, onSeek
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div className={cn("flex-1 custom-scrollbar", activeTab !== "assistant" && "overflow-y-auto", activeTab === "assistant" && "flex flex-col h-full")}>
         {activeTab === "summary" && <SummaryContent video={video} currentPlaybackTime={currentPlaybackTime} onSeek={onSeek} />}
         {activeTab === "mindmap" && <MindMap videoId={videoId} mermaidCode={video?.mindmap} onSaved={(mindmap) => onVideoUpdate({ mindmap })} />}
         {activeTab === "assistant" && <QAAssistant />}

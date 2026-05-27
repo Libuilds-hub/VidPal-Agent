@@ -1,17 +1,16 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react"
-import { PlusIcon, SearchIcon, SparklesIcon, EllipsisIcon, Trash2Icon, ChevronLeftIcon, XIcon, MessageSquareIcon } from "lucide-react"
-import { ChatMessage } from "./types"
-import { ChatMessageBubble } from "./ChatMessage"
-import { TypingIndicator } from "./TypingIndicator"
+import { PlusIcon, SearchIcon, EllipsisIcon, Trash2Icon, ChevronLeftIcon, XIcon, MessageSquareIcon, BookOpenIcon, TargetIcon, FileTextIcon, ChevronRightIcon, ChevronDownIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Sender } from "@ant-design/x"
+import { Sender, Bubble, Think } from "@ant-design/x"
+import { useXChat, XRequest } from "@ant-design/x-sdk"
+import XMarkdown from "@ant-design/x-markdown"
+import { ShancnChatProvider } from "@/lib/chat-provider"
+import type { ChatMessage, ChatInput } from "@/lib/chat-provider"
 import { RobotOutlined, ThunderboltOutlined, FileTextOutlined, HighlightOutlined, TranslationOutlined, UnorderedListOutlined, PaperClipOutlined } from "@ant-design/icons"
 import { App, Button, Dropdown, Flex } from "antd"
 import type { MenuProps } from "antd"
-
-const XSwitch = Sender.Switch
 
 interface ModelOption { label: string; desc: string; provider?: string; enableThinking?: boolean }
 
@@ -35,55 +34,71 @@ const QUICK_ACTIONS = [
   { key: 'translate', icon: <TranslationOutlined />, label: '翻译内容', prompt: '请将视频内容翻译成英文' },
 ]
 
-const MOCK_RESPONSES = [
-  "根据视频内容，这个问题涉及到几个关键点：首先，视频中提到了核心概念的定义和背景。其次，相关的实际案例展示了这些理论的应用场景。最后，还有一些实用的技巧可以帮助你更好地理解和应用。",
-  "视频中对这个话题进行了详细的探讨。从内容来看，主要包含三个方面：基础概念的解析、实际应用的案例分析，以及常见问题的解决方案。希望这些信息对你有帮助。",
-  "这是一个很好的问题！视频中确实有提到相关内容。我来总结一下：视频指出这个主题的核心在于理解其基本原理，并通过具体案例展示了如何将理论付诸实践。",
-  "关于您的问题，我需要指出的是，视频中从多个角度进行了分析。从技术层面来看，这涉及到几个重要概念；从实践角度，则需要结合实际情况来灵活运用。",
-  "视频内容表明，这个主题可以分为以下几个层次来理解：首先是最基本的概念定义，然后是相关的原理机制，接着是实际的应用场景，最后还有一些需要注意的事项和技巧。",
-]
-
 const SUGGESTED_QUESTIONS = [
   "视频的主题是什么？",
   "有哪些关键要点？",
   "总结一下主要内容",
 ]
 
-interface Conversation {
+interface ConversationMeta {
   id: string
   title: string
-  messages: ChatMessage[]
   createdAt: number
-}
-
-function createConversation(): Conversation {
-  return {
-    id: `conv-${Date.now()}`,
-    title: "新对话",
-    messages: [],
-    createdAt: Date.now(),
-  }
 }
 
 function QAAssistantInner() {
   const { message } = App.useApp()
-  const [conversations, setConversations] = useState<Conversation[]>(() => [])
+
+  const providerRef = useRef<ShancnChatProvider | null>(null)
+  if (!providerRef.current) {
+    providerRef.current = new ShancnChatProvider({
+      request: XRequest<ChatInput>('/api/chat', { manual: true }),
+    })
+  }
+
+  const [conversations, setConversations] = useState<ConversationMeta[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState("")
-  const [isTyping, setIsTyping] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const senderRef = useRef<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const bubbleListRef = useRef<HTMLDivElement>(null)
   const [recording, setRecording] = useState(false)
   const recognitionRef = useRef<any>(null)
   const [selectedModel, setSelectedModel] = useState('')
   const [modelOptions, setModelOptions] = useState<Record<string, ModelOption>>(buildModelOptions([]))
+  const [providers, setProviders] = useState<any[]>([])
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+
+  const isThinkingEnabled = useMemo(() => {
+    if (selectedModel) {
+      return modelOptions[selectedModel]?.enableThinking !== false
+    }
+    const defaultProvider = providers.find(p => p.isDefault) || providers[0]
+    return defaultProvider ? defaultProvider.enableThinking !== false : true
+  }, [selectedModel, modelOptions, providers])
+
+  const { messages, onRequest, isRequesting, abort, onReload } = useXChat<ChatMessage, ChatMessage, ChatInput>({
+    provider: providerRef.current,
+    requestPlaceholder: { content: '正在思考中...', role: 'assistant' },
+    requestFallback: (_, { error }) => {
+      if (error?.name === 'AbortError') {
+        return { content: '已取消回复', role: 'assistant' }
+      }
+      return { content: '请求失败，请稍后重试', role: 'assistant' }
+    },
+  })
+
+  const getHistory = useCallback(() => {
+    return messages.map((m) => ({
+      role: m.message.role,
+      content: m.message.content,
+    }))
+  }, [messages])
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -99,11 +114,18 @@ function QAAssistantInner() {
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
+          setProviders(data)
           setModelOptions(buildModelOptions(data))
         }
       })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (bubbleListRef.current) {
+      bubbleListRef.current.scrollTop = bubbleListRef.current.scrollHeight
+    }
+  }, [messages])
 
   const modelItems: MenuProps['items'] = useMemo(
     () => Object.entries(modelOptions).map(([key, { label }]) => ({ key, icon: <RobotOutlined />, label })),
@@ -142,12 +164,8 @@ function QAAssistantInner() {
     recognition.continuous = false
     recognition.interimResults = false
 
-    recognition.onstart = () => {
-      setRecording(true)
-    }
-    recognition.onend = () => {
-      setRecording(false)
-    }
+    recognition.onstart = () => setRecording(true)
+    recognition.onend = () => setRecording(false)
     recognition.onerror = () => {
       setRecording(false)
       message.error("语音识别失败，请重试")
@@ -164,8 +182,63 @@ function QAAssistantInner() {
     recognition.start()
   }, [message])
 
-  const activeConv = conversations.find((c) => c.id === activeId) ?? null
-  const messages = activeConv?.messages ?? []
+  const handleSubmit = useCallback((content?: string) => {
+    const textToSend = content !== undefined ? content : inputValue
+    const trimmed = textToSend.trim()
+    if (!trimmed || isRequesting) return
+
+    const history = getHistory()
+    onRequest({
+      messages: [...history, { role: 'user', content: trimmed }],
+      model: selectedModel || undefined,
+      provider: selectedModel ? modelOptions[selectedModel]?.provider : undefined,
+    })
+
+    setInputValue("")
+
+    if (!activeId) {
+      const newId = `conv-${Date.now()}`
+      const newConv: ConversationMeta = {
+        id: newId,
+        title: trimmed.slice(0, 20) + (trimmed.length > 20 ? "…" : ""),
+        createdAt: Date.now(),
+      }
+      setConversations(prev => [newConv, ...prev])
+      setActiveId(newId)
+    }
+  }, [inputValue, isRequesting, getHistory, onRequest, selectedModel, modelOptions, activeId])
+
+  const handleNewConversation = () => {
+    const newId = `conv-${Date.now()}`
+    const newConv: ConversationMeta = {
+      id: newId,
+      title: "新对话",
+      createdAt: Date.now(),
+    }
+    setConversations(prev => [newConv, ...prev])
+    setActiveId(newId)
+    setSidebarOpen(false)
+    setSearchOpen(false)
+    setSearchQuery("")
+    setTimeout(() => senderRef.current?.focus?.(), 150)
+  }
+
+  const handleDeleteConversation = (id: string) => {
+    if (confirmDelete === id) {
+      setConversations((prev) => {
+        const filtered = prev.filter((c) => c.id !== id)
+        if (id === activeId && filtered.length > 0) {
+          setActiveId(filtered[0].id)
+        }
+        if (filtered.length === 0) setActiveId(null)
+        return filtered
+      })
+      setConfirmDelete(null)
+    } else {
+      setConfirmDelete(id)
+      setTimeout(() => setConfirmDelete(null), 3000)
+    }
+  }
 
   const searchResults = searchQuery.trim()
     ? conversations.filter((c) => c.title.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -196,91 +269,7 @@ function QAAssistantInner() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [searchOpen, handleOpenSearch, handleCloseSearch])
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, isTyping])
-
-  const handleSend = useCallback((content?: string) => {
-    const textToSend = content !== undefined ? content : inputValue
-    const trimmed = textToSend.trim()
-    if (!trimmed || isTyping) return
-
-    let targetId = activeId
-    if (!targetId) {
-      const conv = createConversation()
-      setConversations((prev) => [conv, ...prev])
-      targetId = conv.id
-      setActiveId(conv.id)
-    }
-
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: trimmed,
-      timestamp: new Date(),
-    }
-
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id !== targetId) return c
-        const newMessages = [...c.messages, userMessage]
-        return {
-          ...c,
-          messages: newMessages,
-          title: c.messages.length === 0 ? trimmed.slice(0, 20) + (trimmed.length > 20 ? "…" : "") : c.title,
-        }
-      })
-    )
-    setInputValue("")
-    setIsTyping(true)
-
-    message.success("Send message successfully!")
-
-    const delay = 800 + Math.random() * 700
-    setTimeout(() => {
-      const response = MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)]
-      const assistantMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        content: response,
-        timestamp: new Date(),
-      }
-      setConversations((prev) =>
-        prev.map((c) => {
-          if (c.id !== targetId) return c
-          return { ...c, messages: [...c.messages, assistantMessage] }
-        })
-      )
-      setIsTyping(false)
-    }, delay)
-  }, [inputValue, isTyping, activeId, setActiveId, message])
-
-  const handleNewConversation = () => {
-    const conv = createConversation()
-    setConversations((prev) => [conv, ...prev])
-    setActiveId(conv.id)
-    setSidebarOpen(false)
-    setSearchOpen(false)
-    setSearchQuery("")
-    setTimeout(() => senderRef.current?.focus?.(), 150)
-  }
-
-  const handleDeleteConversation = (id: string) => {
-    if (confirmDelete === id) {
-      setConversations((prev) => {
-        const filtered = prev.filter((c) => c.id !== id)
-        if (id === activeId && filtered.length > 0) {
-          setActiveId(filtered[0].id)
-        }
-        if (filtered.length === 0) setActiveId(null)
-        return filtered
-      })
-      setConfirmDelete(null)
-    } else {
-      setConfirmDelete(id)
-      setTimeout(() => setConfirmDelete(null), 3000)
-    }
-  }
+  const hasMessages = messages.length > 0
 
   return (
     <div className="flex h-full relative">
@@ -291,7 +280,6 @@ function QAAssistantInner() {
       )}>
         {sidebarOpen && (
           <>
-            {/* Header with close */}
             <div className="px-3 pt-3 pb-2 flex items-center justify-between">
               <span className="text-[12px] font-semibold tracking-wide text-muted-foreground/45">对话</span>
               <div className="flex items-center gap-1">
@@ -312,7 +300,6 @@ function QAAssistantInner() {
               </div>
             </div>
 
-            {/* New conversation button */}
             <div className="px-2 pb-3">
               <button
                 onClick={handleNewConversation}
@@ -323,7 +310,6 @@ function QAAssistantInner() {
               </button>
             </div>
 
-            {/* Conversation history */}
             <div className="flex-1 flex flex-col min-h-0">
               <div className="px-3 pb-1.5">
                 <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/35">对话历史</span>
@@ -378,7 +364,6 @@ function QAAssistantInner() {
         )}
       </div>
 
-      {/* Overlay to close sidebar when clicking chat area */}
       {sidebarOpen && (
         <div className="absolute left-[180px] top-0 right-0 bottom-0 z-10" onClick={() => setSidebarOpen(false)} />
       )}
@@ -392,104 +377,104 @@ function QAAssistantInner() {
             title="展开对话列表"
           />
         )}
-        {messages.length === 0 ? (
+        {!hasMessages ? (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="max-w-sm w-full text-center">
-              <div className="relative mx-auto mb-6">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-amber-500/10 to-primary/5 rounded-full blur-2xl" />
-                <div className="relative h-16 w-16 rounded-2xl bg-white border border-border/40 flex items-center justify-center mx-auto shadow-sm">
-                  <SparklesIcon className="h-8 w-8 text-primary/70" />
-                </div>
+              <div className="size-14 rounded-full overflow-hidden shrink-0 mx-auto mb-6">
+                <img alt="logo" className="size-full object-cover" src="https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*s5sNRo5LjfQAAAAAAAAAAAAADgCCAQ/fmt.webp" />
               </div>
               <h3 className="text-lg font-bold mb-2 text-foreground/85">视频问答助手</h3>
               <p className="text-[13px] text-muted-foreground/60 mb-6 leading-relaxed">
                 基于视频内容智能分析，随时为你答疑解惑
               </p>
-              <div className="flex flex-col gap-2">
-                {SUGGESTED_QUESTIONS.map((q) => (
-                  <button
-                    key={q}
-                    className="text-[13px] px-4 py-2.5 rounded-xl bg-muted hover:bg-muted/90 transition-all duration-200 text-muted-foreground/70 hover:text-foreground/80 text-left"
-                    onClick={() => setInputValue(q)}
-                  >
-                    {q}
-                  </button>
-                ))}
+              <div className="flex flex-col gap-2.5">
+                {SUGGESTED_QUESTIONS.map((q, idx) => {
+                  const icons = [
+                    <BookOpenIcon className="h-4 w-4" />,
+                    <TargetIcon className="h-4 w-4" />,
+                    <FileTextIcon className="h-4 w-4" />,
+                  ]
+                  return (
+                    <button
+                      key={q}
+                      className="group flex items-center gap-3 px-4 py-3 rounded-xl border border-border/40 bg-card/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200 text-left"
+                      onClick={() => handleSubmit(q)}
+                    >
+                      <span className="shrink-0 flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary/70 group-hover:bg-primary/15 group-hover:text-primary transition-colors">
+                        {icons[idx]}
+                      </span>
+                      <span className="flex-1 text-[13px] text-muted-foreground/80 group-hover:text-foreground/90 transition-colors">
+                        {q}
+                      </span>
+                      <ChevronRightIcon className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary/60 group-hover:translate-x-0.5 transition-all" />
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
-            {messages.map((message) => (
-              <ChatMessageBubble key={message.id} message={message}
-                onRegenerate={() => {
-                  if (!activeId || isTyping) return
-                  setIsTyping(true)
-                  const delay = 800 + Math.random() * 700
-                  setTimeout(() => {
-                    const response = MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)]
-                    setConversations((prev) =>
-                      prev.map((c) => {
-                        if (c.id !== activeId) return c
-                        return { ...c, messages: c.messages.map((m) =>
-                          m.id === message.id ? { ...m, content: response } : m
-                        )}
-                      })
-                    )
-                    setIsTyping(false)
-                  }, delay)
-                }}
-                onEdit={(newContent) => {
-                  setConversations((prev) =>
-                    prev.map((c) => {
-                      if (c.id !== activeId) return c
-                      const idx = c.messages.findIndex((m) => m.id === message.id)
-                      if (idx === -1) return c
-                      const trimmed = c.messages.slice(0, idx + 1).map((m) =>
-                        m.id === message.id ? { ...m, content: newContent } : m
-                      )
-                      return { ...c, messages: trimmed }
-                    })
-                  )
-                  // Trigger regenerate
-                  if (activeId && !isTyping) {
-                    setIsTyping(true)
-                    const delay = 800 + Math.random() * 700
-                    setTimeout(() => {
-                      const response = MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)]
-                      const assistantMessage: ChatMessage = {
-                        id: `assistant-${Date.now()}`,
-                        role: "assistant",
-                        content: response,
-                        timestamp: new Date(),
-                      }
-                      setConversations((prev) =>
-                        prev.map((c) => {
-                          if (c.id !== activeId) return c
-                          return { ...c, messages: [...c.messages, assistantMessage] }
-                        })
-                      )
-                      setIsTyping(false)
-                    }, delay)
-                  }
-                }}
-              />
-            ))}
-            {isTyping && (
-              <div className="flex gap-2.5">
-                <div className="bg-muted/50 rounded-2xl px-4 py-3">
-                  <TypingIndicator />
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
+          <div ref={bubbleListRef} className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+            <Bubble.List
+              role={{
+                assistant: {
+                  placement: 'start',
+                  contentRender: (msg: ChatMessage & { status?: string }) => (
+                    <div className="max-w-[85%]">
+                      {msg.thinking && isThinkingEnabled && (
+                        <Think title="思考过程" defaultExpanded={false} className="mb-3">
+                          <div className="text-xs text-muted-foreground/70 whitespace-pre-wrap font-sans">{msg.thinking}</div>
+                        </Think>
+                      )}
+                      <div className="markdown-content w-full overflow-x-auto">
+                        <XMarkdown
+                          openLinksInNewTab
+                          paragraphTag="div"
+                          streaming={{
+                            hasNextChunk: msg.status === 'updating' || msg.status === 'loading',
+                            enableAnimation: true,
+                            tail: msg.status === 'updating' || msg.status === 'loading'
+                              ? { content: '▋' }
+                              : false,
+                          }}
+                          components={{
+                            think: ({ children }: any) => {
+                              if (!isThinkingEnabled) return null
+                              return (
+                                <Think title="思考过程" defaultExpanded={false} className="mb-3">
+                                  <div className="text-xs text-muted-foreground/70 whitespace-pre-wrap font-sans">
+                                    {children}
+                                  </div>
+                                </Think>
+                              )
+                            },
+                          }}
+                        >
+                          {msg.content}
+                        </XMarkdown>
+                      </div>
+                    </div>
+                  ),
+                },
+                user: {
+                  placement: 'end',
+                  styles: { content: { backgroundColor: '#e6f4ff', borderRadius: 16 } },
+                },
+              }}
+              items={messages.map(({ id, message: msg, status }) => ({
+                key: id,
+                role: msg.role,
+                content: msg.role === 'assistant' ? { ...msg, status } as any : msg.content,
+                loading: status === 'loading',
+              }))}
+            />
           </div>
         )}
 
         {/* Input Bar */}
         <div className="border-t border-border/20 p-3 shrink-0 bg-background/80 backdrop-blur">
           <div className="mx-auto max-w-2xl">
-            <Flex gap={4} align="center" style={{ marginBottom: 8 }}>
+            <Flex gap={8} align="center" style={{ marginBottom: 8 }}>
               <Dropdown
                 menu={{
                   selectedKeys: [selectedModel],
@@ -497,9 +482,11 @@ function QAAssistantInner() {
                   items: modelItems,
                 }}
               >
-                <XSwitch value={false} icon={<RobotOutlined />}>
-                  {modelOptions[selectedModel]?.label || '模型'}
-                </XSwitch>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/40 bg-card/50 hover:bg-card hover:border-primary/30 transition-all duration-200 text-[12px] text-muted-foreground/70 hover:text-foreground/80">
+                  <RobotOutlined className="text-[14px]" />
+                  <span>{modelOptions[selectedModel]?.label || '默认模型'}</span>
+                  <ChevronDownIcon className="h-3 w-3 opacity-50" />
+                </button>
               </Dropdown>
               <Dropdown
                 menu={{
@@ -507,9 +494,11 @@ function QAAssistantInner() {
                   items: quickActionItems,
                 }}
               >
-                <XSwitch value={false} icon={<ThunderboltOutlined />}>
-                  快捷功能
-                </XSwitch>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/40 bg-card/50 hover:bg-card hover:border-primary/30 transition-all duration-200 text-[12px] text-muted-foreground/70 hover:text-foreground/80">
+                  <ThunderboltOutlined className="text-[14px]" />
+                  <span>快捷功能</span>
+                  <ChevronDownIcon className="h-3 w-3 opacity-50" />
+                </button>
               </Dropdown>
             </Flex>
             <input
@@ -525,8 +514,12 @@ function QAAssistantInner() {
               onChange={(val) => setInputValue(val)}
               submitType="shiftEnter"
               placeholder="输入消息，Shift + Enter 发送"
-              loading={isTyping}
-              onSubmit={(val) => handleSend(val)}
+              loading={isRequesting}
+              onSubmit={(val) => handleSubmit(val)}
+              onCancel={() => {
+                abort()
+                message.error('已取消发送')
+              }}
               prefix={
                 <Button
                   type="text"
