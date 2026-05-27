@@ -1,12 +1,39 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
-import { Mic, PlusIcon, SearchIcon, Send, SparklesIcon, EllipsisIcon, Trash2Icon, ChevronLeftIcon, XIcon, MessageSquareIcon } from "lucide-react"
+import { useState, useRef, useEffect, useCallback, useMemo } from "react"
+import { PlusIcon, SearchIcon, SparklesIcon, EllipsisIcon, Trash2Icon, ChevronLeftIcon, XIcon, MessageSquareIcon } from "lucide-react"
 import { ChatMessage } from "./types"
 import { ChatMessageBubble } from "./ChatMessage"
 import { TypingIndicator } from "./TypingIndicator"
-import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { Sender } from "@ant-design/x"
+import { RobotOutlined, ThunderboltOutlined, FileTextOutlined, HighlightOutlined, TranslationOutlined, UnorderedListOutlined, PaperClipOutlined } from "@ant-design/icons"
+import { App, Button, Dropdown, Flex } from "antd"
+import type { MenuProps } from "antd"
+
+const XSwitch = Sender.Switch
+
+interface ModelOption { label: string; desc: string; provider?: string; enableThinking?: boolean }
+
+function buildModelOptions(providers: Array<{ name: string; models: string; enableThinking: boolean }>): Record<string, ModelOption> {
+  const opts: Record<string, ModelOption> = {
+    '': { label: '默认模型', desc: '使用默认供应商的第一个模型' },
+  }
+  for (const p of providers) {
+    const modelList = p.models.split(",").map((m: string) => m.trim()).filter(Boolean)
+    for (const model of modelList) {
+      opts[model] = { label: model, desc: `${p.name} 供应商`, provider: p.name, enableThinking: p.enableThinking }
+    }
+  }
+  return opts
+}
+
+const QUICK_ACTIONS = [
+  { key: 'summarize', icon: <FileTextOutlined />, label: '总结视频', prompt: '请总结这个视频的主要内容' },
+  { key: 'keypoints', icon: <HighlightOutlined />, label: '提取要点', prompt: '请提取视频中的关键要点' },
+  { key: 'notes', icon: <UnorderedListOutlined />, label: '生成笔记', prompt: '请根据视频内容生成详细的学习笔记' },
+  { key: 'translate', icon: <TranslationOutlined />, label: '翻译内容', prompt: '请将视频内容翻译成英文' },
+]
 
 const MOCK_RESPONSES = [
   "根据视频内容，这个问题涉及到几个关键点：首先，视频中提到了核心概念的定义和背景。其次，相关的实际案例展示了这些理论的应用场景。最后，还有一些实用的技巧可以帮助你更好地理解和应用。",
@@ -38,7 +65,8 @@ function createConversation(): Conversation {
   }
 }
 
-export function QAAssistant() {
+function QAAssistantInner() {
+  const { message } = App.useApp()
   const [conversations, setConversations] = useState<Conversation[]>(() => [])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState("")
@@ -49,7 +77,92 @@ export function QAAssistant() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const senderRef = useRef<any>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [recording, setRecording] = useState(false)
+  const recognitionRef = useRef<any>(null)
+  const [selectedModel, setSelectedModel] = useState('')
+  const [modelOptions, setModelOptions] = useState<Record<string, ModelOption>>(buildModelOptions([]))
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length > 0) {
+      setAttachedFiles(prev => [...prev, ...files])
+      message.success(`已选择 ${files.length} 个文件`)
+      e.target.value = ''
+    }
+  }, [message])
+
+  useEffect(() => {
+    fetch('/api/llm-providers')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setModelOptions(buildModelOptions(data))
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  const modelItems: MenuProps['items'] = useMemo(
+    () => Object.entries(modelOptions).map(([key, { label }]) => ({ key, icon: <RobotOutlined />, label })),
+    [modelOptions],
+  )
+
+  const quickActionItems: MenuProps['items'] = useMemo(
+    () => QUICK_ACTIONS.map((a) => ({ key: a.key, icon: a.icon, label: a.label })),
+    [],
+  )
+
+  const handleQuickAction: MenuProps['onClick'] = useCallback((item: { key: string }) => {
+    const action = QUICK_ACTIONS.find((a) => a.key === item.key)
+    if (action) {
+      setInputValue(action.prompt)
+      setTimeout(() => senderRef.current?.focus?.(), 100)
+    }
+  }, [])
+
+  const handleVoiceInput = useCallback((nextRecording: boolean) => {
+    const SpeechRecognitionAPI: any =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognitionAPI) {
+      message.warning("当前浏览器不支持语音识别")
+      setRecording(false)
+      return
+    }
+
+    if (!nextRecording) {
+      recognitionRef.current?.stop()
+      return
+    }
+
+    const recognition = new SpeechRecognitionAPI()
+    recognition.lang = "zh-CN"
+    recognition.continuous = false
+    recognition.interimResults = false
+
+    recognition.onstart = () => {
+      setRecording(true)
+    }
+    recognition.onend = () => {
+      setRecording(false)
+    }
+    recognition.onerror = () => {
+      setRecording(false)
+      message.error("语音识别失败，请重试")
+    }
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0]?.[0]?.transcript
+      if (transcript) {
+        setInputValue((prev) => prev + transcript)
+        senderRef.current?.focus?.()
+      }
+    }
+
+    recognitionRef.current = recognition
+    recognition.start()
+  }, [message])
 
   const activeConv = conversations.find((c) => c.id === activeId) ?? null
   const messages = activeConv?.messages ?? []
@@ -87,8 +200,9 @@ export function QAAssistant() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, isTyping])
 
-  const handleSend = useCallback(() => {
-    const trimmed = inputValue.trim()
+  const handleSend = useCallback((content?: string) => {
+    const textToSend = content !== undefined ? content : inputValue
+    const trimmed = textToSend.trim()
     if (!trimmed || isTyping) return
 
     let targetId = activeId
@@ -120,6 +234,8 @@ export function QAAssistant() {
     setInputValue("")
     setIsTyping(true)
 
+    message.success("Send message successfully!")
+
     const delay = 800 + Math.random() * 700
     setTimeout(() => {
       const response = MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)]
@@ -137,14 +253,7 @@ export function QAAssistant() {
       )
       setIsTyping(false)
     }, delay)
-  }, [inputValue, isTyping, activeId, setActiveId])
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
+  }, [inputValue, isTyping, activeId, setActiveId, message])
 
   const handleNewConversation = () => {
     const conv = createConversation()
@@ -153,7 +262,7 @@ export function QAAssistant() {
     setSidebarOpen(false)
     setSearchOpen(false)
     setSearchQuery("")
-    setTimeout(() => textareaRef.current?.focus(), 150)
+    setTimeout(() => senderRef.current?.focus?.(), 150)
   }
 
   const handleDeleteConversation = (id: string) => {
@@ -378,34 +487,61 @@ export function QAAssistant() {
         )}
 
         {/* Input Bar */}
-        <div className="border-t border-border/20 p-3 shrink-0">
-          <div className="mx-auto">
-            <div className="flex items-end gap-1.5 bg-card rounded-md border border-border/40 p-1.5 transition-all duration-200 focus-within:border-primary/30 focus-within:ring-1 focus-within:ring-primary/10">
-              <button
-                type="button"
-                className="shrink-0 h-9 w-9 flex items-center justify-center rounded-xl text-muted-foreground/50 hover:text-primary/70 hover:bg-primary/[0.06] transition-all duration-200"
+        <div className="border-t border-border/20 p-3 shrink-0 bg-background/80 backdrop-blur">
+          <div className="mx-auto max-w-2xl">
+            <Flex gap={4} align="center" style={{ marginBottom: 8 }}>
+              <Dropdown
+                menu={{
+                  selectedKeys: [selectedModel],
+                  onClick: ({ key }) => setSelectedModel(key),
+                  items: modelItems,
+                }}
               >
-                <Mic className="h-4 w-4" />
-              </button>
-              <Textarea
-                ref={textareaRef}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="输入您的问题..."
-                className="flex-1 min-h-[36px] max-h-[66px] py-[7px] px-0 resize-none bg-transparent border-0 outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-[13px] placeholder:text-muted-foreground/40 leading-[22px] field-sizing-content rounded-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                rows={1}
-                disabled={isTyping}
-              />
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={!inputValue.trim() || isTyping}
-                className="shrink-0 h-9 w-9 flex items-center justify-center rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all duration-200 shadow-sm disabled:opacity-60 disabled:bg-muted-foreground/30 disabled:shadow-none"
+                <XSwitch value={false} icon={<RobotOutlined />}>
+                  {modelOptions[selectedModel]?.label || '模型'}
+                </XSwitch>
+              </Dropdown>
+              <Dropdown
+                menu={{
+                  onClick: handleQuickAction,
+                  items: quickActionItems,
+                }}
               >
-                <Send className="h-4 w-4" />
-              </button>
-            </div>
+                <XSwitch value={false} icon={<ThunderboltOutlined />}>
+                  快捷功能
+                </XSwitch>
+              </Dropdown>
+            </Flex>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              style={{ display: 'none' }}
+              onChange={handleFileSelect}
+            />
+            <Sender
+              ref={senderRef}
+              value={inputValue}
+              onChange={(val) => setInputValue(val)}
+              submitType="shiftEnter"
+              placeholder="输入消息，Shift + Enter 发送"
+              loading={isTyping}
+              onSubmit={(val) => handleSend(val)}
+              prefix={
+                <Button
+                  type="text"
+                  icon={<PaperClipOutlined style={{ fontSize: 18 }} />}
+                  onClick={() => fileInputRef.current?.click()}
+                />
+              }
+              allowSpeech={{
+                recording,
+                onRecordingChange: (nextRecording) => {
+                  setRecording(nextRecording)
+                  handleVoiceInput(nextRecording)
+                },
+              }}
+            />
           </div>
         </div>
       </div>
@@ -458,5 +594,13 @@ export function QAAssistant() {
         </div>
       )}
     </div>
+  )
+}
+
+export function QAAssistant() {
+  return (
+    <App className="h-full flex flex-col flex-1 min-h-0">
+      <QAAssistantInner />
+    </App>
   )
 }

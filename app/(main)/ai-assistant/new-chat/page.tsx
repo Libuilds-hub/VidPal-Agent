@@ -211,6 +211,47 @@ export default function NewChatPage() {
     },
   })
 
+  const getHistory = useCallback((limitIndex?: number) => {
+    const list = limitIndex !== undefined ? messages.slice(0, limitIndex) : messages;
+    return list.map((m, idx) => {
+      let displayedContent = m.message.content;
+      if (m.message.role === 'user') {
+        const versions = m.extraInfo?.versions || [];
+        const activeIndex = m.extraInfo?.activeVersionIndex !== undefined 
+          ? m.extraInfo.activeVersionIndex 
+          : (versions.length > 0 ? versions.length - 1 : 0);
+        displayedContent = versions.length > 0 
+          ? versions[activeIndex]?.content || m.message.content
+          : m.message.content;
+      } else {
+        // For assistant, find preceding userMsg
+        let userMsg = null;
+        for (let i = idx - 1; i >= 0; i--) {
+          if (messages[i].message.role === 'user') {
+            userMsg = messages[i];
+            break;
+          }
+        }
+        if (userMsg && userMsg.extraInfo?.versions) {
+          const userVersions = userMsg.extraInfo.versions;
+          const userActiveIndex = userMsg.extraInfo.activeVersionIndex ?? 0;
+          const activeVariant = userVersions[userActiveIndex];
+          if (activeVariant) {
+            const responses = activeVariant.responses || [];
+            const activeIndex = activeVariant.activeResponseIndex ?? 0;
+            displayedContent = responses.length > 0 
+              ? responses[activeIndex] || m.message.content
+              : m.message.content;
+          }
+        }
+      }
+      return {
+        role: m.message.role,
+        content: displayedContent,
+      };
+    });
+  }, [messages]);
+
   const [editingId, setEditingId] = useState<string | number | null>(null)
   const [editingContent, setEditingContent] = useState('')
   const generatingMsgIdRef = useRef<string | number | null>(null)
@@ -220,13 +261,77 @@ export default function NewChatPage() {
       const userMsg = messages.find(m => m.id === userMsgId)
       if (userMsg) {
         if (!isAssistantSwitch) {
-          // Switch prompt variant
-          setMessage(userMsgId, {
-            extraInfo: {
-              ...userMsg.extraInfo,
-              activeVersionIndex: targetIndex
+          // Switch prompt variant (User Message)
+          const versions = userMsg.extraInfo?.versions ? [...userMsg.extraInfo.versions] : []
+          const selectedVersion = versions[targetIndex]
+          
+          // Also find partner assistant message
+          const msgIndex = messages.findIndex((m) => m.id === userMsgId)
+          let assistantMsg = null
+          if (msgIndex !== -1) {
+            for (let i = msgIndex + 1; i < messages.length; i++) {
+              if (messages[i].message.role === 'assistant') {
+                assistantMsg = messages[i]
+                break
+              }
             }
-          })
+          }
+          
+          if (assistantMsg) {
+            const assistantIndex = messages.findIndex((m) => m.id === assistantMsg.id)
+            if (assistantIndex !== -1) {
+              // 1. Capture the subsequent follow-up messages of the current active branch
+              const currentActiveIdx = userMsg.extraInfo?.activeVersionIndex ?? 0
+              const currentSubsequentMsgs = messages.slice(assistantIndex + 1)
+              
+              // Update subsequent messages of the current branch in versions array
+              if (versions[currentActiveIdx]) {
+                versions[currentActiveIdx] = {
+                  ...versions[currentActiveIdx],
+                  subsequentMessages: currentSubsequentMsgs
+                }
+              }
+              
+              // 2. Load the saved subsequent messages from the target branch
+              const restoredFollowUpMsgs = selectedVersion?.subsequentMessages || []
+              
+              // Slice the messages to history prefix, and map to update active version content
+              let prefixMessages = messages.slice(0, assistantIndex + 1)
+              prefixMessages = prefixMessages.map((m) => {
+                if (m.id === userMsgId) {
+                  return {
+                    ...m,
+                    message: {
+                      ...m.message,
+                      content: selectedVersion?.content || m.message.content
+                    },
+                    extraInfo: {
+                      ...m.extraInfo,
+                      versions, // Save the updated versions array
+                      activeVersionIndex: targetIndex
+                    }
+                  }
+                }
+                if (m.id === assistantMsg.id && selectedVersion) {
+                  const responses = selectedVersion.responses || []
+                  const activeResponseIdx = selectedVersion.activeResponseIndex ?? 0
+                  const selectedResponse = responses[activeResponseIdx] || m.message.content
+                  return {
+                    ...m,
+                    message: {
+                      ...m.message,
+                      content: selectedResponse
+                    }
+                  }
+                }
+                return m
+              })
+              
+              // Combine prefix and restored follow-up messages to build the complete restored branch conversation
+              const updatedMessages = [...prefixMessages, ...restoredFollowUpMsgs]
+              setMessages(updatedMessages)
+            }
+          }
         } else {
           // Switch assistant response variant under current prompt variant
           const versions = userMsg.extraInfo?.versions ? [...userMsg.extraInfo.versions] : []
@@ -236,17 +341,58 @@ export default function NewChatPage() {
               ...versions[activeIndex],
               activeResponseIndex: targetIndex
             }
-            setMessage(userMsgId, {
-              extraInfo: {
-                ...userMsg.extraInfo,
-                versions
+            
+            // Also find partner assistant message to update its content
+            const msgIndex = messages.findIndex((m) => m.id === userMsgId)
+            let assistantMsg = null
+            if (msgIndex !== -1) {
+              for (let i = msgIndex + 1; i < messages.length; i++) {
+                if (messages[i].message.role === 'assistant') {
+                  assistantMsg = messages[i]
+                  break
+                }
               }
-            })
+            }
+            
+            const responses = versions[activeIndex].responses || []
+            const selectedResponse = responses[targetIndex]
+            
+            if (assistantMsg && selectedResponse !== undefined) {
+              const assistantIndex = messages.findIndex((m) => m.id === assistantMsg.id)
+              if (assistantIndex !== -1) {
+                // Slicing assistant response switch does not change user variants, but it's safe to keep followups
+                const currentSubsequentMsgs = messages.slice(assistantIndex + 1)
+                
+                let updatedMessages = messages.slice(0, assistantIndex + 1)
+                updatedMessages = updatedMessages.map((m) => {
+                  if (m.id === userMsgId) {
+                    return {
+                      ...m,
+                      extraInfo: {
+                        ...m.extraInfo,
+                        versions
+                      }
+                    }
+                  }
+                  if (m.id === assistantMsg.id) {
+                    return {
+                      ...m,
+                      message: {
+                        ...m.message,
+                        content: selectedResponse
+                      }
+                    }
+                  }
+                  return m
+                })
+                setMessages([...updatedMessages, ...currentSubsequentMsgs])
+              }
+            }
           }
         }
       }
     }
-  }, [messages, setMessage])
+  }, [messages, setMessage, setMessages])
 
   const handleSaveEdit = useCallback((id: string | number) => {
     if (!editingContent.trim()) {
@@ -269,24 +415,43 @@ export default function NewChatPage() {
       }
     }
 
+    // Get any subsequent follow-up messages from the current active branch
+    let subsequentMessages: any[] = []
+    if (assistantMsg) {
+      const assistantIndex = messages.findIndex((m) => m.id === assistantMsg.id)
+      if (assistantIndex !== -1) {
+        subsequentMessages = messages.slice(assistantIndex + 1)
+      }
+    }
+
     // 1. Get existing versions or initialize
     const existingVersions = userMsg.extraInfo?.versions || []
     const originalContent = userMsg.message.content
     
     let versions = [...existingVersions]
+    const currentActiveIndex = userMsg.extraInfo?.activeVersionIndex ?? 0
     if (versions.length === 0) {
       versions = [{
         content: originalContent,
         responses: assistantMsg ? [assistantMsg.message.content] : [],
-        activeResponseIndex: 0
+        activeResponseIndex: 0,
+        subsequentMessages: subsequentMessages // Save Branch 1 follow-up messages!
       }]
+    } else {
+      if (versions[currentActiveIndex]) {
+        versions[currentActiveIndex] = {
+          ...versions[currentActiveIndex],
+          subsequentMessages: subsequentMessages // Save active branch follow-up messages!
+        }
+      }
     }
 
-    // 2. Append the new edited prompt variant
+    // 2. Append the new edited prompt variant (Branch 2)
     const newVariant = {
       content: editingContent,
       responses: [],
-      activeResponseIndex: 0
+      activeResponseIndex: 0,
+      subsequentMessages: []
     }
     versions.push(newVariant)
     const newIndex = versions.length - 1
@@ -323,15 +488,16 @@ export default function NewChatPage() {
       })
 
       // 5. Reload the assistant message
+      const history = getHistory(msgIndex)
       onReload(assistantMsg.id, {
-        messages: [{ role: 'user', content: editingContent }],
+        messages: [...history, { role: 'user', content: editingContent }],
         model: selectedModel || undefined,
         provider: selectedModel ? modelOptions[selectedModel]?.provider : undefined,
       })
     }
 
     setEditingId(null)
-  }, [editingContent, messages, setMessage, setMessages, onReload, selectedModel, modelOptions])
+  }, [editingContent, messages, setMessage, setMessages, onReload, selectedModel, modelOptions, getHistory])
 
   // Save conversation to localStorage whenever messages change
   useEffect(() => {
@@ -560,17 +726,34 @@ export default function NewChatPage() {
             </Flex>
           </Flex>
         )}
+        onChange={(value, event, slotConfig, skill) => {
+          if (!skill) {
+            if (activeAgentKey !== '' || agentSkill !== undefined || (agentSlotConfig && agentSlotConfig.length > 0)) {
+              setActiveAgentKey('')
+              setAgentSkill(undefined)
+              setAgentSlotConfig([])
+            }
+          }
+        }}
         onSubmit={(content, _, skill) => {
           let query = content
           if (skill?.value) {
             query = `[${skill.value}] ${content}`
           }
+          const history = getHistory()
           onRequest({
-            messages: [{ role: 'user', content: query }],
+            messages: [...history, { role: 'user', content: query }],
             model: selectedModel || undefined,
             provider: selectedModel ? modelOptions[selectedModel]?.provider : undefined,
           })
-          senderRef.current?.clear?.()
+          
+          setActiveAgentKey('')
+          setAgentSkill(undefined)
+          setAgentSlotConfig([])
+          
+          setTimeout(() => {
+            senderRef.current?.clear?.()
+          }, 0)
         }}
         onCancel={() => {
           abort()
@@ -638,13 +821,13 @@ export default function NewChatPage() {
                                   ? children
                                   : String(children || '')
 
-                               const { domNode, block, lang: propLang, ...restProps } = props as any
-                               const isBlock = block || className?.includes('language-') || codeString.includes('\n')
+                                const { domNode, block, lang: propLang, streamStatus, ...restProps } = props as any
+                                const isBlock = block || className?.includes('language-') || codeString.includes('\n')
 
-                               // Render inline code if not block
-                               if (!isBlock) {
-                                 return <code className={className} {...restProps}>{children}</code>
-                               }
+                                // Render inline code if not block
+                                if (!isBlock) {
+                                  return <code className={className} {...restProps}>{children}</code>
+                                }
 
                               const lang = (className?.match(/language-(\w+)/)?.[1] || propLang || 'plaintext').toLowerCase()
 
@@ -809,9 +992,15 @@ export default function NewChatPage() {
                             status: 'loading'
                           })
 
+                          let userMsgIndex = -1
+                          if (userMsg) {
+                            userMsgIndex = messages.findIndex((m) => m.id === userMsg.id)
+                          }
+                          const history = userMsgIndex !== -1 ? getHistory(userMsgIndex) : []
+
                           onReload(id, {
                             messages: userMsg
-                              ? [{ role: userMsg.message.role, content: userMsg.message.content }]
+                              ? [...history, { role: userMsg.message.role, content: userMsg.message.content }]
                               : [],
                             model: selectedModel || undefined,
                             provider: selectedModel ? modelOptions[selectedModel]?.provider : undefined,

@@ -35,7 +35,7 @@ export class ShancnChatProvider extends AbstractChatProvider<
 
   transformLocalMessage(requestParams: Partial<ChatInput>): ChatMessage {
     const msgs = (requestParams as ChatInput).messages
-    return msgs?.[0] || { role: 'user', content: '' }
+    return msgs?.[msgs.length - 1] || { role: 'user', content: '' }
   }
 
   transformMessage(info: {
