@@ -41,10 +41,10 @@ async function getAgent(modelOverride?: string, providerOverride?: string) {
 
 export async function runAgent(messages: BaseMessage[], model?: string, provider?: string) {
   const agent = await getAgent(model, provider)
-  return agent.streamEvents(
+  return agent.stream(
     { messages },
     {
-      version: "v2",
+      streamMode: "messages",
       recursionLimit: 25,
     }
   )

@@ -16,6 +16,7 @@ export interface LlmProviderInfo {
   baseUrl: string
   models: string
   isDefault: boolean
+  enableThinking: boolean
 }
 
 async function migrateOldSettings(): Promise<void> {
@@ -80,6 +81,30 @@ let _chatModelPromise: Promise<ChatOpenAI> | null = null
 let _embeddings: OpenAIEmbeddings | null = null
 let _embeddingsPromise: Promise<OpenAIEmbeddings> | null = null
 
+function buildModelKwargs(provider: LlmProviderInfo): Record<string, any> {
+  const modelKwargs: Record<string, any> = {}
+  
+  const isDeepSeekOrOpenRouter = 
+    provider.baseUrl.includes("deepseek") || 
+    provider.baseUrl.includes("openrouter") ||
+    provider.name.toLowerCase().includes("deepseek") ||
+    provider.name.toLowerCase().includes("openrouter")
+
+  if (isDeepSeekOrOpenRouter) {
+    if (provider.enableThinking) {
+      modelKwargs.reasoning_effort = "high"
+      modelKwargs.extra_body = {
+        thinking: { type: "enabled" }
+      }
+    } else {
+      modelKwargs.extra_body = {
+        thinking: { type: "disabled" }
+      }
+    }
+  }
+  return modelKwargs
+}
+
 export async function getChatModel(
   modelOverride?: string,
   providerName?: string,
@@ -97,12 +122,14 @@ export async function getChatModel(
     } else {
       provider = await getDefaultProvider()
     }
+    const modelKwargs = buildModelKwargs(provider)
     return new ChatOpenAI({
       modelName: modelOverride || provider.models.split(",")[0]?.trim() || "gpt-3.5-turbo",
       apiKey: provider.apiKey,
       configuration: { baseURL: provider.baseUrl },
       temperature: 0.7,
       streaming: true,
+      modelKwargs,
     })
   }
 
@@ -111,12 +138,14 @@ export async function getChatModel(
     _chatModelPromise = (async () => {
       const p = await getDefaultProvider()
       const defaultModel = p.models.split(",")[0]?.trim() || "gpt-3.5-turbo"
+      const modelKwargs = buildModelKwargs(p)
       _chatModel = new ChatOpenAI({
         modelName: defaultModel,
         apiKey: p.apiKey,
         configuration: { baseURL: p.baseUrl },
         temperature: 0.7,
         streaming: true,
+        modelKwargs,
       })
       return _chatModel
     })()

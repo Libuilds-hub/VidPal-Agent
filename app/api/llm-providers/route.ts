@@ -15,7 +15,7 @@ export async function GET() {
 
 // POST — create a new provider
 export async function POST(req: NextRequest) {
-  const { name, apiKey, baseUrl, models, isDefault } = await req.json()
+  const { name, apiKey, baseUrl, models, isDefault, enableThinking } = await req.json()
   if (!name || !apiKey || !baseUrl) {
     return NextResponse.json({ error: "名称、API Key 和 Base URL 为必填项" }, { status: 400 })
   }
@@ -26,7 +26,14 @@ export async function POST(req: NextRequest) {
   }
 
   const provider = await prisma.llmProvider.create({
-    data: { name, apiKey, baseUrl, models: models || "", isDefault: !!isDefault },
+    data: { 
+      name, 
+      apiKey, 
+      baseUrl, 
+      models: models || "", 
+      isDefault: !!isDefault,
+      enableThinking: enableThinking !== undefined ? !!enableThinking : true 
+    },
   })
 
   return NextResponse.json({ ...provider, apiKey: maskKey(provider.apiKey) })

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useState, useCallback, useEffect } from 'react'
+import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { Bubble, Sender, SenderProps, Think, CodeHighlighter, Mermaid, Actions } from '@ant-design/x'
 import { useXChat, XRequest } from '@ant-design/x-sdk'
 import XMarkdown, { type ComponentProps } from '@ant-design/x-markdown'
@@ -10,6 +10,7 @@ import {
   AntDesignOutlined,
   AudioFilled,
   AudioOutlined,
+  EditOutlined,
   ImportOutlined,
   PaperClipOutlined,
   RedoOutlined,
@@ -17,7 +18,7 @@ import {
   YoutubeOutlined,
 } from '@ant-design/icons'
 import type { GetRef, MenuProps } from 'antd'
-import { Button, Divider, Dropdown, Flex, message, Pagination } from 'antd'
+import { Button, Divider, Dropdown, Flex, Input, message, Pagination } from 'antd'
 
 interface SpeechRecognition extends EventTarget {
   lang: string
@@ -59,17 +60,17 @@ const XSwitch = Sender.Switch
 
 const iconStyle = { fontSize: 16 }
 
-interface ModelOption { label: string; desc: string; provider?: string }
+interface ModelOption { label: string; desc: string; provider?: string; enableThinking?: boolean }
 
 // Dynamic model options built from configured providers
-function buildModelOptions(providers: Array<{ name: string; models: string }>): Record<string, ModelOption> {
+function buildModelOptions(providers: Array<{ name: string; models: string; enableThinking: boolean }>): Record<string, ModelOption> {
   const opts: Record<string, ModelOption> = {
     '': { label: '默认模型', desc: '使用默认供应商的第一个模型' },
   }
   for (const p of providers) {
     const modelList = p.models.split(",").map((m: string) => m.trim()).filter(Boolean)
     for (const model of modelList) {
-      opts[model] = { label: `${model}`, desc: `${p.name} 供应商`, provider: p.name }
+      opts[model] = { label: `${model}`, desc: `${p.name} 供应商`, provider: p.name, enableThinking: p.enableThinking }
     }
   }
   return opts
@@ -168,6 +169,7 @@ export default function NewChatPage() {
   const [agentSlotConfig, setAgentSlotConfig] = useState<SenderProps['slotConfig']>([])
   const [listening, setListening] = useState(false)
   const [selectedModel, setSelectedModel] = useState('')
+  const [providers, setProviders] = useState<any[]>([])
   const [modelOptions, setModelOptions] = useState<Record<string, ModelOption>>(
     buildModelOptions([])
   )
@@ -177,12 +179,24 @@ export default function NewChatPage() {
     fetch('/api/llm-providers')
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setModelOptions(buildModelOptions(data))
+        if (Array.isArray(data)) {
+          setProviders(data)
+          setModelOptions(buildModelOptions(data))
+        }
       })
       .catch(() => {})
   }, [])
 
-  const { messages, onRequest, isRequesting, abort, onReload, setMessage } = useXChat<
+  // Check if thinking mode is enabled for the currently selected model/provider
+  const isThinkingEnabled = useMemo(() => {
+    if (selectedModel) {
+      return modelOptions[selectedModel]?.enableThinking !== false
+    }
+    const defaultProvider = providers.find(p => p.isDefault) || providers[0]
+    return defaultProvider ? defaultProvider.enableThinking !== false : true
+  }, [selectedModel, modelOptions, providers])
+
+  const { messages, onRequest, isRequesting, abort, onReload, setMessage, setMessages } = useXChat<
     ChatMessage,
     ChatMessage,
     ChatInput
@@ -196,6 +210,128 @@ export default function NewChatPage() {
       return { content: '请求失败，请稍后重试', role: 'assistant' }
     },
   })
+
+  const [editingId, setEditingId] = useState<string | number | null>(null)
+  const [editingContent, setEditingContent] = useState('')
+  const generatingMsgIdRef = useRef<string | number | null>(null)
+
+  const handleSwitchVersion = useCallback((userMsgId: string | number | null, isAssistantSwitch: boolean, targetIndex: number) => {
+    if (userMsgId) {
+      const userMsg = messages.find(m => m.id === userMsgId)
+      if (userMsg) {
+        if (!isAssistantSwitch) {
+          // Switch prompt variant
+          setMessage(userMsgId, {
+            extraInfo: {
+              ...userMsg.extraInfo,
+              activeVersionIndex: targetIndex
+            }
+          })
+        } else {
+          // Switch assistant response variant under current prompt variant
+          const versions = userMsg.extraInfo?.versions ? [...userMsg.extraInfo.versions] : []
+          const activeIndex = userMsg.extraInfo?.activeVersionIndex ?? 0
+          if (versions[activeIndex]) {
+            versions[activeIndex] = {
+              ...versions[activeIndex],
+              activeResponseIndex: targetIndex
+            }
+            setMessage(userMsgId, {
+              extraInfo: {
+                ...userMsg.extraInfo,
+                versions
+              }
+            })
+          }
+        }
+      }
+    }
+  }, [messages, setMessage])
+
+  const handleSaveEdit = useCallback((id: string | number) => {
+    if (!editingContent.trim()) {
+      message.warning('问题内容不能为空')
+      return
+    }
+
+    const userMsg = messages.find((m) => m.id === id)
+    if (!userMsg) return
+
+    // Find partner assistant message
+    const msgIndex = messages.findIndex((m) => m.id === id)
+    let assistantMsg = null
+    if (msgIndex !== -1) {
+      for (let i = msgIndex + 1; i < messages.length; i++) {
+        if (messages[i].message.role === 'assistant') {
+          assistantMsg = messages[i]
+          break
+        }
+      }
+    }
+
+    // 1. Get existing versions or initialize
+    const existingVersions = userMsg.extraInfo?.versions || []
+    const originalContent = userMsg.message.content
+    
+    let versions = [...existingVersions]
+    if (versions.length === 0) {
+      versions = [{
+        content: originalContent,
+        responses: assistantMsg ? [assistantMsg.message.content] : [],
+        activeResponseIndex: 0
+      }]
+    }
+
+    // 2. Append the new edited prompt variant
+    const newVariant = {
+      content: editingContent,
+      responses: [],
+      activeResponseIndex: 0
+    }
+    versions.push(newVariant)
+    const newIndex = versions.length - 1
+
+    // Update user message versions and set active index
+    setMessage(id, {
+      message: {
+        role: 'user',
+        content: editingContent,
+      },
+      extraInfo: {
+        ...userMsg.extraInfo,
+        versions,
+        activeVersionIndex: newIndex,
+      }
+    })
+
+    if (assistantMsg) {
+      // 3. Remove all messages after the assistant message
+      const assistantIndex = messages.findIndex((m) => m.id === assistantMsg.id)
+      if (assistantIndex !== -1) {
+        const updatedMessages = messages.slice(0, assistantIndex + 1)
+        setMessages(updatedMessages)
+      }
+
+      // 4. Immediately clear assistant's content and set status to loading
+      setMessage(assistantMsg.id, {
+        message: {
+          role: 'assistant',
+          content: '',
+          thinking: '',
+        },
+        status: 'loading'
+      })
+
+      // 5. Reload the assistant message
+      onReload(assistantMsg.id, {
+        messages: [{ role: 'user', content: editingContent }],
+        model: selectedModel || undefined,
+        provider: selectedModel ? modelOptions[selectedModel]?.provider : undefined,
+      })
+    }
+
+    setEditingId(null)
+  }, [editingContent, messages, setMessage, setMessages, onReload, selectedModel, modelOptions])
 
   // Save conversation to localStorage whenever messages change
   useEffect(() => {
@@ -236,25 +372,64 @@ export default function NewChatPage() {
     }
   }, [messages])
 
-  // Track and save multiple versions of assistant messages when successfully finished
+  // Keep track of active generation message ID
   useEffect(() => {
-    messages.forEach(({ id, message, status, extraInfo }) => {
-      if (message.role === 'assistant' && status === 'success') {
-        const versions = extraInfo?.versions || []
-        const currentContent = message.content
-        
-        if (versions.length === 0 || versions[versions.length - 1] !== currentContent) {
-          const newVersions = [...versions, currentContent]
-          const newIndex = newVersions.length - 1
-          
-          setMessage(id, {
-            extraInfo: {
-              ...extraInfo,
-              versions: newVersions,
-              activeVersionIndex: newIndex
+    messages.forEach(({ id, message, status }) => {
+      if (message.role === 'assistant' && (status === 'loading' || status === 'updating')) {
+        generatingMsgIdRef.current = id
+      }
+    })
+  }, [messages])
+
+  // Track and save multiple versions of assistant messages when successfully finished on the preceding user message
+  useEffect(() => {
+    messages.forEach(({ id, message, status }) => {
+      if (message.role === 'assistant' && status === 'success' && generatingMsgIdRef.current === id) {
+        const msgIndex = messages.findIndex((m) => m.id === id)
+        if (msgIndex !== -1) {
+          let userMsg = null
+          for (let i = msgIndex - 1; i >= 0; i--) {
+            if (messages[i].message.role === 'user') {
+              userMsg = messages[i]
+              break
             }
-          })
+          }
+
+          if (userMsg) {
+            const existingVersions = userMsg.extraInfo?.versions || []
+            const userActiveIndex = userMsg.extraInfo?.activeVersionIndex ?? 0
+            const currentContent = message.content
+
+            let versions = [...existingVersions]
+            if (versions.length === 0) {
+              versions = [{
+                content: userMsg.message.content,
+                responses: [currentContent],
+                activeResponseIndex: 0
+              }]
+            } else {
+              const activeVariant = { ...versions[userActiveIndex] }
+              const responses = activeVariant.responses ? [...activeVariant.responses] : []
+              
+              if (responses.length === 0 || responses[responses.length - 1] !== currentContent) {
+                responses.push(currentContent)
+                activeVariant.responses = responses
+                activeVariant.activeResponseIndex = responses.length - 1
+                versions[userActiveIndex] = activeVariant
+              }
+            }
+
+            setMessage(userMsg.id, {
+              extraInfo: {
+                ...userMsg.extraInfo,
+                versions,
+                activeVersionIndex: userActiveIndex
+              }
+            })
+          }
         }
+        // Clear the ref to prevent duplicate triggers
+        generatingMsgIdRef.current = null
       }
     })
   }, [messages, setMessage])
@@ -417,14 +592,13 @@ export default function NewChatPage() {
                   styles: { content: { backgroundColor: '#f5f5f5' } },
                   contentRender: (msg: ChatMessage & { status?: string }) => (
                     <div>
-                      {msg.thinking && (
-                        <Think title="思考过程" defaultExpanded={false}>
-                          <pre className="text-xs text-muted-foreground/70 whitespace-pre-wrap font-sans">{msg.thinking}</pre>
+                      {msg.thinking && isThinkingEnabled && (
+                        <Think title="思考过程" defaultExpanded={false} className="mb-3">
+                          <div className="text-xs text-muted-foreground/70 whitespace-pre-wrap font-sans">{msg.thinking}</div>
                         </Think>
                       )}
                       <div className="markdown-content w-full overflow-x-auto">
                         <XMarkdown
-                          content={msg.content}
                           openLinksInNewTab
                           paragraphTag="div"
                           streaming={{
@@ -433,9 +607,29 @@ export default function NewChatPage() {
                             animationConfig: { fadeDuration: 150 },
                             tail: msg.status === 'updating' || msg.status === 'loading'
                               ? { content: '▋' }
-                              : undefined,
+                              : false,
                           }}
                           components={{
+                            think: ({ children }: any) => {
+                              if (!isThinkingEnabled) return null
+                              return (
+                                <Think title="思考过程" defaultExpanded={false} className="mb-3">
+                                  <div className="text-xs text-muted-foreground/70 whitespace-pre-wrap font-sans">
+                                    {children}
+                                  </div>
+                                </Think>
+                              )
+                            },
+                            sources: ({ children }: any) => (
+                              <div className="mt-3 border-t border-border/40 pt-3">
+                                <div className="text-xs font-semibold text-foreground/80 mb-2 flex items-center gap-1.5 select-none">
+                                  <ImportOutlined style={{ color: '#1677ff' }} /> 引用与溯源
+                                </div>
+                                <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+                                  {children}
+                                </div>
+                              </div>
+                            ),
                             pre: ({ children }: any) => <>{children}</>,
                             code: ({ className, children, ...props }: ComponentProps) => {
                               const codeString = Array.isArray(children)
@@ -444,14 +638,15 @@ export default function NewChatPage() {
                                   ? children
                                   : String(children || '')
 
-                              const isBlock = props.block || className?.includes('language-') || codeString.includes('\n')
+                               const { domNode, block, lang: propLang, ...restProps } = props as any
+                               const isBlock = block || className?.includes('language-') || codeString.includes('\n')
 
-                              // Render inline code if not block
-                              if (!isBlock) {
-                                return <code className={className} {...props}>{children}</code>
-                              }
+                               // Render inline code if not block
+                               if (!isBlock) {
+                                 return <code className={className} {...restProps}>{children}</code>
+                               }
 
-                              const lang = (className?.match(/language-(\w+)/)?.[1] || props.lang || 'plaintext').toLowerCase()
+                              const lang = (className?.match(/language-(\w+)/)?.[1] || propLang || 'plaintext').toLowerCase()
 
                               // Render Mermaid chart if language is mermaid
                               if (lang === 'mermaid') {
@@ -470,29 +665,88 @@ export default function NewChatPage() {
                               return <CodeHighlighter lang={lang} prismLightMode={false}>{codeString}</CodeHighlighter>
                             },
                           }}
-                        />
+                        >
+                          {msg.content}
+                        </XMarkdown>
                       </div>
                     </div>
                   ),
                 },
-                user: { placement: 'end', styles: { content: { backgroundColor: '#e6f4ff' } } },
+                user: {
+                  placement: 'end',
+                  styles: { content: { backgroundColor: '#e6f4ff' } },
+                  contentRender: (msg: { id: string | number; content: string }) => {
+                    if (editingId === msg.id) {
+                      return (
+                        <div className="flex flex-col gap-2 min-w-[200px] md:min-w-[300px]">
+                          <Input.TextArea
+                            value={editingContent}
+                            onChange={(e) => setEditingContent(e.target.value)}
+                            autoSize={{ minRows: 2, maxRows: 6 }}
+                            className="w-full"
+                          />
+                          <Flex gap="small" justify="end">
+                            <Button size="small" onClick={() => setEditingId(null)}>
+                              取消
+                            </Button>
+                            <Button size="small" type="primary" onClick={() => handleSaveEdit(msg.id)}>
+                              确认
+                            </Button>
+                          </Flex>
+                        </div>
+                      )
+                    }
+                    return <div className="whitespace-pre-wrap">{msg.content}</div>
+                  }
+                },
               }}
               items={messages.map(({ id, message, status, extraInfo }) => {
-                const versions = extraInfo?.versions || []
-                const activeIndex = extraInfo?.activeVersionIndex !== undefined 
-                  ? extraInfo.activeVersionIndex 
-                  : (versions.length > 0 ? versions.length - 1 : 0)
-                  
-                const displayedContent = versions.length > 0 
-                  ? versions[activeIndex] 
-                  : message.content
+                let displayedContent = message.content;
+                let versions: any[] = [];
+                let activeIndex = 0;
+                let isUser = message.role === 'user';
+
+                if (isUser) {
+                  versions = extraInfo?.versions || [];
+                  activeIndex = extraInfo?.activeVersionIndex !== undefined 
+                    ? extraInfo.activeVersionIndex 
+                    : (versions.length > 0 ? versions.length - 1 : 0);
+                  displayedContent = versions.length > 0 
+                    ? versions[activeIndex]?.content || message.content
+                    : message.content;
+                } else {
+                  // For assistant, look up preceding userMsg
+                  const msgIndex = messages.findIndex((m) => m.id === id);
+                  let userMsg = null;
+                  if (msgIndex !== -1) {
+                    for (let i = msgIndex - 1; i >= 0; i--) {
+                      if (messages[i].message.role === 'user') {
+                        userMsg = messages[i];
+                        break;
+                      }
+                    }
+                  }
+
+                  if (userMsg && userMsg.extraInfo?.versions) {
+                    const userVersions = userMsg.extraInfo.versions;
+                    const userActiveIndex = userMsg.extraInfo.activeVersionIndex ?? 0;
+                    const activeVariant = userVersions[userActiveIndex];
+                    if (activeVariant) {
+                      versions = activeVariant.responses || [];
+                      activeIndex = activeVariant.activeResponseIndex ?? 0;
+                      displayedContent = versions.length > 0 
+                        ? versions[activeIndex] || message.content
+                        : message.content;
+                    }
+                  }
+                }
 
                 return {
                   key: id,
                   role: message.role as 'user' | 'assistant',
-                  content: message.role === 'assistant' ? { ...message, content: displayedContent, status } : message.content,
-                  loading: status === 'loading' || status === 'updating',
-                  footer: message.role === 'assistant' && status !== 'loading' && status !== 'updating' && (
+                  content: message.role === 'assistant' ? { ...message, content: displayedContent, status } : { id, content: displayedContent },
+                  loading: status === 'loading',
+                  footer: message.role === 'assistant' && status !== 'loading' && status !== 'updating' ? (
                     <Actions
                       items={[
                         ...(versions.length > 1 ? [{
@@ -505,12 +759,20 @@ export default function NewChatPage() {
                               total={versions.length}
                               pageSize={1}
                               onChange={(page) => {
-                                setMessage(id, {
-                                  extraInfo: {
-                                    ...extraInfo,
-                                    activeVersionIndex: page - 1
+                                // Find preceding userMsg to change its activeResponseIndex
+                                const msgIndex = messages.findIndex((m) => m.id === id);
+                                let userMsg = null;
+                                if (msgIndex !== -1) {
+                                  for (let i = msgIndex - 1; i >= 0; i--) {
+                                    if (messages[i].message.role === 'user') {
+                                      userMsg = messages[i];
+                                      break;
+                                    }
                                   }
-                                })
+                                }
+                                if (userMsg) {
+                                  handleSwitchVersion(userMsg.id, true, page - 1);
+                                }
                               }}
                             />
                           )
@@ -536,6 +798,17 @@ export default function NewChatPage() {
                               break
                             }
                           }
+
+                          // Reset the current AI content to loading before reloading
+                          setMessage(id, {
+                            message: {
+                              ...message,
+                              content: '',
+                              thinking: ''
+                            },
+                            status: 'loading'
+                          })
+
                           onReload(id, {
                             messages: userMsg
                               ? [{ role: userMsg.message.role, content: userMsg.message.content }]
@@ -547,7 +820,39 @@ export default function NewChatPage() {
                       }}
                       variant="borderless"
                     />
-                  ),
+                  ) : (message.role === 'user' && editingId !== id && (
+                    <Actions
+                      items={[
+                        ...(versions.length > 1 ? [{
+                          key: 'pagination',
+                          actionRender: () => (
+                            <Pagination
+                              simple
+                              size="small"
+                              current={activeIndex + 1}
+                              total={versions.length}
+                              pageSize={1}
+                              onChange={(page) => {
+                                handleSwitchVersion(id, false, page - 1);
+                              }}
+                            />
+                          )
+                        }] : []),
+                        {
+                          key: 'edit',
+                          icon: <EditOutlined />,
+                          label: '编辑',
+                        }
+                      ]}
+                      onClick={({ key }) => {
+                        if (key === 'edit') {
+                          setEditingId(id)
+                          setEditingContent(displayedContent)
+                        }
+                      }}
+                      variant="borderless"
+                    />
+                  )),
                 }
               })}
             />

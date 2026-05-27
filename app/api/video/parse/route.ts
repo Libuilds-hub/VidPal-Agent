@@ -234,14 +234,22 @@ async function correctTranscripts(transcripts: TranscriptItem[], videoTitle: str
 
   const provider = settingMap.llmProvider || "minimax"
   const apiKey = settingMap.llmApiKey
-  const model = settingMap.llmModel || (provider === "deepseek" ? "deepseek-v4-flash" : "MiniMax-M2.7")
+  const model = settingMap.llmModel || (
+    provider === "openrouter"
+      ? "deepseek/deepseek-v4-flash:free"
+      : provider === "deepseek"
+      ? "deepseek-v4-flash"
+      : "MiniMax-M2.7"
+  )
 
   if (!apiKey) {
     console.warn("LLM API key not configured, skipping transcript correction")
     return transcripts
   }
 
-  const baseUrl = provider === "deepseek"
+  const baseUrl = provider === "openrouter"
+    ? "https://openrouter.ai/api/v1"
+    : provider === "deepseek"
     ? "https://api.deepseek.com"
     : "https://api.minimaxi.com/v1"
 

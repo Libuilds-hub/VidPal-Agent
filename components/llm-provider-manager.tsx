@@ -22,6 +22,7 @@ interface Provider {
   baseUrl: string
   models: string
   isDefault: boolean
+  enableThinking: boolean
 }
 
 interface ProviderForm {
@@ -30,6 +31,7 @@ interface ProviderForm {
   baseUrl: string
   models: string
   isDefault: boolean
+  enableThinking: boolean
 }
 
 const emptyForm: ProviderForm = {
@@ -38,6 +40,7 @@ const emptyForm: ProviderForm = {
   baseUrl: "",
   models: "",
   isDefault: false,
+  enableThinking: true,
 }
 
 const BUILTIN_TEMPLATES: Record<string, { name: string; baseUrl: string; models: string }> = {
@@ -93,12 +96,14 @@ function ModelDropdown({
   models,
   onRemove,
   onAdd,
+  onSelect,
   newModelValue,
   onNewModelChange,
 }: {
   models: string[]
   onRemove: (model: string) => void
   onAdd: () => void
+  onSelect: (model: string) => void
   newModelValue: string
   onNewModelChange: (v: string) => void
 }) {
@@ -120,24 +125,27 @@ function ModelDropdown({
         onClick={() => setOpen(!open)}
         className="inline-flex items-center justify-between w-full rounded-md border border-border/45 bg-card px-2.5 py-1 h-7 text-[12px] font-medium hover:bg-muted/60 transition-colors cursor-pointer select-none"
       >
-        <span className="text-muted-foreground/75">{models[0]}</span>
+        <span className="text-muted-foreground/75 truncate pr-1">{models[0]}</span>
         <ChevronDown
-          className="h-3 w-3 text-muted-foreground/50 transition-transform duration-200 shrink-0 ml-1"
+          className="h-3 w-3 text-muted-foreground/50 transition-transform duration-200 shrink-0 ml-auto"
           style={{ transform: open ? "rotate(180deg)" : "rotate(0)" }}
         />
       </button>
       {open && (
         <div className="absolute left-0 right-0 z-50 mt-1 rounded-lg border border-border/40 bg-popover py-1 shadow-md animate-in fade-in zoom-in-95 origin-top">
-          {models.map((model) => (
+          {models.map((model, idx) => (
             <div
               key={model}
-              className="flex items-center justify-between px-2.5 py-1.5 hover:bg-muted/40 transition-colors"
+              onClick={() => { onSelect(model); setOpen(false) }}
+              className={`flex items-center justify-between px-2.5 py-1.5 hover:bg-muted/40 transition-colors cursor-pointer ${
+                idx === 0 ? "bg-muted/20 font-medium" : ""
+              }`}
             >
               <span className="text-[12px] text-foreground/85 truncate flex-1 min-w-0">{model}</span>
               {models.length > 1 && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onRemove(model) }}
-                  className="shrink-0 ml-1.5 text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer"
+                  className="shrink-0 ml-1.5 text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer p-0.5 rounded hover:bg-muted"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -215,6 +223,7 @@ export default function LlmProviderManager() {
       baseUrl: BUILTIN_TEMPLATES[key].baseUrl,
       models: BUILTIN_TEMPLATES[key].models,
       isDefault: providers.length === 0,
+      enableThinking: true,
     })
     setShowAdd(true)
   }
@@ -296,10 +305,18 @@ export default function LlmProviderManager() {
       setStatusMsg({ type: "error", text: `模型 "${newModel}" 已存在` })
       return
     }
-    list.push(newModel)
-    await handleUpdate(id, "models", joinModels(list))
+    const newList = [newModel, ...list]
+    await handleUpdate(id, "models", joinModels(newList))
     setNewModelInputs((prev) => ({ ...prev, [id]: "" }))
-    setStatusMsg({ type: "success", text: `已添加模型 ${newModel}` })
+    setStatusMsg({ type: "success", text: `已添加并激活模型 ${newModel}` })
+  }
+
+  const handleSelectModel = async (id: string, currentModels: string, selectedModel: string) => {
+    const list = parseModels(currentModels)
+    const filtered = list.filter((m) => m !== selectedModel)
+    const newList = [selectedModel, ...filtered]
+    await handleUpdate(id, "models", joinModels(newList))
+    setStatusMsg({ type: "success", text: `已激活模型 ${selectedModel}` })
   }
 
   const handleRemoveModel = async (id: string, currentModels: string, modelToRemove: string) => {
@@ -434,15 +451,14 @@ export default function LlmProviderManager() {
                   />
                 </div>
 
-                {/* Models — dropdown + custom input */}
+                {/* Models — fully editable text input */}
                 <div className="flex items-center gap-2">
                   <label className="text-[11px] text-muted-foreground w-14 shrink-0">模型</label>
-                  <ModelDropdown
-                    models={modelList}
-                    onRemove={(model) => handleRemoveModel(p.id, p.models, model)}
-                    onAdd={() => handleAddModel(p.id, p.models)}
-                    newModelValue={newModelInputs[p.id] ?? ""}
-                    onNewModelChange={(v) => setNewModelInputs((prev) => ({ ...prev, [p.id]: v }))}
+                  <Input
+                    defaultValue={p.models}
+                    onBlur={(e) => { if (e.target.value && e.target.value !== p.models) handleUpdate(p.id, "models", e.target.value) }}
+                    placeholder="输入模型，多个用英文逗号分隔，首位为默认激活模型"
+                    className="h-7 text-[12px] flex-1 font-mono"
                   />
                 </div>
 
@@ -459,6 +475,24 @@ export default function LlmProviderManager() {
                     <span
                       className={`pointer-events-none block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform duration-200 ${
                         p.isDefault ? "translate-x-[14px]" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between pt-1.5 border-t border-border/10">
+                  <span className="text-[11px] text-muted-foreground">开启深度思考过程（Think）</span>
+                  <button
+                    role="switch"
+                    aria-checked={p.enableThinking}
+                    onClick={() => handleUpdate(p.id, "enableThinking", !p.enableThinking)}
+                    className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
+                      p.enableThinking ? "bg-primary" : "bg-muted-foreground/20"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform duration-200 ${
+                        p.enableThinking ? "translate-x-[14px]" : "translate-x-0.5"
                       }`}
                     />
                   </button>
@@ -511,20 +545,37 @@ export default function LlmProviderManager() {
             <Input value={form.models} onChange={(e) => setForm({ ...form, models: e.target.value })} placeholder="gpt-4, gpt-3.5-turbo" className="h-7 text-[12px] flex-1" />
           </div>
           <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-muted-foreground">设为默认</span>
-              <button
-                role="switch"
-                aria-checked={form.isDefault}
-                onClick={() => setForm({ ...form, isDefault: !form.isDefault })}
-                className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
-                  form.isDefault ? "bg-primary" : "bg-muted-foreground/20"
-                }`}
-              >
-                <span className={`pointer-events-none block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform duration-200 ${
-                  form.isDefault ? "translate-x-[14px]" : "translate-x-0.5"
-                }`} />
-              </button>
+            <div className="flex gap-4">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground">设为默认</span>
+                <button
+                  role="switch"
+                  aria-checked={form.isDefault}
+                  onClick={() => setForm({ ...form, isDefault: !form.isDefault })}
+                  className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
+                    form.isDefault ? "bg-primary" : "bg-muted-foreground/20"
+                  }`}
+                >
+                  <span className={`pointer-events-none block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform duration-200 ${
+                    form.isDefault ? "translate-x-[14px]" : "translate-x-0.5"
+                  }`} />
+                </button>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground">开启思考</span>
+                <button
+                  role="switch"
+                  aria-checked={form.enableThinking}
+                  onClick={() => setForm({ ...form, enableThinking: !form.enableThinking })}
+                  className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
+                    form.enableThinking ? "bg-primary" : "bg-muted-foreground/20"
+                  }`}
+                >
+                  <span className={`pointer-events-none block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform duration-200 ${
+                    form.enableThinking ? "translate-x-[14px]" : "translate-x-0.5"
+                  }`} />
+                </button>
+              </div>
             </div>
             <div className="flex gap-2">
               <button

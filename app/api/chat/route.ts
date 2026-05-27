@@ -1,6 +1,11 @@
 // app/api/chat/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { runAgent, LLMNotConfiguredError, HumanMessage, AIMessage } from "@/lib/agent"
+import { AIMessageChunk, ToolMessage, type BaseMessage } from "@langchain/core/messages"
+
+export const dynamic = "force-dynamic"
+
+type StreamChunk = [BaseMessage, Record<string, unknown>]
 
 export async function POST(req: NextRequest) {
   let body: { messages: Array<{ role: string; content: string }>; model?: string; provider?: string }
@@ -31,42 +36,32 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const events = await runAgent(langchainMessages, body.model, body.provider)
+        const messageStream = await runAgent(langchainMessages, body.model, body.provider)
 
-        for await (const event of events) {
-          // LLM streaming token
-          if (event.event === "on_chat_model_stream") {
-            const content = event.data?.chunk?.content
-            if (content) {
+        for await (const chunk of messageStream) {
+          const [msg, metadata] = chunk as StreamChunk
+          const nodeName = metadata?.langgraph_node as string | undefined
+
+          // LLM streaming token from the "agent" node
+          if (msg instanceof AIMessageChunk) {
+            const content = msg.content
+            if (content && typeof content === "string" && content.length > 0) {
               send("token", { content })
             }
+            // Tool call requests from the LLM are also in AIMessageChunk
+            if (msg.tool_calls && msg.tool_calls.length > 0) {
+              for (const tc of msg.tool_calls) {
+                if (tc.name) {
+                  send("tool_start", { name: tc.name, args: tc.args })
+                }
+              }
+            }
           }
 
-          // Tool call started
-          if (event.event === "on_tool_start") {
-            let args = event.data?.input
-            // DynamicTool input is deeply nested { input: "{ input: \"{...}\" }" }, unwrap
-            while (args && typeof args === "object" && !Array.isArray(args) && typeof (args as Record<string, unknown>).input === "string") {
-              try { args = JSON.parse((args as Record<string, unknown>).input as string) } catch { break }
-            }
-            // Ensure args is always an object for the frontend
-            if (typeof args !== "object" || args === null || Array.isArray(args)) {
-              args = { input: String(args) }
-            }
-            send("tool_start", {
-              name: event.name,
-              args,
-            })
-          }
-
-          // Tool call finished — extract content from ToolMessage
-          if (event.event === "on_tool_end") {
-            const output = event.data?.output
-            const result = output?.content ?? output
-            send("tool_end", {
-              name: event.name,
-              result: typeof result === "string" ? result : JSON.stringify(result),
-            })
+          // Tool result from the "tools" node
+          if (msg instanceof ToolMessage) {
+            const content = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)
+            send("tool_end", { name: msg.name, result: content })
           }
         }
 
@@ -93,8 +88,9 @@ export async function POST(req: NextRequest) {
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
+      "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
     },
   })
 }
