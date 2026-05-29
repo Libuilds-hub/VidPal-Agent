@@ -12,6 +12,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarTrigger,
 } from "@/components/ui/sidebar"
 import {
   UserCircle,
@@ -61,19 +62,22 @@ export function SettingsSidebar({ ...props }: React.ComponentProps<typeof Sideba
   return (
     <Sidebar variant="inset" collapsible="icon" {...props}>
       <SidebarHeader className="px-3 py-3 group-data-[collapsible=icon]:p-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild className="hover:bg-transparent! data-active:bg-transparent! group-data-[collapsible=icon]:h-8! group-data-[collapsible=icon]:w-8! group-data-[collapsible=icon]:p-0!">
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-2.5! group select-none"
-              >
-                <ArrowLeft className="size-4 text-muted-foreground/50" />
-                <span className="text-[13.5px] font-medium text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">返回主界面</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <div className="flex items-center justify-between">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild className="hover:bg-transparent! data-active:bg-transparent! group-data-[collapsible=icon]:h-8! group-data-[collapsible=icon]:w-8! group-data-[collapsible=icon]:p-0!">
+                <Link
+                  href="/dashboard"
+                  className="flex items-center gap-2.5! group select-none"
+                >
+                  <ArrowLeft className="size-4 text-muted-foreground/50" />
+                  <span className="text-[13.5px] font-medium text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">返回主界面</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <SidebarTrigger className="size-7 rounded hover:bg-muted/70 text-muted-foreground/80 hover:text-foreground transition-all duration-150 group-data-[collapsible=icon]:hidden [&>svg]:size-3.5" />
+        </div>
       </SidebarHeader>
 
       <SidebarContent className="px-2 scrollbar-hide">
