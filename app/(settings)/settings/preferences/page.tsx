@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 import { Dropdown, SettingRow, StatusBanner } from "@/components/settings/settings-ui"
 import { Loader2 } from "lucide-react"
 
@@ -60,6 +61,7 @@ export default function PreferencesPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin bg-background/35">
+      <SettingsPageHeader title="偏好设置" description="定制界面的个性化展现与转写默认值" />
       <div className="max-w-2xl space-y-4 animate-in fade-in-50 duration-150">
         <div className="space-y-1">
           <SettingRow label="主题" description="界面配色方案">

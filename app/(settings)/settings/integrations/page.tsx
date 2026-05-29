@@ -1,6 +1,9 @@
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
+
 export default function IntegrationsPage() {
   return (
     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin bg-background/35">
+      <SettingsPageHeader title="集成合作" description="连接飞书、Slack 或 GitHub 等办公协同插件" />
       <div className="max-w-2xl space-y-3.5 animate-in fade-in-50 duration-150">
         <p className="text-[11.5px] text-muted-foreground/80 mb-3 leading-normal">集成第三方云服务、协作应用和通知助手，打通您日常的工作流</p>
         <div className="rounded-lg border border-border/30 divide-y divide-border/20 overflow-hidden bg-card/10">

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 import { Loader2, CheckCircle2 } from "lucide-react"
 
 export default function UpdatesPage() {
@@ -8,6 +9,7 @@ export default function UpdatesPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin bg-background/35">
+      <SettingsPageHeader title="更新日志" description="检查是否有新版本可用并回顾系统版本进化历程" />
       <div className="max-w-2xl space-y-4 animate-in fade-in-50 duration-150">
         <div className="flex items-center justify-between pb-3 border-b border-border/20">
           <div>

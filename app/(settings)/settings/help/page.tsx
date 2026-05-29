@@ -1,6 +1,9 @@
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
+
 export default function HelpPage() {
   return (
     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin bg-background/35">
+      <SettingsPageHeader title="使用与帮助" description="查看键盘快捷键与常见故障处理方法" />
       <div className="max-w-2xl space-y-3 animate-in fade-in-50 duration-150">
         <a href="/help" className="flex items-center justify-between py-3 hover:bg-accent/40 -mx-3 px-3 rounded-lg transition-colors cursor-pointer select-none">
           <div className="min-w-0">

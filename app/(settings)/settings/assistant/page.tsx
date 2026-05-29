@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 import { SettingRow } from "@/components/settings/settings-ui"
 import { BotIcon } from "lucide-react"
 
@@ -38,6 +39,7 @@ export default function AssistantPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin bg-background/35">
+      <SettingsPageHeader title="AI 助手" description="自定义 AI 智能助手的名称与头像外观" />
       <div className="max-w-2xl space-y-5 animate-in fade-in-50 duration-150">
         <p className="text-[11.5px] text-muted-foreground/80 mb-3 leading-normal">自定义 AI 智能助手的显示名称和头像，打造属于你的个性化学习伙伴</p>
 

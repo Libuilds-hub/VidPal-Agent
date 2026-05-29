@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 import { SettingRow, StatusBanner } from "@/components/settings/settings-ui"
 import { Loader2 } from "lucide-react"
 
@@ -55,6 +56,7 @@ export default function CookiesPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin bg-background/35">
+      <SettingsPageHeader title="Cookie 配置" description="配置解析和视频抓取的登录 Cookies 以支持更高清下载" />
       <div className="max-w-2xl space-y-4 animate-in fade-in-50 duration-150">
         <p className="text-[11.5px] text-muted-foreground/80 leading-normal">配置各平台的 Cookie 用于跳过防爬机制，下载更清晰视频及专享字幕内容</p>
         <div className="space-y-1">

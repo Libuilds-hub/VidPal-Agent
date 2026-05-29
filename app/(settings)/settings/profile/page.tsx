@@ -1,5 +1,6 @@
 "use client"
 
+import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { SettingRow } from "@/components/settings/settings-ui"
@@ -7,6 +8,7 @@ import { SettingRow } from "@/components/settings/settings-ui"
 export default function ProfilePage() {
   return (
     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin bg-background/35">
+      <SettingsPageHeader title="个人信息" description="管理您的基本账户和安全信息" />
       <div className="max-w-2xl space-y-3 animate-in fade-in-50 duration-150">
         <div className="flex items-center gap-3.5 pb-4 border-b border-border/20">
           <Avatar className="size-11">
