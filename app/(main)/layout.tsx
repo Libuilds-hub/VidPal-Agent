@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { cn } from "@/lib/utils"
-import { SettingsDialog } from "@/components/settings-dialog"
+
 
 import { usePathname } from "next/navigation"
 
@@ -47,7 +47,7 @@ export default function MainLayout({
           {children}
         </div>
       </SidebarInset>
-      <SettingsDialog />
+
     </SidebarProvider>
   )
 }
