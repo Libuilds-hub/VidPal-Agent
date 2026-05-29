@@ -30,7 +30,7 @@ export function NavUser({
           className="select-none cursor-pointer"
           asChild
         >
-          <Link href="?settings=true" className="flex items-center w-full">
+          <Link href="/settings/profile" className="flex items-center w-full">
             {/* Show avatar only when expanded */}
             <Avatar className="h-8 w-8 rounded-lg group-data-[collapsible=icon]:hidden">
               <AvatarImage src={user.avatar} alt={user.name} />
