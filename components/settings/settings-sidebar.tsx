@@ -1,12 +1,10 @@
 "use client"
 
-import * as React from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -15,9 +13,7 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
 } from "@/components/ui/sidebar"
-import { VidPalLogo } from "@/components/vidpal-logo"
 import {
-  Settings,
   UserCircle,
   SlidersHorizontal,
   Database,
@@ -68,29 +64,19 @@ export function SettingsSidebar({ ...props }: React.ComponentProps<typeof Sideba
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="hover:bg-transparent! data-active:bg-transparent! group-data-[collapsible=icon]:h-8! group-data-[collapsible=icon]:w-8! group-data-[collapsible=icon]:p-0!">
-              <a href="/dashboard" className="flex items-center gap-2.5! group select-none [&_svg]:!size-auto">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-900 text-blue-400 transition-all duration-200">
-                  <VidPalLogo className="!size-8" />
-                </div>
-                <span className="inline-block h-8 leading-8 truncate font-extralight text-2xl tracking-wider bg-gradient-to-b from-zinc-900 to-zinc-900/60 dark:from-white dark:to-white/60 bg-clip-text text-transparent group-data-[collapsible=icon]:hidden">VidPal</span>
-              </a>
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-2.5! group select-none"
+              >
+                <ArrowLeft className="size-4 text-muted-foreground/50" />
+                <span className="text-[13.5px] font-medium text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">返回主界面</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent className="px-2 scrollbar-hide">
-        {/* Back button */}
-        <div className="px-2 pt-1 pb-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2.5 rounded-md px-1.5 py-1 text-[13.5px] font-medium text-sidebar-foreground/60 hover:text-sidebar-foreground/90 hover:bg-sidebar-accent/40 transition-all duration-200 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:py-1"
-          >
-            <ArrowLeft className="size-4 text-muted-foreground/50" />
-            <span className="group-data-[collapsible=icon]:hidden">返回主界面</span>
-          </Link>
-        </div>
-
         {/* Section groups */}
         <div className="space-y-4 mt-2">
           {sidebarGroups.map((group) => (
