@@ -18,8 +18,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "视频总结分析工具",
-  description: "多平台视频总结分析工具，帮助个人学习者高效理解和管理视频内容",
+  title: "VidPal - AI 视频学习助手",
+  description: "VidPal 多平台视频总结分析工具，AI 驱动的视频学习陪伴助手",
 };
 
 export default function RootLayout({

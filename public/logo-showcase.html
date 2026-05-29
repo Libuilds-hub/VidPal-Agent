@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VidPal — Logo Refinement</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background: #0D0D0D;
+            color: #E5E5E5;
+            overflow-x: hidden;
+        }
+        .font-mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+        body::before {
+            content: '';
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+            pointer-events: none; z-index: 9999;
+        }
+        html { scroll-behavior: smooth; }
+
+        .logo-card {
+            background: #141414;
+            border: 1px solid #1F1F1F;
+            border-radius: 16px;
+            padding: 40px 32px 32px;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .logo-card:hover {
+            background: #1A1A1A;
+            border-color: #333;
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+        }
+
+        .logo-canvas {
+            width: 160px;
+            height: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 32px;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .logo-card:hover .logo-canvas { transform: scale(1.06); }
+
+        .logo-canvas svg {
+            width: 120px;
+            height: 120px;
+        }
+
+        .variant-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .size-row {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #1F1F1F;
+            width: 100%;
+            justify-content: center;
+        }
+        .size-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .size-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .style-tag {
+            display: inline-block;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #1F1F1F;
+            color: #999;
+            margin-right: 4px;
+            margin-bottom: 12px;
+        }
+
+        .divider { width: 24px; height: 1px; background: #333; margin: 20px auto; transition: width 0.5s ease; }
+        .logo-card:hover .divider { width: 48px; }
+
+        /* Color swatches */
+        .swatch {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+
+        /* SVG drop shadows */
+        .logo-canvas svg {
+            filter: drop-shadow(0 2px 12px rgba(59, 130, 246, 0.25));
+        }
+    </style>
+</head>
+<body>
+
+<div class="min-h-screen flex flex-col items-center py-20 px-6">
+
+    <!-- Header -->
+    <div class="text-center mb-20 max-w-3xl">
+        <h1 class="text-6xl md:text-7xl font-extralight tracking-wider mb-6 bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent">
+            VidPal
+        </h1>
+        <p class="font-mono text-xs opacity-40 uppercase tracking-[0.3em] mb-8">
+            AI Video Learning Companion
+        </p>
+        <p class="text-sm leading-relaxed opacity-50 max-w-md mx-auto font-light">
+            Refined selection &middot; Blue spectrum &middot; 3 directions
+        </p>
+        <div class="w-12 h-[1px] bg-white/20 mx-auto mt-8"></div>
+    </div>
+
+    <!-- Logo Grid -->
+    <div class="max-w-5xl w-full grid grid-cols-1 md:grid-cols-3 gap-8 mb-24">
+
+        <!-- Variant A: Radiating Knowledge -->
+        <div class="logo-card">
+            <div class="variant-badge">Variant A — Dot Matrix</div>
+            <div class="logo-canvas" style="color: #3B82F6">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <g fill="currentColor">
+                        <!-- Center solid core -->
+                        <circle cx="50" cy="50" r="5"/>
+                        <!-- Ring 1: 6 dots, close -->
+                        <circle cx="50" cy="33" r="3.5"/><circle cx="64.7" cy="41.5" r="3.5"/>
+                        <circle cx="64.7" cy="58.5" r="3.5"/><circle cx="50" cy="67" r="3.5"/>
+                        <circle cx="35.3" cy="58.5" r="3.5"/><circle cx="35.3" cy="41.5" r="3.5"/>
+                        <!-- Ring 2: 12 dots, medium -->
+                        <circle cx="50" cy="22" r="2.5"/><circle cx="64.1" cy="25.9" r="2.5"/>
+                        <circle cx="73.1" cy="35.9" r="2.5"/><circle cx="77" cy="50" r="2.5"/>
+                        <circle cx="73.1" cy="64.1" r="2.5"/><circle cx="64.1" cy="74.1" r="2.5"/>
+                        <circle cx="50" cy="78" r="2.5"/><circle cx="35.9" cy="74.1" r="2.5"/>
+                        <circle cx="26.9" cy="64.1" r="2.5"/><circle cx="23" cy="50" r="2.5"/>
+                        <circle cx="26.9" cy="35.9" r="2.5"/><circle cx="35.9" cy="25.9" r="2.5"/>
+                        <!-- Ring 3: sparse outer, partial, fading -->
+                        <circle cx="50" cy="15" r="1.5" opacity="0.35"/>
+                        <circle cx="68.8" cy="21.6" r="1.5" opacity="0.35"/>
+                        <circle cx="80.3" cy="32.5" r="1.5" opacity="0.35"/>
+                        <circle cx="85" cy="50" r="1.5" opacity="0.35"/>
+                        <circle cx="80.3" cy="67.5" r="1.5" opacity="0.35"/>
+                        <circle cx="68.8" cy="78.4" r="1.5" opacity="0.35"/>
+                        <circle cx="50" cy="85" r="1.5" opacity="0.35"/>
+                        <circle cx="31.2" cy="78.4" r="1.5" opacity="0.35"/>
+                        <circle cx="19.7" cy="67.5" r="1.5" opacity="0.35"/>
+                        <circle cx="15" cy="50" r="1.5" opacity="0.35"/>
+                        <circle cx="19.7" cy="32.5" r="1.5" opacity="0.35"/>
+                        <circle cx="31.2" cy="21.6" r="1.5" opacity="0.35"/>
+                    </g>
+                </svg>
+            </div>
+            <h3 class="text-base font-medium tracking-wider mb-1">Radiant</h3>
+            <p class="text-xs font-mono opacity-40 tracking-widest mb-3">同心扩散</p>
+            <p class="text-sm text-center opacity-50 font-light leading-relaxed max-w-xs">
+                Three concentric dot rings expanding from a solid core. Knowledge radiating from a single video source. Diminishing size and opacity create depth without complexity.
+            </p>
+            <div class="size-row">
+                <div class="flex flex-col items-center gap-1">
+                    <span class="size-label">16px</span>
+                    <div class="size-icon" style="width:16px;height:16px;color:#3B82F6;">
+                        <svg viewBox="0 0 100 100" width="16" height="16"><g fill="currentColor"><circle cx="50" cy="50" r="5"/><circle cx="50" cy="33" r="3.5"/><circle cx="64.7" cy="41.5" r="3.5"/><circle cx="64.7" cy="58.5" r="3.5"/><circle cx="50" cy="67" r="3.5"/><circle cx="35.3" cy="58.5" r="3.5"/><circle cx="35.3" cy="41.5" r="3.5"/><circle cx="50" cy="22" r="2.5"/><circle cx="64.1" cy="25.9" r="2.5"/><circle cx="73.1" cy="35.9" r="2.5"/><circle cx="77" cy="50" r="2.5"/><circle cx="73.1" cy="64.1" r="2.5"/><circle cx="64.1" cy="74.1" r="2.5"/><circle cx="50" cy="78" r="2.5"/><circle cx="35.9" cy="74.1" r="2.5"/><circle cx="26.9" cy="64.1" r="2.5"/><circle cx="23" cy="50" r="2.5"/><circle cx="26.9" cy="35.9" r="2.5"/><circle cx="35.9" cy="25.9" r="2.5"/><circle cx="50" cy="15" r="1.5" opacity="0.35"/><circle cx="68.8" cy="21.6" r="1.5" opacity="0.35"/><circle cx="80.3" cy="32.5" r="1.5" opacity="0.35"/><circle cx="85" cy="50" r="1.5" opacity="0.35"/><circle cx="80.3" cy="67.5" r="1.5" opacity="0.35"/><circle cx="68.8" cy="78.4" r="1.5" opacity="0.35"/><circle cx="50" cy="85" r="1.5" opacity="0.35"/><circle cx="31.2" cy="78.4" r="1.5" opacity="0.35"/><circle cx="19.7" cy="67.5" r="1.5" opacity="0.35"/><circle cx="15" cy="50" r="1.5" opacity="0.35"/><circle cx="19.7" cy="32.5" r="1.5" opacity="0.35"/><circle cx="31.2" cy="21.6" r="1.5" opacity="0.35"/></g></svg>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="size-label">32px</span>
+                    <div class="size-icon" style="width:32px;height:32px;color:#3B82F6;">
+                        <svg viewBox="0 0 100 100" width="32" height="32"><g fill="currentColor"><circle cx="50" cy="50" r="5"/><circle cx="50" cy="33" r="3.5"/><circle cx="64.7" cy="41.5" r="3.5"/><circle cx="64.7" cy="58.5" r="3.5"/><circle cx="50" cy="67" r="3.5"/><circle cx="35.3" cy="58.5" r="3.5"/><circle cx="35.3" cy="41.5" r="3.5"/><circle cx="50" cy="22" r="2.5"/><circle cx="64.1" cy="25.9" r="2.5"/><circle cx="73.1" cy="35.9" r="2.5"/><circle cx="77" cy="50" r="2.5"/><circle cx="73.1" cy="64.1" r="2.5"/><circle cx="64.1" cy="74.1" r="2.5"/><circle cx="50" cy="78" r="2.5"/><circle cx="35.9" cy="74.1" r="2.5"/><circle cx="26.9" cy="64.1" r="2.5"/><circle cx="23" cy="50" r="2.5"/><circle cx="26.9" cy="35.9" r="2.5"/><circle cx="35.9" cy="25.9" r="2.5"/><circle cx="50" cy="15" r="1.5" opacity="0.35"/><circle cx="68.8" cy="21.6" r="1.5" opacity="0.35"/><circle cx="80.3" cy="32.5" r="1.5" opacity="0.35"/><circle cx="85" cy="50" r="1.5" opacity="0.35"/><circle cx="80.3" cy="67.5" r="1.5" opacity="0.35"/><circle cx="68.8" cy="78.4" r="1.5" opacity="0.35"/><circle cx="50" cy="85" r="1.5" opacity="0.35"/><circle cx="31.2" cy="78.4" r="1.5" opacity="0.35"/><circle cx="19.7" cy="67.5" r="1.5" opacity="0.35"/><circle cx="15" cy="50" r="1.5" opacity="0.35"/><circle cx="19.7" cy="32.5" r="1.5" opacity="0.35"/><circle cx="31.2" cy="21.6" r="1.5" opacity="0.35"/></g></svg>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="size-label">64px</span>
+                    <div class="size-icon" style="width:64px;height:64px;color:#3B82F6;">
+                        <svg viewBox="0 0 100 100" width="64" height="64"><g fill="currentColor"><circle cx="50" cy="50" r="5"/><circle cx="50" cy="33" r="3.5"/><circle cx="64.7" cy="41.5" r="3.5"/><circle cx="64.7" cy="58.5" r="3.5"/><circle cx="50" cy="67" r="3.5"/><circle cx="35.3" cy="58.5" r="3.5"/><circle cx="35.3" cy="41.5" r="3.5"/><circle cx="50" cy="22" r="2.5"/><circle cx="64.1" cy="25.9" r="2.5"/><circle cx="73.1" cy="35.9" r="2.5"/><circle cx="77" cy="50" r="2.5"/><circle cx="73.1" cy="64.1" r="2.5"/><circle cx="64.1" cy="74.1" r="2.5"/><circle cx="50" cy="78" r="2.5"/><circle cx="35.9" cy="74.1" r="2.5"/><circle cx="26.9" cy="64.1" r="2.5"/><circle cx="23" cy="50" r="2.5"/><circle cx="26.9" cy="35.9" r="2.5"/><circle cx="35.9" cy="25.9" r="2.5"/><circle cx="50" cy="15" r="1.5" opacity="0.35"/><circle cx="68.8" cy="21.6" r="1.5" opacity="0.35"/><circle cx="80.3" cy="32.5" r="1.5" opacity="0.35"/><circle cx="85" cy="50" r="1.5" opacity="0.35"/><circle cx="80.3" cy="67.5" r="1.5" opacity="0.35"/><circle cx="68.8" cy="78.4" r="1.5" opacity="0.35"/><circle cx="50" cy="85" r="1.5" opacity="0.35"/><circle cx="31.2" cy="78.4" r="1.5" opacity="0.35"/><circle cx="19.7" cy="67.5" r="1.5" opacity="0.35"/><circle cx="15" cy="50" r="1.5" opacity="0.35"/><circle cx="19.7" cy="32.5" r="1.5" opacity="0.35"/><circle cx="31.2" cy="21.6" r="1.5" opacity="0.35"/></g></svg>
+                    </div>
+                </div>
+            </div>
+            <div class="divider"></div>
+        </div>
+
+        <!-- Variant B: V Lettermark -->
+        <div class="logo-card">
+            <div class="variant-badge">Variant B — Lettermark</div>
+            <div class="logo-canvas" style="color: #2563EB">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <g>
+                        <!-- V form -->
+                        <line x1="28" y1="26" x2="48" y2="74" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+                        <line x1="72" y1="26" x2="52" y2="74" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+                        <!-- Convergence ring -->
+                        <circle cx="50" cy="60" r="7" fill="none" stroke="currentColor" stroke-width="2.8"/>
+                        <circle cx="50" cy="60" r="3.2" fill="currentColor"/>
+                        <!-- P whisper dots -->
+                        <circle cx="50" cy="24" r="2.2" fill="currentColor" opacity="0.55"/>
+                        <circle cx="58" cy="22" r="1.8" fill="currentColor" opacity="0.4"/>
+                        <circle cx="63" cy="27" r="1.5" fill="currentColor" opacity="0.3"/>
+                        <circle cx="63" cy="35" r="1.5" fill="currentColor" opacity="0.3"/>
+                        <circle cx="58" cy="40" r="1.8" fill="currentColor" opacity="0.4"/>
+                        <circle cx="50" cy="42" r="2.2" fill="currentColor" opacity="0.55"/>
+                    </g>
+                </svg>
+            </div>
+            <h3 class="text-base font-medium tracking-wider mb-1">Lettermark V</h3>
+            <p class="text-xs font-mono opacity-40 tracking-widest mb-3">字母抽象</p>
+            <p class="text-sm text-center opacity-50 font-light leading-relaxed max-w-xs">
+                Bold converging strokes form the "V" of VidPal. The circled convergence point anchors the mark. Faint dots above echo the loop of "P" — subtle but distinctive.
+            </p>
+            <div class="size-row">
+                <div class="flex flex-col items-center gap-1">
+                    <span class="size-label">16px</span>
+                    <div class="size-icon" style="width:16px;height:16px;color:#2563EB;">
+                        <svg viewBox="0 0 100 100" width="16" height="16"><g><line x1="28" y1="26" x2="48" y2="74" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><line x1="72" y1="26" x2="52" y2="74" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><circle cx="50" cy="60" r="7" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="50" cy="60" r="3.2" fill="currentColor"/><circle cx="50" cy="24" r="2.2" fill="currentColor" opacity="0.55"/><circle cx="58" cy="22" r="1.8" fill="currentColor" opacity="0.4"/><circle cx="63" cy="27" r="1.5" fill="currentColor" opacity="0.3"/><circle cx="63" cy="35" r="1.5" fill="currentColor" opacity="0.3"/><circle cx="58" cy="40" r="1.8" fill="currentColor" opacity="0.4"/><circle cx="50" cy="42" r="2.2" fill="currentColor" opacity="0.55"/></g></svg>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="size-label">32px</span>
+                    <div class="size-icon" style="width:32px;height:32px;color:#2563EB;">
+                        <svg viewBox="0 0 100 100" width="32" height="32"><g><line x1="28" y1="26" x2="48" y2="74" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><line x1="72" y1="26" x2="52" y2="74" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><circle cx="50" cy="60" r="7" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="50" cy="60" r="3.2" fill="currentColor"/><circle cx="50" cy="24" r="2.2" fill="currentColor" opacity="0.55"/><circle cx="58" cy="22" r="1.8" fill="currentColor" opacity="0.4"/><circle cx="63" cy="27" r="1.5" fill="currentColor" opacity="0.3"/><circle cx="63" cy="35" r="1.5" fill="currentColor" opacity="0.3"/><circle cx="58" cy="40" r="1.8" fill="currentColor" opacity="0.4"/><circle cx="50" cy="42" r="2.2" fill="currentColor" opacity="0.55"/></g></svg>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="size-label">64px</span>
+                    <div class="size-icon" style="width:64px;height:64px;color:#2563EB;">
+                        <svg viewBox="0 0 100 100" width="64" height="64"><g><line x1="28" y1="26" x2="48" y2="74" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><line x1="72" y1="26" x2="52" y2="74" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><circle cx="50" cy="60" r="7" fill="none" stroke="currentColor" stroke-width="2.8"/><circle cx="50" cy="60" r="3.2" fill="currentColor"/><circle cx="50" cy="24" r="2.2" fill="currentColor" opacity="0.55"/><circle cx="58" cy="22" r="1.8" fill="currentColor" opacity="0.4"/><circle cx="63" cy="27" r="1.5" fill="currentColor" opacity="0.3"/><circle cx="63" cy="35" r="1.5" fill="currentColor" opacity="0.3"/><circle cx="58" cy="40" r="1.8" fill="currentColor" opacity="0.4"/><circle cx="50" cy="42" r="2.2" fill="currentColor" opacity="0.55"/></g></svg>
+                    </div>
+                </div>
+            </div>
+            <div class="divider"></div>
+        </div>
+
+        <!-- Variant C: Waveform Container -->
+        <div class="logo-card">
+            <div class="variant-badge">Variant C — Waveform</div>
+            <div class="logo-canvas" style="color: #60A5FA">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <g>
+                        <!-- Rounded frame container -->
+                        <rect x="18" y="18" width="64" height="64" rx="12" fill="none" stroke="currentColor" stroke-width="3.2"/>
+                        <!-- Waveform -->
+                        <g fill="none" stroke="currentColor" stroke-linecap="round">
+                            <!-- Wave 1: primary, bold -->
+                            <path d="M 24 50 Q 32 36, 40 50 T 56 50 T 72 50 T 76 50" stroke-width="4" opacity="0.95"/>
+                            <!-- Wave 2: offset up -->
+                            <path d="M 24 42 Q 32 30, 40 42 T 56 42 T 72 42 T 76 42" stroke-width="1.5" opacity="0.3"/>
+                            <!-- Wave 3: offset down -->
+                            <path d="M 24 58 Q 32 68, 40 58 T 56 58 T 72 58 T 76 58" stroke-width="1.2" opacity="0.2"/>
+                        </g>
+                        <!-- Signal dots -->
+                        <circle cx="40" cy="50" r="2.5" fill="currentColor"/>
+                        <circle cx="56" cy="50" r="2.5" fill="currentColor"/>
+                        <circle cx="72" cy="50" r="2.5" fill="currentColor"/>
+                        <!-- Endpoint anchors -->
+                        <circle cx="24" cy="50" r="2" fill="currentColor" opacity="0.7"/>
+                        <circle cx="76" cy="50" r="2" fill="currentColor" opacity="0.7"/>
+                    </g>
+                </svg>
+            </div>
+            <h3 class="text-base font-medium tracking-wider mb-1">Signal</h3>
+            <p class="text-xs font-mono opacity-40 tracking-widest mb-3">信号波形</p>
+            <p class="text-sm text-center opacity-50 font-light leading-relaxed max-w-xs">
+                Waveform pattern enclosed in a rounded rect. Three layered waves with node accents. Represents extracting signal/insight from video — the core function of VidPal.
+            </p>
+            <div class="size-row">
+                <div class="flex flex-col items-center gap-1">
+                    <span class="size-label">16px</span>
+                    <div class="size-icon" style="width:16px;height:16px;color:#60A5FA;">
+                        <svg viewBox="0 0 100 100" width="16" height="16"><g><rect x="18" y="18" width="64" height="64" rx="12" fill="none" stroke="currentColor" stroke-width="3.2"/><g fill="none" stroke="currentColor" stroke-linecap="round"><path d="M 24 50 Q 32 36, 40 50 T 56 50 T 72 50 T 76 50" stroke-width="4" opacity="0.95"/><path d="M 24 42 Q 32 30, 40 42 T 56 42 T 72 42 T 76 42" stroke-width="1.5" opacity="0.3"/><path d="M 24 58 Q 32 68, 40 58 T 56 58 T 72 58 T 76 58" stroke-width="1.2" opacity="0.2"/></g><circle cx="40" cy="50" r="2.5" fill="currentColor"/><circle cx="56" cy="50" r="2.5" fill="currentColor"/><circle cx="72" cy="50" r="2.5" fill="currentColor"/><circle cx="24" cy="50" r="2" fill="currentColor" opacity="0.7"/><circle cx="76" cy="50" r="2" fill="currentColor" opacity="0.7"/></g></svg>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="size-label">32px</span>
+                    <div class="size-icon" style="width:32px;height:32px;color:#60A5FA;">
+                        <svg viewBox="0 0 100 100" width="32" height="32"><g><rect x="18" y="18" width="64" height="64" rx="12" fill="none" stroke="currentColor" stroke-width="3.2"/><g fill="none" stroke="currentColor" stroke-linecap="round"><path d="M 24 50 Q 32 36, 40 50 T 56 50 T 72 50 T 76 50" stroke-width="4" opacity="0.95"/><path d="M 24 42 Q 32 30, 40 42 T 56 42 T 72 42 T 76 42" stroke-width="1.5" opacity="0.3"/><path d="M 24 58 Q 32 68, 40 58 T 56 58 T 72 58 T 76 58" stroke-width="1.2" opacity="0.2"/></g><circle cx="40" cy="50" r="2.5" fill="currentColor"/><circle cx="56" cy="50" r="2.5" fill="currentColor"/><circle cx="72" cy="50" r="2.5" fill="currentColor"/><circle cx="24" cy="50" r="2" fill="currentColor" opacity="0.7"/><circle cx="76" cy="50" r="2" fill="currentColor" opacity="0.7"/></g></svg>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="size-label">64px</span>
+                    <div class="size-icon" style="width:64px;height:64px;color:#60A5FA;">
+                        <svg viewBox="0 0 100 100" width="64" height="64"><g><rect x="18" y="18" width="64" height="64" rx="12" fill="none" stroke="currentColor" stroke-width="3.2"/><g fill="none" stroke="currentColor" stroke-linecap="round"><path d="M 24 50 Q 32 36, 40 50 T 56 50 T 72 50 T 76 50" stroke-width="4" opacity="0.95"/><path d="M 24 42 Q 32 30, 40 42 T 56 42 T 72 42 T 76 42" stroke-width="1.5" opacity="0.3"/><path d="M 24 58 Q 32 68, 40 58 T 56 58 T 72 58 T 76 58" stroke-width="1.2" opacity="0.2"/></g><circle cx="40" cy="50" r="2.5" fill="currentColor"/><circle cx="56" cy="50" r="2.5" fill="currentColor"/><circle cx="72" cy="50" r="2.5" fill="currentColor"/><circle cx="24" cy="50" r="2" fill="currentColor" opacity="0.7"/><circle cx="76" cy="50" r="2" fill="currentColor" opacity="0.7"/></g></svg>
+                    </div>
+                </div>
+            </div>
+            <div class="divider"></div>
+        </div>
+
+    </div>
+
+    <!-- Recommendation -->
+    <div class="max-w-2xl text-center mb-20">
+        <p class="font-mono text-xs opacity-30 uppercase tracking-[0.3em] mb-8">Recommendation</p>
+        <p class="text-sm leading-relaxed opacity-60 font-light max-w-lg mx-auto">
+            <strong class="text-blue-400 opacity-80">Variant B (Lettermark V)</strong> has the strongest app-icon potential — bold, unique, recognizable at 16px. It carries brand identity without depending on text. Variant A (Radiant) works well as a secondary brand mark or loading indicator. Variant C (Signal) is the most literal video → insight metaphor, good for marketing surfaces.
+        </p>
+    </div>
+
+    <!-- Footer -->
+    <div class="max-w-2xl text-center mb-16">
+        <p class="font-mono text-xs opacity-25 uppercase tracking-[0.3em] leading-loose">
+            VidPal Logo Refinement<br/>
+            AI Video Learning Companion &middot; 2026
+        </p>
+    </div>
+
+</div>
+
+</body>
+</html>

@@ -18,10 +18,10 @@ import {
   LibraryIcon,
   GitGraphIcon,
   FolderHeartIcon,
-  SparklesIcon,
   History as HistoryIcon,
   MessageSquarePlusIcon,
 } from "lucide-react"
+import { VidPalLogo } from "@/components/vidpal-logo"
 
 const navGroups = [
   {
@@ -53,18 +53,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar variant="inset" collapsible="icon" {...props}>
-      <SidebarHeader className="px-3 pt-3 pb-1.5 group-data-[collapsible=icon]:p-2">
+      <SidebarHeader className="px-3 py-3 group-data-[collapsible=icon]:p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="hover:bg-transparent! data-active:bg-transparent! group-data-[collapsible=icon]:h-8! group-data-[collapsible=icon]:w-8! group-data-[collapsible=icon]:p-0!">
-              <a href="/dashboard" className="flex items-center gap-2.5! group select-none">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-900/5 dark:bg-zinc-100/10 border border-zinc-200/50 dark:border-zinc-800/60 text-foreground transition-all duration-200">
-                  <SparklesIcon className="size-4 text-foreground/80" />
+              <a href="/dashboard" className="flex items-center gap-2.5! group select-none [&_svg]:!size-auto">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-900 text-blue-400 transition-all duration-200">
+                  <VidPalLogo className="!size-8" />
                 </div>
-                <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                  <span className="truncate font-semibold text-[14px] tracking-tight text-foreground/90">视频总结分析</span>
-                  <span className="truncate text-[11px] text-muted-foreground/60 font-medium tracking-wide">AI 学习助手</span>
-                </div>
+                <span className="inline-block h-8 leading-8 truncate font-extralight text-2xl tracking-wider bg-gradient-to-b from-zinc-900 to-zinc-900/60 dark:from-white dark:to-white/60 bg-clip-text text-transparent group-data-[collapsible=icon]:hidden">VidPal</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
