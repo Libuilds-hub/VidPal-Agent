@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 
-// GET — list all providers (mask API keys partially)
+// GET — list all providers (return unmasked keys)
 export async function GET() {
   const providers = await prisma.llmProvider.findMany({
     orderBy: { createdAt: "asc" },
   })
-  const list = providers.map((p) => ({
-    ...p,
-    apiKey: maskKey(p.apiKey),
-  }))
-  return NextResponse.json(list)
+  return NextResponse.json(providers)
 }
 
 // POST — create a new provider
 export async function POST(req: NextRequest) {
-  const { name, apiKey, baseUrl, models, isDefault, enableThinking } = await req.json()
+  const { name, apiKey, baseUrl, models, isDefault, enableThinking, enabled, logo } = await req.json()
   if (!name || !apiKey || !baseUrl) {
     return NextResponse.json({ error: "名称、API Key 和 Base URL 为必填项" }, { status: 400 })
   }
@@ -32,11 +28,13 @@ export async function POST(req: NextRequest) {
       baseUrl, 
       models: models || "", 
       isDefault: !!isDefault,
-      enableThinking: enableThinking !== undefined ? !!enableThinking : true 
+      enableThinking: enableThinking !== undefined ? !!enableThinking : true,
+      enabled: enabled !== undefined ? !!enabled : true,
+      logo: logo || null,
     },
   })
 
-  return NextResponse.json({ ...provider, apiKey: maskKey(provider.apiKey) })
+  return NextResponse.json(provider)
 }
 
 function maskKey(key: string): string {

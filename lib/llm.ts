@@ -17,6 +17,8 @@ export interface LlmProviderInfo {
   models: string
   isDefault: boolean
   enableThinking: boolean
+  enabled: boolean
+  logo?: string | null
 }
 
 async function migrateOldSettings(): Promise<void> {
@@ -49,15 +51,23 @@ async function migrateOldSettings(): Promise<void> {
       baseUrl: baseUrls[provider] || baseUrls.minimax,
       models: map.llmModel || defaultModels[provider] || defaultModels.minimax,
       isDefault: true,
+      enabled: true,
     },
+  })
+
+  // 清理旧的 Key-Value 设置，防止以后删除所有服务商时触发重复迁移
+  await prisma.setting.deleteMany({
+    where: {
+      key: { in: ["llmProvider", "llmApiKey", "llmModel"] }
+    }
   })
 }
 
 async function getDefaultProvider(): Promise<LlmProviderInfo> {
   await migrateOldSettings()
-  const p = await prisma.llmProvider.findFirst({ where: { isDefault: true } })
+  const p = await prisma.llmProvider.findFirst({ where: { isDefault: true, enabled: true } })
   if (!p) {
-    const first = await prisma.llmProvider.findFirst()
+    const first = await prisma.llmProvider.findFirst({ where: { enabled: true } })
     if (!first) throw new LLMNotConfiguredError()
     return first
   }
@@ -67,11 +77,11 @@ async function getDefaultProvider(): Promise<LlmProviderInfo> {
 async function getProviderByName(name: string): Promise<LlmProviderInfo | null> {
   await migrateOldSettings()
   // Match by exact name or case-insensitive
-  const p = await prisma.llmProvider.findFirst({ where: { name } })
+  const p = await prisma.llmProvider.findFirst({ where: { name, enabled: true } })
   if (p) return p
   // Try case-insensitive match
   return prisma.llmProvider.findFirst({
-    where: { name: { equals: name } },
+    where: { name: { equals: name }, enabled: true },
   }) as any  // fallback — SQLite doesn't support mode: 'insensitive', just try exact
 }
 

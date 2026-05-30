@@ -41,6 +41,8 @@ model LlmProvider {
   models         String   // 模型列表，逗号分隔，如 "MiniMax-M2.7,deepseek-v4-flash"
   isDefault      Boolean  @default(false) // 是否为默认供应商
   enableThinking Boolean  @default(true)  // 是否开启思考模式
+  enabled        Boolean  @default(true)  // 是否启用
+  logo           String?                  // base64格式的图标或图片链接
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

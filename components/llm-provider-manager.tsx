@@ -14,6 +14,8 @@ interface Provider {
   models: string
   isDefault: boolean
   enableThinking: boolean
+  enabled: boolean
+  logo?: string | null
 }
 
 const BUILTIN_TEMPLATES: Record<string, { name: string; baseUrl: string; models: string }> = {
@@ -26,12 +28,21 @@ const BUILTIN_TEMPLATES: Record<string, { name: string; baseUrl: string; models:
   },
   openai: { name: "OpenAI", baseUrl: "https://api.openai.com/v1", models: "gpt-4o" },
   anthropic: { name: "Anthropic", baseUrl: "https://api.anthropic.com/v1", models: "claude-sonnet-4-20250514" },
-  google: { name: "Google", baseUrl: "https://generativelanguage.googleapis.com/v1", models: "gemini-2.0-flash" },
+  google: { name: "Google", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", models: "gemini-2.0-flash" },
   moonshot: { name: "Moonshot", baseUrl: "https://api.moonshot.cn/v1", models: "moonshot-v1-8k" },
   zhipu: { name: "Zhipu", baseUrl: "https://open.bigmodel.cn/api/paas/v4", models: "glm-4" },
   ollama: { name: "Ollama", baseUrl: "http://localhost:11434/v1", models: "llama3" },
   groq: { name: "Groq", baseUrl: "https://api.groq.com/openai/v1", models: "llama-3.1-8b-instant" },
   together: { name: "Together", baseUrl: "https://api.together.xyz/v1", models: "meta-llama/Llama-3-8b-chat-hf" },
+  qwen: { name: "Qwen", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", models: "qwen-plus" },
+  siliconflow: { name: "SiliconFlow", baseUrl: "https://api.siliconflow.cn/v1", models: "deepseek-ai/DeepSeek-V3" },
+  lmstudio: { name: "LMStudio", baseUrl: "http://localhost:1234/v1", models: "loaded-model" },
+  stepfun: { name: "Stepfun", baseUrl: "https://api.stepfun.com/v1", models: "step-1-8k" },
+  yi: { name: "Yi", baseUrl: "https://api.lingyiwanwu.com/v1", models: "yi-lightning" },
+  mistral: { name: "Mistral", baseUrl: "https://api.mistral.ai/v1", models: "mistral-large-latest" },
+  perplexity: { name: "Perplexity", baseUrl: "https://api.perplexity.ai", models: "sonar-reasoning" },
+  xai: { name: "X.AI", baseUrl: "https://api.x.ai/v1", models: "grok-2-latest" },
+  doubao: { name: "Doubao", baseUrl: "https://ark.cn-beijing.volces.com/api/v3", models: "doubao-pro-32k" },
 }
 
 const OTHER_PROVIDERS = [
@@ -43,6 +54,18 @@ const OTHER_PROVIDERS = [
   "Ollama",
   "Groq",
   "Together",
+  "MiniMax",
+  "DeepSeek",
+  "OpenRouter",
+  "Qwen",
+  "SiliconFlow",
+  "LMStudio",
+  "Stepfun",
+  "Yi",
+  "Mistral",
+  "Perplexity",
+  "X.AI",
+  "Doubao",
 ]
 
 function StatusBanner({
@@ -158,39 +181,53 @@ export default function LlmProviderManager() {
     fetchProviders()
   }
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`确定删除供应商"${name}"吗？`)) return
-    await fetch(`/api/llm-providers/${id}`, { method: "DELETE" })
-    setStatusMsg({ type: "success", text: `已删除 ${name}` })
-    fetchProviders()
+  const handleDelete = async (id: string, name: string): Promise<boolean> => {
+    if (!confirm(`确定删除供应商"${name}"吗？`)) return false
+    try {
+      const res = await fetch(`/api/llm-providers/${id}`, { method: "DELETE" })
+      if (res.ok) {
+        setStatusMsg({ type: "success", text: `已删除 ${name}` })
+        await fetchProviders()
+        return true
+      }
+      return false
+    } catch {
+      return false
+    }
   }
 
-  const handleTest = async (id: string) => {
+  const handleTest = async (id: string, customData?: { apiKey: string; baseUrl: string; model: string }): Promise<boolean> => {
     setTesting(id)
     const updated = { ...testResult }
     delete updated[id]
     setTestResult(updated)
     try {
-      const res = await fetch(`/api/llm-providers/${id}`, {
+      const url = customData ? "/api/llm/test" : `/api/llm-providers/${id}`
+      const body = customData ? JSON.stringify(customData) : JSON.stringify({})
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body,
       })
       const data = await res.json()
+      const isSuccess = customData ? !!data.success : !!data.success
       setTestResult({
         ...updated,
         [id]: {
-          ok: data.success,
-          msg: data.success ? "连接成功" : (data.error || "连接失败"),
+          ok: isSuccess,
+          msg: isSuccess ? "连接成功" : (data.error || "连接失败"),
         },
       })
+      return isSuccess
     } catch {
       setTestResult({
         ...updated,
         [id]: { ok: false, msg: "网络请求失败" },
       })
+      return false
+    } finally {
+      setTesting(null)
     }
-    setTesting(null)
   }
 
   const handleSaveKey = async (id: string) => {
@@ -235,25 +272,70 @@ export default function LlmProviderManager() {
       models: activeTemplate.template.models,
       isDefault: false,
       enableThinking: true,
+      enabled: true,
     } as Provider
   }, [filteredProviders, activeTemplate, templateProvider])
 
-  const sidebarItems = useMemo(() => {
-    return [
-      ...providers.map((p) => ({ name: p.name, isConfigured: true })),
-      ...availableTemplates.map(([, t]) => ({ name: t.name, isConfigured: false })),
-    ]
-  }, [providers, availableTemplates])
+  const sidebarData = useMemo(() => {
+    // 1. 已启用 (Configured & Enabled)
+    const enabledProviders = providers
+      .filter((p) => p.apiKey && p.enabled)
+      .map((p) => ({ name: p.name, enabled: true, isConfigured: true, logo: p.logo }))
 
-  const templateNames = availableTemplates.map(([, t]) => t.name)
+    // 2. 未启用 (Configured but Disabled)
+    const disabledProviders = providers
+      .filter((p) => p.apiKey && !p.enabled)
+      .map((p) => ({ name: p.name, enabled: false, isConfigured: true, logo: p.logo }))
 
-  const allKnownNames = new Set([
-    ...providerNames,
-    ...templateNames.map((n) => n.toLowerCase()),
-  ])
-  const othersList = OTHER_PROVIDERS.filter(
-    (name) => !allKnownNames.has(name.toLowerCase())
-  )
+    // 3. 其他 (Unconfigured - templates and others without apiKey)
+    const configuredNames = new Set(
+      providers.filter((p) => p.apiKey).map((p) => p.name.toLowerCase())
+    )
+
+    const unconfiguredTemplates = Object.values(BUILTIN_TEMPLATES)
+      .filter((t) => !configuredNames.has(t.name.toLowerCase()))
+      .map((t) => ({ name: t.name, enabled: false, isConfigured: false }))
+
+    const unconfiguredDB = providers
+      .filter((p) => !p.apiKey)
+      .map((p) => ({ name: p.name, enabled: false, isConfigured: false, logo: p.logo }))
+
+    const allKnownNames = new Set([
+      ...providers.map((p) => p.name.toLowerCase()),
+      ...Object.values(BUILTIN_TEMPLATES).map((t) => t.name.toLowerCase()),
+    ])
+    const unconfiguredOthers = OTHER_PROVIDERS
+      .filter((name) => !allKnownNames.has(name.toLowerCase()))
+      .map((name) => ({ name, enabled: false, isConfigured: false }))
+
+    const unconfiguredProviders = [
+      ...unconfiguredDB,
+      ...unconfiguredTemplates,
+      ...unconfiguredOthers,
+    ].sort((a, b) => a.name.localeCompare(b.name))
+
+
+    return {
+      enabledProviders,
+      disabledProviders,
+      unconfiguredProviders,
+    }
+  }, [providers])
+
+  // 当页面首次加载或清空选中项时，默认选择左侧侧边栏中的第一个供应商
+  useEffect(() => {
+    if (loading) return
+    if (activeFilter === null) {
+      const enabledList = sidebarData.enabledProviders
+      const disabledList = sidebarData.disabledProviders
+      const unconfiguredList = sidebarData.unconfiguredProviders
+      
+      const first = enabledList[0] || disabledList[0] || unconfiguredList[0]
+      if (first) {
+        setActiveFilter(first.name)
+      }
+    }
+  }, [loading, sidebarData, activeFilter])
 
   if (loading) {
     return (
@@ -266,9 +348,9 @@ export default function LlmProviderManager() {
   return (
     <div className="flex h-full animate-in fade-in-50 duration-150">
       <LlmProviderSidebar
-        providers={sidebarItems}
-        templates={templateNames}
-        others={othersList}
+        enabledProviders={sidebarData.enabledProviders}
+        disabledProviders={sidebarData.disabledProviders}
+        unconfiguredProviders={sidebarData.unconfiguredProviders}
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
         onCustomClick={() => setShowCustomModal(true)}
@@ -281,12 +363,26 @@ export default function LlmProviderManager() {
           const isTemplate = !filteredProviders.length
           return (
             <LlmProviderDetail
+              key={provider.id}
               provider={provider}
-              testing={isTemplate ? false : testing === provider.id}
-              testResult={isTemplate ? undefined : testResult[provider.id]}
+              testing={testing === provider.id}
+              testResult={testResult[provider.id]}
               saving={isTemplate ? false : saving === provider.id}
               editKey={editKeys[provider.id] ?? ""}
-              onTest={(modelName) => !isTemplate && handleTest(provider.id)}
+              onTest={async (modelName) => {
+                const typedKey = editKeys[provider.id]
+                if (isTemplate || typedKey) {
+                  // If it's a template, or if they have typed a new key in the input, test using the typed key!
+                  return handleTest(provider.id, {
+                    apiKey: typedKey || provider.apiKey,
+                    baseUrl: templateProvider?.baseUrl || provider.baseUrl,
+                    model: modelName || provider.models.split(",")[0]?.trim() || "gpt-3.5-turbo",
+                  })
+                } else {
+                  // Otherwise, test using the saved key in the database
+                  return handleTest(provider.id)
+                }
+              }}
               onUpdate={async (field, value) => {
                 if (isTemplate) {
                   if (field === "baseUrl" || field === "models") {
@@ -314,13 +410,15 @@ export default function LlmProviderManager() {
                       models: providerToSave.models,
                       isDefault: providers.length === 0,
                       enableThinking: true,
+                      enabled: true,
+                      logo: providerToSave.logo || null,
                     }),
                   })
                   if (res.ok) {
                     setStatusMsg({ type: "success", text: `已添加 ${providerToSave.name}` })
                     setEditKeys((prev) => ({ ...prev, [providerToSave.id]: "" }))
                     setTemplateProvider(null)
-                    setActiveFilter(null)
+                    setActiveFilter(providerToSave.name)
                     fetchProviders()
                   } else {
                     const data = await res.json()
@@ -332,11 +430,29 @@ export default function LlmProviderManager() {
                 }
               }}
               onEditKeyChange={(v) => setEditKeys((prev) => ({ ...prev, [provider.id]: v }))}
-              onDelete={() => {
+              onDelete={async () => {
                 if (!isTemplate) {
-                  handleDelete(provider.id, provider.name)
+                  // Calculate the next provider to select before deleting
+                  const enabledList = sidebarData.enabledProviders.filter((p) => p.name !== provider.name)
+                  const disabledList = sidebarData.disabledProviders.filter((p) => p.name !== provider.name)
+                  const unconfiguredList = sidebarData.unconfiguredProviders.filter((p) => p.name !== provider.name)
+                  
+                  const nextActive = enabledList[0] || disabledList[0] || unconfiguredList[0]
+                  
+                  // Perform the async delete and wait for confirmation
+                  const deleted = await handleDelete(provider.id, provider.name)
+                  
+                  if (deleted) {
+                    // Switch focus to the next provider only if deletion was confirmed and completed
+                    if (nextActive) {
+                      setActiveFilter(nextActive.name)
+                    } else {
+                      setActiveFilter(null)
+                    }
+                  }
+                } else {
+                  setActiveFilter(null)
                 }
-                setActiveFilter(null)
                 setTemplateProvider(null)
               }}
               onBack={() => {

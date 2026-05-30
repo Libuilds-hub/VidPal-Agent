@@ -13,6 +13,31 @@ interface Provider {
   models: string
   isDefault: boolean
   enableThinking: boolean
+  enabled: boolean
+  logo?: string | null
+}
+
+const DEFAULT_URLS: Record<string, string> = {
+  MiniMax: "https://api.minimaxi.com/v1",
+  DeepSeek: "https://api.deepseek.com",
+  OpenRouter: "https://openrouter.ai/api/v1",
+  OpenAI: "https://api.openai.com/v1",
+  Anthropic: "https://api.anthropic.com/v1",
+  Google: "https://generativelanguage.googleapis.com/v1beta/openai",
+  Moonshot: "https://api.moonshot.cn/v1",
+  Zhipu: "https://open.bigmodel.cn/api/paas/v4",
+  Ollama: "http://localhost:11434/v1",
+  Groq: "https://api.groq.com/openai/v1",
+  Together: "https://api.together.xyz/v1",
+  Qwen: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  SiliconFlow: "https://api.siliconflow.cn/v1",
+  LMStudio: "http://localhost:1234/v1",
+  Stepfun: "https://api.stepfun.com/v1",
+  Yi: "https://api.lingyiwanwu.com/v1",
+  Mistral: "https://api.mistral.ai/v1",
+  Perplexity: "https://api.perplexity.ai",
+  "X.AI": "https://api.x.ai/v1",
+  Doubao: "https://ark.cn-beijing.volces.com/api/v3",
 }
 
 function parseModels(models: string): string[] {
@@ -38,7 +63,7 @@ interface Props {
   testResult?: { ok: boolean; msg: string }
   saving: boolean
   editKey: string
-  onTest: (modelName?: string) => void
+  onTest: (modelName?: string) => Promise<boolean>
   onUpdate: (field: string, value: string | boolean) => void
   onSaveKey: () => void
   onEditKeyChange: (v: string) => void
@@ -61,7 +86,17 @@ export default function LlmProviderDetail({
 }: Props) {
   const [showKey, setShowKey] = useState(false)
   const [testModel, setTestModel] = useState(parseModels(p.models)[0] || "")
-  const [enabled, setEnabled] = useState(true)
+  const [enabled, setEnabled] = useState(p.enabled !== false)
+  const [autoTesting, setAutoTesting] = useState(false)
+  const [localKey, setLocalKey] = useState(p.apiKey || "")
+
+  useEffect(() => {
+    setEnabled(p.enabled !== false)
+  }, [p.enabled])
+
+  useEffect(() => {
+    setLocalKey(p.apiKey || "")
+  }, [p.apiKey])
   const [enabledModels, setEnabledModels] = useState<Record<string, boolean>>({})
   
   const [localTestStatus, setLocalTestStatus] = useState<"idle" | "testing" | "success" | "fail">("idle")
@@ -201,29 +236,55 @@ export default function LlmProviderDetail({
       <div className="max-w-[900px] mx-auto px-8 py-6 animate-in fade-in duration-300">
         {/* Detail header */}
         <div className="flex items-center gap-4 pb-3 mb-5 border-b border-border">
-          {getProviderHeader(p.name, 36)}
+          {getProviderHeader(p.name, 36, p.logo)}
           <div className="ml-auto flex items-center gap-2.5">
-            <button
-              onClick={onDelete}
-              className="p-1.5 text-muted-foreground/30 hover:text-red-500 transition-colors cursor-pointer"
-              title="删除供应商"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-            <button
-              role="switch"
-              aria-checked={enabled}
-              onClick={() => setEnabled(!enabled)}
-              className={`relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
-                enabled ? "bg-foreground" : "bg-muted-foreground/25"
-              }`}
-            >
-              <span
-                className={`pointer-events-none block h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                  enabled ? "translate-x-[19px]" : "translate-x-[3px]"
-                }`}
-              />
-            </button>
+            {p.id.startsWith("template-") || editKey.trim() !== "" ? (
+              <button
+                onClick={async () => {
+                  if (saving || testing || autoTesting) return
+                  setAutoTesting(true)
+                  const pass = await onTest(testModel)
+                  setAutoTesting(false)
+                  if (pass) {
+                    onSaveKey()
+                  } else {
+                    alert("API 连通性测试未通过，请检查您的 API Key 和请求地址！")
+                  }
+                }}
+                disabled={!editKey.trim() || saving || autoTesting}
+                className="h-8 px-4 text-[12px] font-medium rounded-md bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+              >
+                保存
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={onDelete}
+                  className="p-1.5 text-muted-foreground/30 hover:text-red-500 transition-colors cursor-pointer"
+                  title="删除供应商"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <button
+                  role="switch"
+                  aria-checked={enabled}
+                  onClick={() => {
+                    const nextVal = !enabled
+                    setEnabled(nextVal)
+                    onUpdate("enabled", nextVal)
+                  }}
+                  className={`relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
+                    enabled ? "bg-foreground" : "bg-muted-foreground/25"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none block h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                      enabled ? "translate-x-[19px]" : "translate-x-[3px]"
+                    }`}
+                  />
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -242,9 +303,12 @@ export default function LlmProviderDetail({
               <div className="relative w-full">
                 <Input
                   type={showKey ? "text" : "password"}
-                  placeholder={p.apiKey || "API Key"}
-                  value={editKey}
-                  onChange={(e) => onEditKeyChange(e.target.value)}
+                  placeholder="API Key"
+                  value={localKey}
+                  onChange={(e) => {
+                    setLocalKey(e.target.value)
+                    onEditKeyChange(e.target.value)
+                  }}
                   className="h-9 text-sm pr-9 border-border/40 rounded-md focus:border-blue-500"
                 />
                 <button
@@ -268,7 +332,7 @@ export default function LlmProviderDetail({
                 <Input
                   defaultValue={p.baseUrl}
                   onBlur={(e) => { if (e.target.value && e.target.value !== p.baseUrl) onUpdate("baseUrl", e.target.value) }}
-                  placeholder="https://api.deepseek.com/v1"
+                  placeholder={DEFAULT_URLS[p.name] || "https://api.example.com/v1"}
                   className="h-9 text-sm border-border/40 rounded-md focus:border-blue-500 font-mono"
                 />
               </div>
@@ -407,7 +471,7 @@ export default function LlmProviderDetail({
                   className="flex items-center py-2.5 border-b border-muted/60 last:border-b-0"
                 >
                   <div className="mr-3 shrink-0">
-                    {getProviderAvatar(p.name, 28, "circle")}
+                    {getProviderAvatar(p.name, 28, "circle", p.logo)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground/90 mb-0.5">

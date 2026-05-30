@@ -42,7 +42,15 @@ export async function POST() {
       baseUrl: info.baseUrl,
       models,
       isDefault: true,
+      enabled: true,
     },
+  })
+
+  // 清理旧的 Key-Value 设置，防止以后删除所有服务商时触发重复迁移
+  await prisma.setting.deleteMany({
+    where: {
+      key: { in: ["llmProvider", "llmApiKey", "llmModel"] }
+    }
   })
 
   return NextResponse.json({ migrated: true, message: `已将 ${info.name} 迁移至供应商列表` })

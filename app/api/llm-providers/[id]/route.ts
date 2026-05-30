@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 // PUT — update a provider
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { name, apiKey, baseUrl, models, isDefault, enableThinking } = await req.json()
+  const { name, apiKey, baseUrl, models, isDefault, enableThinking, enabled, logo } = await req.json()
 
   const existing = await prisma.llmProvider.findUnique({ where: { id } })
   if (!existing) return NextResponse.json({ error: "供应商不存在" }, { status: 404 })
@@ -30,6 +30,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       models: models ?? existing.models,
       isDefault: isDefault !== undefined ? isDefault : existing.isDefault,
       enableThinking: enableThinking !== undefined ? enableThinking : existing.enableThinking,
+      enabled: enabled !== undefined ? enabled : existing.enabled,
+      logo: logo !== undefined ? logo : existing.logo,
     },
   })
 

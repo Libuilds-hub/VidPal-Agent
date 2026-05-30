@@ -2,6 +2,8 @@ import type { ReactNode } from "react"
 import {
   Minimax, DeepSeek, LmStudio, Moonshot, OpenAI, Google,
   Anthropic, Zhipu, OpenRouter, Ollama, Groq, Together,
+  Qwen, SiliconCloud, Stepfun, Yi, Mistral, Perplexity, XAI, Doubao,
+  Grok,
 } from "@lobehub/icons"
 
 type IconComponent = React.ComponentType<{ size?: number | string; className?: string; style?: React.CSSProperties }>
@@ -25,6 +27,17 @@ const colorIconMap: Record<string, IconComponent> = {
   ollama: (Ollama as any).Color,
   groq: (Groq as any).Color,
   together: (Together as any).Color,
+  qwen: (Qwen as any).Color,
+  siliconcloud: (SiliconCloud as any).Color,
+  siliconflow: (SiliconCloud as any).Color,
+  stepfun: (Stepfun as any).Color,
+  yi: (Yi as any).Color,
+  mistral: (Mistral as any).Color,
+  perplexity: (Perplexity as any).Color,
+  "x.ai": (Grok as any).Color,
+  xai: (Grok as any).Color,
+  grok: (Grok as any).Color,
+  doubao: (Doubao as any).Color,
 }
 
 const monoIconMap: Record<string, IconComponent> = {
@@ -45,6 +58,17 @@ const monoIconMap: Record<string, IconComponent> = {
   ollama: Ollama as any,
   groq: Groq as any,
   together: Together as any,
+  qwen: Qwen as any,
+  siliconcloud: SiliconCloud as any,
+  siliconflow: SiliconCloud as any,
+  stepfun: Stepfun as any,
+  yi: Yi as any,
+  mistral: Mistral as any,
+  perplexity: Perplexity as any,
+  "x.ai": Grok as any,
+  xai: Grok as any,
+  grok: Grok as any,
+  doubao: Doubao as any,
 }
 
 const providerDescriptions: Record<string, string> = {
@@ -60,6 +84,16 @@ const providerDescriptions: Record<string, string> = {
   ollama: "Ollama 本地运行开源模型，简单易用的 LLM 部署工具。",
   groq: "Groq 提供高性能推理芯片与 LPU 加速的 AI 服务。",
   together: "Together AI 提供开源模型的云端推理与微调服务。",
+  qwen: "通义千问由阿里云提供，在中文对话、逻辑推理与代码生成上表现优异。",
+  siliconcloud: "硅基流动提供极速、高性价比的开源模型（如 DeepSeek、Qwen）托管推理服务。",
+  stepfun: "阶跃星辰专注于研发多模态大模型，具备出色的上下文理解与推理能力。",
+  yi: "零一万物由李开复博士创立，其 Yi 系列大模型在中英文基准测试中名列前茅。",
+  mistral: "Mistral AI 是来自欧洲的开源大模型先锋，以轻量、高效和强大的推理性能闻名。",
+  perplexity: "Perplexity 提供领先的对话式 AI 搜索引擎和学术推理 API 接口。",
+  "x.ai": "X.AI 由埃隆·马斯克创立，其 Grok 模型具备实时访问社交平台信息与强烈的个性特质。",
+  xai: "X.AI 由埃隆·马斯克创立，其 Grok 模型具备实时访问社交平台信息与强烈的个性特质。",
+  grok: "Grok 是由 X.AI 开发的对话式 AI 助手，具备实时访问社交平台信息与强烈的个性特质。",
+  doubao: "豆包大模型由字节跳动提供，依托火山方舟平台提供高并发、高性价比的推理服务。",
 }
 
 function getIcon(name: string, map: Record<string, IconComponent>): ReactNode {
@@ -87,20 +121,46 @@ export function getProviderIconColor(name: string): ReactNode {
 export function getProviderAvatar(
   name: string,
   size: number = 20,
-  shape: "square" | "circle" = "square"
+  shape: "square" | "circle" = "square",
+  logo?: string | null
 ): ReactNode {
+  if (logo) {
+    return (
+      <div
+        className={`${
+          shape === "circle" ? "rounded-full" : "rounded-md"
+        } overflow-hidden border border-border bg-background flex items-center justify-center shrink-0`}
+        style={{ width: size, height: size }}
+      >
+        <img
+          src={logo}
+          className={`w-full h-full object-cover ${shape === "circle" ? "scale-[1.2]" : ""}`}
+          alt={name}
+        />
+      </div>
+    )
+  }
   const key = name.toLowerCase()
   const IconComp = monoIconMap[key]
   if (IconComp && (IconComp as any).Avatar) {
     const AvatarComp = (IconComp as any).Avatar
-    return <AvatarComp size={size} shape={shape} />
+    return (
+      <div
+        className={`${
+          shape === "circle" ? "rounded-full" : "rounded-md"
+        } overflow-hidden border border-border bg-background flex items-center justify-center shrink-0`}
+        style={{ width: size, height: size }}
+      >
+        <AvatarComp size={size - 2} shape={shape} />
+      </div>
+    )
   }
   const firstLetter = name ? name.charAt(0).toUpperCase() : "?"
   return (
     <div
       className={`${
         shape === "circle" ? "rounded-full" : "rounded"
-      } flex items-center justify-center font-semibold select-none text-[10px] bg-muted-foreground/10 border border-border/40 text-muted-foreground`}
+      } flex items-center justify-center font-semibold select-none text-[10px] bg-muted-foreground/10 border border-border/40 text-muted-foreground shrink-0`}
       style={{ width: size, height: size }}
     >
       {firstLetter}
@@ -108,19 +168,39 @@ export function getProviderAvatar(
   )
 }
 
-export function getProviderHeader(name: string, size: number = 36): ReactNode {
+export function getProviderHeader(
+  name: string,
+  size: number = 36,
+  logo?: string | null
+): ReactNode {
   const key = name.toLowerCase()
   const IconComp = monoIconMap[key]
   
   let avatarNode: ReactNode
-  if (IconComp && (IconComp as any).Avatar) {
+  if (logo) {
+    avatarNode = (
+      <div
+        className="rounded-lg overflow-hidden border border-border bg-background flex items-center justify-center shrink-0"
+        style={{ width: size, height: size }}
+      >
+        <img src={logo} className="w-full h-full object-cover" alt={name} />
+      </div>
+    )
+  } else if (IconComp && (IconComp as any).Avatar) {
     const AvatarComp = (IconComp as any).Avatar
-    avatarNode = <AvatarComp size={size} shape="square" />
+    avatarNode = (
+      <div
+        className="rounded-lg overflow-hidden border border-border bg-background flex items-center justify-center shrink-0"
+        style={{ width: size, height: size }}
+      >
+        <AvatarComp size={size - 4} shape="square" />
+      </div>
+    )
   } else {
     const firstLetter = name ? name.charAt(0).toUpperCase() : "?"
     avatarNode = (
       <div
-        className="rounded flex items-center justify-center font-semibold select-none bg-muted-foreground/10 border border-border/40 text-muted-foreground animate-in fade-in"
+        className="rounded flex items-center justify-center font-semibold select-none bg-muted-foreground/10 border border-border/40 text-muted-foreground animate-in fade-in shrink-0"
         style={{ width: size, height: size, fontSize: size * 0.45 }}
       >
         {firstLetter}

@@ -236,5 +236,12 @@
   border: 1px solid var(--border) !important;
 }
 
+/* 隐藏浏览器（如 Edge）默认自带的密码显示眼睛按钮 */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+
 
 
