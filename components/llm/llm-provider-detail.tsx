@@ -154,18 +154,32 @@ export default function LlmProviderDetail({
     }
     
     // Fallback default meta
-    const origIdx = modelList.indexOf(model)
-    const defaultType = allModelTypes[origIdx % allModelTypes.length].label
-    const isThinking = model.toLowerCase().includes("reasoner") || model.toLowerCase().includes("thinking") || model.toLowerCase().includes("deepseek") || model.toLowerCase().includes("r1")
-    const isVision = model.toLowerCase().includes("vision") || model.toLowerCase().includes("vl") || model.toLowerCase().includes("multimodal")
-    const isVideo = model.toLowerCase().includes("video")
-    const isTools = model.toLowerCase().includes("gpt-4") || model.toLowerCase().includes("claude") || model.toLowerCase().includes("gemini") || model.toLowerCase().includes("fc") || model.toLowerCase().includes("tool")
+    const mLower = model.toLowerCase()
+    
+    // Determine primary model type based on keywords
+    let defaultType = "文本"
+    if (mLower.includes("embed") || mLower.includes("vector")) {
+      defaultType = "向量化"
+    } else if (mLower.includes("image") || mLower.includes("dall") || mLower.includes("flux") || mLower.includes("recraft") || mLower.includes("sd-") || mLower.includes("cogview")) {
+      defaultType = "图片"
+    } else if (mLower.includes("video") || mLower.includes("sora") || mLower.includes("kling") || mLower.includes("vidu") || mLower.includes("cogvideo")) {
+      defaultType = "视频"
+    } else if (mLower.includes("whisper") || mLower.includes("asr")) {
+      defaultType = "ASR"
+    } else if (mLower.includes("tts") || mLower.includes("audio")) {
+      defaultType = "TTS"
+    }
+
+    const isThinking = mLower.includes("reasoner") || mLower.includes("thinking") || mLower.includes("r1") || mLower.includes("o1") || mLower.includes("o3")
+    const isVision = mLower.includes("vision") || mLower.includes("vl") || mLower.includes("multimodal") || mLower.includes("omni") || mLower.includes("gpt-4o") || mLower.includes("gpt-5") || mLower.includes("gemini") || mLower.includes("claude-3.5") || mLower.includes("claude-sonnet") || mLower.includes("claude-opus")
+    const isVideo = mLower.includes("video") || mLower.includes("sora") || mLower.includes("kling") || mLower.includes("vidu")
+    const isTools = mLower.includes("gpt-4") || mLower.includes("gpt-5") || mLower.includes("claude") || mLower.includes("gemini") || mLower.includes("fc") || mLower.includes("tool") || mLower.includes("qwen") || mLower.includes("deepseek") || mLower.includes("glm")
     
     return {
       id: model,
       name: model,
       type: defaultType,
-      context: "128000",
+      context: mLower.includes("gemini-3.5") || mLower.includes("gemini-3.1") ? "2097152" : (mLower.includes("grok-4") ? "1000000" : (mLower.includes("pro-seed-2") || mLower.includes("step-3") ? "256000" : "128000")),
       thinking: isThinking,
       vision: isVision,
       video: isVideo,
