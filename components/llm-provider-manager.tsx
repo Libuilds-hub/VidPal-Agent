@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Input } from "@/components/ui/input"
-import { Loader2, CheckCircle2, AlertCircle, Plus, X } from "lucide-react"
-import LlmProviderCard, { AddTemplateCard } from "@/components/llm/llm-provider-card"
+import { Loader2, CheckCircle2, AlertCircle, X } from "lucide-react"
 import LlmProviderSidebar from "@/components/llm/llm-provider-sidebar"
 import LlmProviderDetail from "@/components/llm/llm-provider-detail"
 
@@ -17,24 +16,6 @@ interface Provider {
   enableThinking: boolean
 }
 
-interface ProviderForm {
-  name: string
-  apiKey: string
-  baseUrl: string
-  models: string
-  isDefault: boolean
-  enableThinking: boolean
-}
-
-const emptyForm: ProviderForm = {
-  name: "",
-  apiKey: "",
-  baseUrl: "",
-  models: "",
-  isDefault: false,
-  enableThinking: true,
-}
-
 const BUILTIN_TEMPLATES: Record<string, { name: string; baseUrl: string; models: string }> = {
   minimax: { name: "MiniMax", baseUrl: "https://api.minimaxi.com/v1", models: "MiniMax-M2.7" },
   deepseek: { name: "DeepSeek", baseUrl: "https://api.deepseek.com", models: "deepseek-v4-flash" },
@@ -44,6 +25,17 @@ const BUILTIN_TEMPLATES: Record<string, { name: string; baseUrl: string; models:
     models: "deepseek/deepseek-v4-flash:free",
   },
 }
+
+const OTHER_PROVIDERS = [
+  "OpenAI",
+  "Anthropic",
+  "Google",
+  "Moonshot",
+  "Zhipu",
+  "Ollama",
+  "Groq",
+  "Together",
+]
 
 function StatusBanner({
   type,
@@ -76,33 +68,12 @@ function StatusBanner({
   )
 }
 
-function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
-  return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      onClick={onChange}
-      className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
-        checked ? "bg-primary" : "bg-muted-foreground/20"
-      }`}
-    >
-      <span
-        className={`pointer-events-none block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform duration-200 ${
-          checked ? "translate-x-[14px]" : "translate-x-0.5"
-        }`}
-      />
-    </button>
-  )
-}
-
 export default function LlmProviderManager() {
   const [providers, setProviders] = useState<Provider[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [testing, setTesting] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; msg: string }>>({})
-  const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState<ProviderForm>(emptyForm)
   const [editKeys, setEditKeys] = useState<Record<string, string>>({})
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
@@ -133,38 +104,6 @@ export default function LlmProviderManager() {
   }, [loading, providers.length, fetchProviders])
 
   const clearStatus = () => setStatusMsg(null)
-
-  const handleAddTemplate = (key: string) => {
-    setForm({
-      name: BUILTIN_TEMPLATES[key].name,
-      apiKey: "",
-      baseUrl: BUILTIN_TEMPLATES[key].baseUrl,
-      models: BUILTIN_TEMPLATES[key].models,
-      isDefault: providers.length === 0,
-      enableThinking: true,
-    })
-    setShowAdd(true)
-  }
-
-  const handleCreate = async () => {
-    if (!form.name || !form.baseUrl) return
-    setSaving("new")
-    const res = await fetch("/api/llm-providers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    })
-    const data = await res.json()
-    if (res.ok) {
-      setShowAdd(false)
-      setForm(emptyForm)
-      setStatusMsg({ type: "success", text: `已添加 ${form.name}` })
-      fetchProviders()
-    } else {
-      setStatusMsg({ type: "error", text: data.error || "添加失败" })
-    }
-    setSaving(null)
-  }
 
   const handleCustomCreate = async () => {
     if (!customForm.name || !customForm.baseUrl) return
@@ -266,6 +205,14 @@ export default function LlmProviderManager() {
 
   const templateNames = availableTemplates.map(([, t]) => t.name)
 
+  const allKnownNames = new Set([
+    ...providerNames,
+    ...templateNames.map((n) => n.toLowerCase()),
+  ])
+  const othersList = OTHER_PROVIDERS.filter(
+    (name) => !allKnownNames.has(name.toLowerCase())
+  )
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -279,6 +226,7 @@ export default function LlmProviderManager() {
       <LlmProviderSidebar
         providers={sidebarItems}
         templates={templateNames}
+        others={othersList}
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
         onCustomClick={() => setShowCustomModal(true)}
@@ -299,202 +247,12 @@ export default function LlmProviderManager() {
           onBack={() => setActiveFilter(null)}
         />
       ) : (
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin space-y-8">
+        <div className="flex-1 flex items-center justify-center bg-background/35">
           <StatusBanner type={statusMsg?.type ?? "success"} text={statusMsg?.text ?? ""} onDismiss={clearStatus} />
-
-        {/* Empty state (no providers at all) */}
-        {providers.length === 0 && !showAdd && (
-        <div className="rounded-xl border border-dashed border-border/50 p-8 text-center space-y-4">
-          <p className="text-sm text-muted-foreground">尚未配置 AI 供应商，请从下方模板开始或自定义添加</p>
-          <div className="flex flex-wrap justify-center gap-3">
-            {Object.entries(BUILTIN_TEMPLATES).map(([key, t]) => (
-              <button
-                key={key}
-                onClick={() => handleAddTemplate(key)}
-                className="px-4 py-2 text-[13px] font-medium rounded-lg border border-border/40 bg-card hover:bg-muted/70 transition-colors cursor-pointer"
-              >
-                {t.name}
-              </button>
-            ))}
-            <button
-              onClick={() => { setForm(emptyForm); setShowAdd(true) }}
-              className="px-4 py-2 text-[13px] font-medium rounded-lg border border-border/40 bg-card hover:bg-muted/70 transition-colors cursor-pointer"
-            >
-              自定义
-            </button>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground/60">从左侧选择一个供应商查看详情</p>
           </div>
         </div>
-      )}
-
-      {/* No results for active filter (template selected) */}
-      {activeFilter && filteredProviders.length === 0 && !showAdd && (
-        <div className="rounded-xl border border-dashed border-border/50 p-8 text-center space-y-4">
-          <p className="text-sm text-muted-foreground">
-            <strong>{activeFilter}</strong> 尚未配置
-          </p>
-          {(() => {
-            const templateKey = Object.entries(BUILTIN_TEMPLATES).find(
-              ([, t]) => t.name.toLowerCase() === activeFilter.toLowerCase()
-            )
-            if (templateKey) {
-              return (
-                <div className="flex gap-3 justify-center">
-                  <button
-                    onClick={() => {
-                      handleAddTemplate(templateKey[0])
-                      setActiveFilter(null)
-                    }}
-                    className="px-4 py-2 text-[13px] font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
-                  >
-                    使用模板添加
-                  </button>
-                  <button
-                    onClick={() => setActiveFilter(null)}
-                    className="px-4 py-2 text-[13px] font-medium rounded-lg border border-border/40 bg-card hover:bg-muted/70 transition-colors cursor-pointer"
-                  >
-                    查看全部
-                  </button>
-                </div>
-              )
-            }
-            return (
-              <button
-                onClick={() => setActiveFilter(null)}
-                className="text-[12px] text-primary hover:underline cursor-pointer"
-              >
-                查看全部
-              </button>
-            )
-          })()}
-        </div>
-      )}
-
-      {/* Configured providers section */}
-      {filteredProviders.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2.5 mb-4">
-            <h2 className="text-[17px] font-semibold text-foreground/90">
-              {activeFilter ? activeFilter : "已配置供应商"}
-            </h2>
-            {!activeFilter && (
-              <span className="bg-muted/60 text-muted-foreground text-[12px] px-2 py-0.5 rounded-full font-medium">
-                {providers.length}
-              </span>
-            )}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {filteredProviders.map((p) => (
-              <LlmProviderCard
-                key={p.id}
-                provider={p}
-                testing={testing === p.id}
-                testResult={testResult[p.id]}
-                saving={saving === p.id}
-                editKey={editKeys[p.id] ?? ""}
-                onTest={() => handleTest(p.id)}
-                onDelete={() => handleDelete(p.id, p.name)}
-                onUpdate={(field, value) => handleUpdate(p.id, field, value)}
-                onSaveKey={() => handleSaveKey(p.id)}
-                onEditKeyChange={(v) => setEditKeys((prev) => ({ ...prev, [p.id]: v }))}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Available templates section (hidden when filtering) */}
-      {!activeFilter && availableTemplates.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2.5 mb-4">
-            <h2 className="text-[17px] font-semibold text-foreground/90">可用模板</h2>
-            <span className="bg-muted/60 text-muted-foreground text-[12px] px-2 py-0.5 rounded-full font-medium">
-              {availableTemplates.length}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {availableTemplates.map(([key, t]) => (
-              <AddTemplateCard key={key} name={t.name} onClick={() => handleAddTemplate(key)} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Add button (hidden when filtering) */}
-      {!activeFilter && providers.length > 0 && !showAdd && (
-        <button
-          onClick={() => { setForm(emptyForm); setShowAdd(true) }}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-border/40 hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-[12px]"
-        >
-          <Plus className="h-3.5 w-3.5" /> 添加供应商
-        </button>
-      )}
-
-      {/* Add form */}
-      {showAdd && (
-        <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-semibold text-foreground/85">添加 AI 供应商</span>
-            <div className="flex gap-1.5">
-              {Object.entries(BUILTIN_TEMPLATES).map(([key, t]) => (
-                <button
-                  key={key}
-                  onClick={() => handleAddTemplate(key)}
-                  className="h-6 px-2.5 text-[11px] font-medium rounded border border-border/40 bg-card hover:bg-muted/60 transition-colors cursor-pointer"
-                >
-                  {t.name}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2.5">
-            <div className="flex items-center gap-2">
-              <label className="text-[12px] text-muted-foreground w-14 shrink-0">名称</label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="如 OpenAI" className="h-7 text-[13px] flex-1" />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-[12px] text-muted-foreground w-14 shrink-0">API Key</label>
-              <Input type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} placeholder="sk-..." className="h-7 text-[13px] flex-1" />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-[12px] text-muted-foreground w-14 shrink-0">Base URL</label>
-              <Input value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className="h-7 text-[13px] flex-1 font-mono" />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-[12px] text-muted-foreground w-14 shrink-0">模型</label>
-              <Input value={form.models} onChange={(e) => setForm({ ...form, models: e.target.value })} placeholder="gpt-4, gpt-3.5-turbo" className="h-7 text-[13px] flex-1" />
-            </div>
-          </div>
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex gap-5">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[12px] text-muted-foreground">设为默认</span>
-                <ToggleSwitch checked={form.isDefault} onChange={() => setForm({ ...form, isDefault: !form.isDefault })} />
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[12px] text-muted-foreground">开启思考</span>
-                <ToggleSwitch checked={form.enableThinking} onChange={() => setForm({ ...form, enableThinking: !form.enableThinking })} />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => { setShowAdd(false); setForm(emptyForm) }}
-                className="h-7 px-3 text-[12px] font-medium rounded-md border border-border/40 hover:bg-muted/60 transition-colors cursor-pointer"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={!form.name || !form.baseUrl || saving === "new"}
-                className="h-7 px-3.5 text-[12px] font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors cursor-pointer flex items-center gap-1"
-              >
-                {saving === "new" && <Loader2 className="h-3 w-3 animate-spin" />}
-                添加
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      </div>
       )}
 
       {/* Custom provider modal */}
