@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Input } from "@/components/ui/input"
-import { Loader2, CheckCircle2, AlertCircle, X } from "lucide-react"
+import { Loader2, CheckCircle2, AlertCircle, X, Plus } from "lucide-react"
 import LlmProviderSidebar from "@/components/llm/llm-provider-sidebar"
 import LlmProviderDetail from "@/components/llm/llm-provider-detail"
 
@@ -78,7 +78,7 @@ export default function LlmProviderManager() {
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [showCustomModal, setShowCustomModal] = useState(false)
-  const [customForm, setCustomForm] = useState({ name: "", baseUrl: "", models: "", apiKey: "" })
+  const [customForm, setCustomForm] = useState({ name: "", baseUrl: "", apiKey: "", logo: "" })
 
   const fetchProviders = useCallback(async () => {
     const res = await fetch("/api/llm-providers")
@@ -120,7 +120,7 @@ export default function LlmProviderManager() {
     const data = await res.json()
     if (res.ok) {
       setShowCustomModal(false)
-      setCustomForm({ name: "", baseUrl: "", models: "", apiKey: "" })
+      setCustomForm({ name: "", baseUrl: "", apiKey: "", logo: "" })
       setStatusMsg({ type: "success", text: `已添加 ${customForm.name}` })
       fetchProviders()
     } else {
@@ -244,6 +244,10 @@ export default function LlmProviderManager() {
           onUpdate={(field, value) => handleUpdate(filteredProviders[0].id, field, value)}
           onSaveKey={() => handleSaveKey(filteredProviders[0].id)}
           onEditKeyChange={(v) => setEditKeys((prev) => ({ ...prev, [filteredProviders[0].id]: v }))}
+          onDelete={() => {
+            handleDelete(filteredProviders[0].id, filteredProviders[0].name)
+            setActiveFilter(null)
+          }}
           onBack={() => setActiveFilter(null)}
         />
       ) : (
@@ -266,6 +270,46 @@ export default function LlmProviderManager() {
               </button>
             </div>
             <div className="space-y-3">
+              {/* Logo upload */}
+              <div className="flex items-center gap-3">
+                <label className="relative cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        const reader = new FileReader()
+                        reader.onload = () => setCustomForm({ ...customForm, logo: reader.result as string })
+                        reader.readAsDataURL(file)
+                      }
+                    }}
+                  />
+                  {customForm.logo ? (
+                    <img src={customForm.logo} className="w-10 h-10 rounded-lg object-cover border border-border/40" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-muted/60 border border-border/40 flex items-center justify-center text-sm font-semibold text-muted-foreground transition-colors">
+                      {customForm.name ? customForm.name.charAt(0).toUpperCase() : <Plus className="h-4 w-4" />}
+                    </div>
+                  )}
+                </label>
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                    上传 Logo
+                    <a
+                      href="https://icons.lobehub.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-4 h-4 rounded-full bg-muted/60 text-muted-foreground flex items-center justify-center text-[10px] hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                      title="查看图标库"
+                    >
+                      ?
+                    </a>
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/60">不上传则显示名称首字母</p>
+                </div>
+              </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">名称</label>
                 <Input value={customForm.name} onChange={(e) => setCustomForm({ ...customForm, name: e.target.value })} placeholder="供应商名称" className="h-9 text-sm" />
@@ -277,10 +321,6 @@ export default function LlmProviderManager() {
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Base URL</label>
                 <Input value={customForm.baseUrl} onChange={(e) => setCustomForm({ ...customForm, baseUrl: e.target.value })} placeholder="https://api.example.com/v1" className="h-9 text-sm font-mono" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">模型 (逗号分隔)</label>
-                <Input value={customForm.models} onChange={(e) => setCustomForm({ ...customForm, models: e.target.value })} placeholder="model-1, model-2" className="h-9 text-sm" />
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-5">

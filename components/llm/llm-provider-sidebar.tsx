@@ -1,7 +1,7 @@
 "use client"
 
 import { Search, Plus } from "lucide-react"
-import { getProviderIcon } from "./provider-icons"
+import { getProviderAvatar } from "./provider-icons"
 
 export interface ProviderSidebarItem {
   name: string
@@ -50,7 +50,7 @@ export default function LlmProviderSidebar({
       </div>
 
       {/* Nav items */}
-      <div className="flex-1 overflow-y-auto px-2 pb-2">
+      <div className="flex-1 overflow-y-auto px-2 pb-2 scrollbar-hide">
         {/* 已启用 */}
         {configured.length > 0 && (
           <>
@@ -69,8 +69,8 @@ export default function LlmProviderSidebar({
                     : "text-foreground/70 hover:bg-muted/40"
                 }`}
               >
-                <span className="flex items-center justify-center w-4 h-4 shrink-0">
-                  {getProviderIcon(p.name)}
+                <span className="flex items-center justify-center w-5 h-5 shrink-0">
+                  {getProviderAvatar(p.name, 20)}
                 </span>
                 <span className="truncate flex-1 text-left">{p.name}</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
@@ -97,8 +97,8 @@ export default function LlmProviderSidebar({
                     : "text-foreground/70 hover:bg-muted/40"
                 }`}
               >
-                <span className="flex items-center justify-center w-4 h-4 shrink-0">
-                  {getProviderIcon(name)}
+                <span className="flex items-center justify-center w-5 h-5 shrink-0">
+                  {getProviderAvatar(name, 20)}
                 </span>
                 <span className="truncate flex-1 text-left">{name}</span>
               </button>
@@ -124,8 +124,8 @@ export default function LlmProviderSidebar({
                     : "text-foreground/70 hover:bg-muted/40"
                 }`}
               >
-                <span className="flex items-center justify-center w-4 h-4 shrink-0">
-                  {getProviderIcon(name)}
+                <span className="flex items-center justify-center w-5 h-5 shrink-0">
+                  {getProviderAvatar(name, 20)}
                 </span>
                 <span className="truncate flex-1 text-left">{name}</span>
               </button>
