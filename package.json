@@ -17,6 +17,7 @@
     "@langchain/core": "^1.1.48",
     "@langchain/langgraph": "^1.3.2",
     "@langchain/openai": "^1.4.7",
+    "@lobehub/icons": "^5.10.0",
     "@prisma/adapter-better-sqlite3": "^7.8.0",
     "@prisma/client": "^5.22.0",
     "@xyflow/react": "^12.10.2",

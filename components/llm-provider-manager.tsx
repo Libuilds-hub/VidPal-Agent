@@ -1,19 +1,11 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Input } from "@/components/ui/input"
-import {
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  Plus,
-  Trash2,
-  Play,
-  Star,
-  ChevronDown,
-  ChevronRight,
-  X,
-} from "lucide-react"
+import { Loader2, CheckCircle2, AlertCircle, Plus, X } from "lucide-react"
+import LlmProviderCard, { AddTemplateCard } from "@/components/llm/llm-provider-card"
+import LlmProviderSidebar from "@/components/llm/llm-provider-sidebar"
+import LlmProviderDetail from "@/components/llm/llm-provider-detail"
 
 interface Provider {
   id: string
@@ -53,14 +45,6 @@ const BUILTIN_TEMPLATES: Record<string, { name: string; baseUrl: string; models:
   },
 }
 
-function parseModels(models: string): string[] {
-  return models.split(",").map((m) => m.trim()).filter(Boolean)
-}
-
-function joinModels(list: string[]): string {
-  return list.join(", ")
-}
-
 function StatusBanner({
   type,
   text,
@@ -80,7 +64,7 @@ function StatusBanner({
 
   return (
     <div
-      className={`flex items-center gap-2 text-[11px] px-3 py-1.5 rounded-md animate-in fade-in slide-in-from-top-2 ${
+      className={`flex items-center gap-2 text-[12px] px-3 py-1.5 rounded-md animate-in fade-in slide-in-from-top-2 ${
         type === "success"
           ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
           : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
@@ -92,88 +76,22 @@ function StatusBanner({
   )
 }
 
-function ModelDropdown({
-  models,
-  onRemove,
-  onAdd,
-  onSelect,
-  newModelValue,
-  onNewModelChange,
-}: {
-  models: string[]
-  onRemove: (model: string) => void
-  onAdd: () => void
-  onSelect: (model: string) => void
-  newModelValue: string
-  onNewModelChange: (v: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null!)
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener("click", handleClick)
-    return () => document.removeEventListener("click", handleClick)
-  }, [])
-
+function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
-    <div ref={ref} className="relative flex-1 min-w-0">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="inline-flex items-center justify-between w-full rounded-md border border-border/45 bg-card px-2.5 py-1 h-7 text-[12px] font-medium hover:bg-muted/60 transition-colors cursor-pointer select-none"
-      >
-        <span className="text-muted-foreground/75 truncate pr-1">{models[0]}</span>
-        <ChevronDown
-          className="h-3 w-3 text-muted-foreground/50 transition-transform duration-200 shrink-0 ml-auto"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0)" }}
-        />
-      </button>
-      {open && (
-        <div className="absolute left-0 right-0 z-50 mt-1 rounded-lg border border-border/40 bg-popover py-1 shadow-md animate-in fade-in zoom-in-95 origin-top">
-          {models.map((model, idx) => (
-            <div
-              key={model}
-              onClick={() => { onSelect(model); setOpen(false) }}
-              className={`flex items-center justify-between px-2.5 py-1.5 hover:bg-muted/40 transition-colors cursor-pointer ${
-                idx === 0 ? "bg-muted/20 font-medium" : ""
-              }`}
-            >
-              <span className="text-[12px] text-foreground/85 truncate flex-1 min-w-0">{model}</span>
-              {models.length > 1 && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onRemove(model) }}
-                  className="shrink-0 ml-1.5 text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer p-0.5 rounded hover:bg-muted"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-          ))}
-          <div className="border-t border-border/15 mt-1 pt-1 px-1.5 pb-0.5">
-            <div className="flex items-center gap-1">
-              <Input
-                value={newModelValue}
-                onChange={(e) => onNewModelChange(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { onAdd(); setOpen(false) } }}
-                onClick={(e) => e.stopPropagation()}
-                placeholder="自定义模型名称"
-                className="h-6.5 text-[11px] flex-1 border-0 shadow-none focus-visible:ring-0 bg-transparent px-1"
-              />
-              <button
-                onClick={(e) => { e.stopPropagation(); onAdd(); setOpen(false) }}
-                disabled={!newModelValue.trim()}
-                className="h-6 w-6 flex items-center justify-center rounded border border-border/30 hover:bg-muted/60 disabled:opacity-30 transition-colors cursor-pointer shrink-0"
-              >
-                <Plus className="h-3 w-3" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    <button
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
+        checked ? "bg-primary" : "bg-muted-foreground/20"
+      }`}
+    >
+      <span
+        className={`pointer-events-none block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform duration-200 ${
+          checked ? "translate-x-[14px]" : "translate-x-0.5"
+        }`}
+      />
+    </button>
   )
 }
 
@@ -185,10 +103,11 @@ export default function LlmProviderManager() {
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; msg: string }>>({})
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState<ProviderForm>(emptyForm)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editKeys, setEditKeys] = useState<Record<string, string>>({})
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null)
-  const [newModelInputs, setNewModelInputs] = useState<Record<string, string>>({})
+  const [activeFilter, setActiveFilter] = useState<string | null>(null)
+  const [showCustomModal, setShowCustomModal] = useState(false)
+  const [customForm, setCustomForm] = useState({ name: "", baseUrl: "", models: "", apiKey: "" })
 
   const fetchProviders = useCallback(async () => {
     const res = await fetch("/api/llm-providers")
@@ -214,7 +133,6 @@ export default function LlmProviderManager() {
   }, [loading, providers.length, fetchProviders])
 
   const clearStatus = () => setStatusMsg(null)
-  const clearTest = (id: string) => setTestResult((prev) => { const n = { ...prev }; delete n[id]; return n })
 
   const handleAddTemplate = (key: string) => {
     setForm({
@@ -248,6 +166,30 @@ export default function LlmProviderManager() {
     setSaving(null)
   }
 
+  const handleCustomCreate = async () => {
+    if (!customForm.name || !customForm.baseUrl) return
+    setSaving("new")
+    const res = await fetch("/api/llm-providers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...customForm,
+        isDefault: providers.length === 0,
+        enableThinking: true,
+      }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setShowCustomModal(false)
+      setCustomForm({ name: "", baseUrl: "", models: "", apiKey: "" })
+      setStatusMsg({ type: "success", text: `已添加 ${customForm.name}` })
+      fetchProviders()
+    } else {
+      setStatusMsg({ type: "error", text: data.error || "添加失败" })
+    }
+    setSaving(null)
+  }
+
   const handleUpdate = async (id: string, field: string, value: string | boolean) => {
     const body: Record<string, string | boolean> = { [field]: value }
     if (field === "isDefault" && value === true) {
@@ -265,24 +207,33 @@ export default function LlmProviderManager() {
     if (!confirm(`确定删除供应商"${name}"吗？`)) return
     await fetch(`/api/llm-providers/${id}`, { method: "DELETE" })
     setStatusMsg({ type: "success", text: `已删除 ${name}` })
-    if (expandedId === id) setExpandedId(null)
     fetchProviders()
   }
 
   const handleTest = async (id: string) => {
     setTesting(id)
-    clearTest(id)
+    const updated = { ...testResult }
+    delete updated[id]
+    setTestResult(updated)
     try {
-      const res = await fetch(`/api/llm-providers/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) })
+      const res = await fetch(`/api/llm-providers/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
       const data = await res.json()
       setTestResult({
+        ...updated,
         [id]: {
           ok: data.success,
           msg: data.success ? "连接成功" : (data.error || "连接失败"),
         },
       })
     } catch {
-      setTestResult({ [id]: { ok: false, msg: "网络请求失败" } })
+      setTestResult({
+        ...updated,
+        [id]: { ok: false, msg: "网络请求失败" },
+      })
     }
     setTesting(null)
   }
@@ -297,37 +248,23 @@ export default function LlmProviderManager() {
     setStatusMsg({ type: "success", text: "API Key 已更新" })
   }
 
-  const handleAddModel = async (id: string, currentModels: string) => {
-    const newModel = (newModelInputs[id] || "").trim()
-    if (!newModel) return
-    const list = parseModels(currentModels)
-    if (list.includes(newModel)) {
-      setStatusMsg({ type: "error", text: `模型 "${newModel}" 已存在` })
-      return
-    }
-    const newList = [newModel, ...list]
-    await handleUpdate(id, "models", joinModels(newList))
-    setNewModelInputs((prev) => ({ ...prev, [id]: "" }))
-    setStatusMsg({ type: "success", text: `已添加并激活模型 ${newModel}` })
-  }
+  const providerNames = new Set(providers.map((p) => p.name.toLowerCase()))
+  const availableTemplates = Object.entries(BUILTIN_TEMPLATES).filter(
+    ([, t]) => !providerNames.has(t.name.toLowerCase())
+  )
 
-  const handleSelectModel = async (id: string, currentModels: string, selectedModel: string) => {
-    const list = parseModels(currentModels)
-    const filtered = list.filter((m) => m !== selectedModel)
-    const newList = [selectedModel, ...filtered]
-    await handleUpdate(id, "models", joinModels(newList))
-    setStatusMsg({ type: "success", text: `已激活模型 ${selectedModel}` })
-  }
+  const filteredProviders = activeFilter
+    ? providers.filter((p) => p.name.toLowerCase() === activeFilter.toLowerCase())
+    : providers
 
-  const handleRemoveModel = async (id: string, currentModels: string, modelToRemove: string) => {
-    const list = parseModels(currentModels).filter((m) => m !== modelToRemove)
-    if (list.length === 0) {
-      setStatusMsg({ type: "error", text: "至少保留一个模型" })
-      return
-    }
-    await handleUpdate(id, "models", joinModels(list))
-    setStatusMsg({ type: "success", text: `已移除模型 ${modelToRemove}` })
-  }
+  const sidebarItems = useMemo(() => {
+    return [
+      ...providers.map((p) => ({ name: p.name, isConfigured: true })),
+      ...availableTemplates.map(([, t]) => ({ name: t.name, isConfigured: false })),
+    ]
+  }, [providers, availableTemplates])
+
+  const templateNames = availableTemplates.map(([, t]) => t.name)
 
   if (loading) {
     return (
@@ -338,25 +275,50 @@ export default function LlmProviderManager() {
   }
 
   return (
-    <div className="space-y-3 animate-in fade-in-50 duration-150">
-      <StatusBanner type={statusMsg?.type ?? "success"} text={statusMsg?.text ?? ""} onDismiss={clearStatus} />
+    <div className="flex h-full animate-in fade-in-50 duration-150">
+      <LlmProviderSidebar
+        providers={sidebarItems}
+        templates={templateNames}
+        activeFilter={activeFilter}
+        onFilterChange={setActiveFilter}
+        onCustomClick={() => setShowCustomModal(true)}
+      />
 
-      {providers.length === 0 && !showAdd && (
-        <div className="rounded-lg border border-dashed border-border/50 p-6 text-center space-y-3">
-          <p className="text-sm text-muted-foreground">尚未配置 AI 供应商，请添加一个</p>
-          <div className="flex flex-wrap justify-center gap-2">
+      {/* Render detail view when a configured provider is selected */}
+      {activeFilter && filteredProviders.length === 1 ? (
+        <LlmProviderDetail
+          provider={filteredProviders[0]}
+          testing={testing === filteredProviders[0].id}
+          testResult={testResult[filteredProviders[0].id]}
+          saving={saving === filteredProviders[0].id}
+          editKey={editKeys[filteredProviders[0].id] ?? ""}
+          onTest={(modelName) => handleTest(filteredProviders[0].id)}
+          onUpdate={(field, value) => handleUpdate(filteredProviders[0].id, field, value)}
+          onSaveKey={() => handleSaveKey(filteredProviders[0].id)}
+          onEditKeyChange={(v) => setEditKeys((prev) => ({ ...prev, [filteredProviders[0].id]: v }))}
+          onBack={() => setActiveFilter(null)}
+        />
+      ) : (
+        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin space-y-8">
+          <StatusBanner type={statusMsg?.type ?? "success"} text={statusMsg?.text ?? ""} onDismiss={clearStatus} />
+
+        {/* Empty state (no providers at all) */}
+        {providers.length === 0 && !showAdd && (
+        <div className="rounded-xl border border-dashed border-border/50 p-8 text-center space-y-4">
+          <p className="text-sm text-muted-foreground">尚未配置 AI 供应商，请从下方模板开始或自定义添加</p>
+          <div className="flex flex-wrap justify-center gap-3">
             {Object.entries(BUILTIN_TEMPLATES).map(([key, t]) => (
               <button
                 key={key}
                 onClick={() => handleAddTemplate(key)}
-                className="px-3 py-1.5 text-[12px] font-medium rounded-md border border-border/40 bg-card hover:bg-muted/70 transition-colors cursor-pointer"
+                className="px-4 py-2 text-[13px] font-medium rounded-lg border border-border/40 bg-card hover:bg-muted/70 transition-colors cursor-pointer"
               >
                 {t.name}
               </button>
             ))}
             <button
               onClick={() => { setForm(emptyForm); setShowAdd(true) }}
-              className="px-3 py-1.5 text-[12px] font-medium rounded-md border border-border/40 bg-card hover:bg-muted/70 transition-colors cursor-pointer"
+              className="px-4 py-2 text-[13px] font-medium rounded-lg border border-border/40 bg-card hover:bg-muted/70 transition-colors cursor-pointer"
             >
               自定义
             </button>
@@ -364,230 +326,213 @@ export default function LlmProviderManager() {
         </div>
       )}
 
-      {providers.map((p) => {
-        const isExpanded = expandedId === p.id
-        const testInfo = testResult[p.id]
-        const modelList = parseModels(p.models)
-        return (
-          <div
-            key={p.id}
-            className="rounded-lg border border-border/30 bg-card/30 overflow-hidden"
-          >
-            {/* Header row */}
-            <div className="flex items-center gap-2 px-3 py-2.5">
-              <button
-                onClick={() => setExpandedId(isExpanded ? null : p.id)}
-                className="p-0.5 text-muted-foreground/60 hover:text-foreground transition-colors cursor-pointer"
-              >
-                {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-              </button>
-              <span className="text-[13px] font-semibold text-foreground/85">{p.name}</span>
-              {p.isDefault && (
-                <span className="inline-flex items-center h-4 px-1.5 text-[10px] rounded-full bg-primary/10 text-primary border border-primary/20">
-                  <Star className="h-2.5 w-2.5 mr-0.5" />默认
-                </span>
-              )}
-              <span className="text-[10px] text-muted-foreground/50 ml-auto truncate max-w-[160px]">{p.models}</span>
-              <button
-                onClick={() => handleTest(p.id)}
-                disabled={testing === p.id}
-                className="h-6 px-2 text-[10px] font-medium rounded border border-border/30 hover:bg-muted/60 disabled:opacity-50 transition-colors cursor-pointer flex items-center gap-1 shrink-0"
-              >
-                {testing === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
-                测试
-              </button>
-              <button
-                onClick={() => handleDelete(p.id, p.name)}
-                className="p-1 text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer shrink-0"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-
-            {testInfo && (
-              <div className={`mx-3 mb-2 flex items-center gap-1.5 text-[10px] px-2 py-1 rounded ${
-                testInfo.ok ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-500"
-              }`}>
-                {testInfo.ok ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-                {testInfo.msg}
-              </div>
-            )}
-
-            {isExpanded && (
-              <div className="px-3 pb-3 space-y-2 border-t border-border/15 pt-2.5">
-                <div className="flex items-center gap-2">
-                  <label className="text-[11px] text-muted-foreground w-14 shrink-0">名称</label>
-                  <Input
-                    defaultValue={p.name}
-                    onBlur={(e) => { if (e.target.value && e.target.value !== p.name) handleUpdate(p.id, "name", e.target.value) }}
-                    className="h-7 text-[12px] flex-1"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <label className="text-[11px] text-muted-foreground w-14 shrink-0">API Key</label>
-                  <Input
-                    type="password"
-                    placeholder={p.apiKey}
-                    value={editKeys[p.id] ?? ""}
-                    onChange={(e) => setEditKeys((prev) => ({ ...prev, [p.id]: e.target.value }))}
-                    className="h-7 text-[12px] flex-1"
-                  />
+      {/* No results for active filter (template selected) */}
+      {activeFilter && filteredProviders.length === 0 && !showAdd && (
+        <div className="rounded-xl border border-dashed border-border/50 p-8 text-center space-y-4">
+          <p className="text-sm text-muted-foreground">
+            <strong>{activeFilter}</strong> 尚未配置
+          </p>
+          {(() => {
+            const templateKey = Object.entries(BUILTIN_TEMPLATES).find(
+              ([, t]) => t.name.toLowerCase() === activeFilter.toLowerCase()
+            )
+            if (templateKey) {
+              return (
+                <div className="flex gap-3 justify-center">
                   <button
-                    onClick={() => handleSaveKey(p.id)}
-                    disabled={!editKeys[p.id] || saving === p.id}
-                    className="h-7 px-2.5 text-[11px] font-medium rounded border border-border/40 hover:bg-muted/60 disabled:opacity-50 transition-colors cursor-pointer shrink-0"
+                    onClick={() => {
+                      handleAddTemplate(templateKey[0])
+                      setActiveFilter(null)
+                    }}
+                    className="px-4 py-2 text-[13px] font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
                   >
-                    {saving === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "保存"}
+                    使用模板添加
+                  </button>
+                  <button
+                    onClick={() => setActiveFilter(null)}
+                    className="px-4 py-2 text-[13px] font-medium rounded-lg border border-border/40 bg-card hover:bg-muted/70 transition-colors cursor-pointer"
+                  >
+                    查看全部
                   </button>
                 </div>
+              )
+            }
+            return (
+              <button
+                onClick={() => setActiveFilter(null)}
+                className="text-[12px] text-primary hover:underline cursor-pointer"
+              >
+                查看全部
+              </button>
+            )
+          })()}
+        </div>
+      )}
 
-                <div className="flex items-center gap-2">
-                  <label className="text-[11px] text-muted-foreground w-14 shrink-0">Base URL</label>
-                  <Input
-                    defaultValue={p.baseUrl}
-                    onBlur={(e) => { if (e.target.value && e.target.value !== p.baseUrl) handleUpdate(p.id, "baseUrl", e.target.value) }}
-                    className="h-7 text-[12px] flex-1 font-mono"
-                  />
-                </div>
-
-                {/* Models — fully editable text input */}
-                <div className="flex items-center gap-2">
-                  <label className="text-[11px] text-muted-foreground w-14 shrink-0">模型</label>
-                  <Input
-                    defaultValue={p.models}
-                    onBlur={(e) => { if (e.target.value && e.target.value !== p.models) handleUpdate(p.id, "models", e.target.value) }}
-                    placeholder="输入模型，多个用英文逗号分隔，首位为默认激活模型"
-                    className="h-7 text-[12px] flex-1 font-mono"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between pt-1 border-t border-border/10">
-                  <span className="text-[11px] text-muted-foreground">设为默认供应商</span>
-                  <button
-                    role="switch"
-                    aria-checked={p.isDefault}
-                    onClick={() => handleUpdate(p.id, "isDefault", !p.isDefault)}
-                    className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
-                      p.isDefault ? "bg-primary" : "bg-muted-foreground/20"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform duration-200 ${
-                        p.isDefault ? "translate-x-[14px]" : "translate-x-0.5"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between pt-1.5 border-t border-border/10">
-                  <span className="text-[11px] text-muted-foreground">开启深度思考过程（Think）</span>
-                  <button
-                    role="switch"
-                    aria-checked={p.enableThinking}
-                    onClick={() => handleUpdate(p.id, "enableThinking", !p.enableThinking)}
-                    className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
-                      p.enableThinking ? "bg-primary" : "bg-muted-foreground/20"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform duration-200 ${
-                        p.enableThinking ? "translate-x-[14px]" : "translate-x-0.5"
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
+      {/* Configured providers section */}
+      {filteredProviders.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2.5 mb-4">
+            <h2 className="text-[17px] font-semibold text-foreground/90">
+              {activeFilter ? activeFilter : "已配置供应商"}
+            </h2>
+            {!activeFilter && (
+              <span className="bg-muted/60 text-muted-foreground text-[12px] px-2 py-0.5 rounded-full font-medium">
+                {providers.length}
+              </span>
             )}
           </div>
-        )
-      })}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {filteredProviders.map((p) => (
+              <LlmProviderCard
+                key={p.id}
+                provider={p}
+                testing={testing === p.id}
+                testResult={testResult[p.id]}
+                saving={saving === p.id}
+                editKey={editKeys[p.id] ?? ""}
+                onTest={() => handleTest(p.id)}
+                onDelete={() => handleDelete(p.id, p.name)}
+                onUpdate={(field, value) => handleUpdate(p.id, field, value)}
+                onSaveKey={() => handleSaveKey(p.id)}
+                onEditKeyChange={(v) => setEditKeys((prev) => ({ ...prev, [p.id]: v }))}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
-      {providers.length > 0 && !showAdd && (
+      {/* Available templates section (hidden when filtering) */}
+      {!activeFilter && availableTemplates.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2.5 mb-4">
+            <h2 className="text-[17px] font-semibold text-foreground/90">可用模板</h2>
+            <span className="bg-muted/60 text-muted-foreground text-[12px] px-2 py-0.5 rounded-full font-medium">
+              {availableTemplates.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {availableTemplates.map(([key, t]) => (
+              <AddTemplateCard key={key} name={t.name} onClick={() => handleAddTemplate(key)} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Add button (hidden when filtering) */}
+      {!activeFilter && providers.length > 0 && !showAdd && (
         <button
           onClick={() => { setForm(emptyForm); setShowAdd(true) }}
-          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-border/40 hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-[12px]"
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-border/40 hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-[12px]"
         >
           <Plus className="h-3.5 w-3.5" /> 添加供应商
         </button>
       )}
 
+      {/* Add form */}
       {showAdd && (
-        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3.5 space-y-2.5">
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[13px] font-semibold text-foreground/85">添加 AI 供应商</span>
+            <span className="text-[14px] font-semibold text-foreground/85">添加 AI 供应商</span>
             <div className="flex gap-1.5">
               {Object.entries(BUILTIN_TEMPLATES).map(([key, t]) => (
                 <button
                   key={key}
                   onClick={() => handleAddTemplate(key)}
-                  className="h-6 px-2 text-[10px] font-medium rounded border border-border/40 bg-card hover:bg-muted/60 transition-colors cursor-pointer"
+                  className="h-6 px-2.5 text-[11px] font-medium rounded border border-border/40 bg-card hover:bg-muted/60 transition-colors cursor-pointer"
                 >
                   {t.name}
                 </button>
               ))}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] text-muted-foreground w-14 shrink-0">名称</label>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="如 OpenAI" className="h-7 text-[12px] flex-1" />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] text-muted-foreground w-14 shrink-0">API Key</label>
-            <Input type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} placeholder="sk-..." className="h-7 text-[12px] flex-1" />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] text-muted-foreground w-14 shrink-0">Base URL</label>
-            <Input value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className="h-7 text-[12px] flex-1 font-mono" />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] text-muted-foreground w-14 shrink-0">模型</label>
-            <Input value={form.models} onChange={(e) => setForm({ ...form, models: e.target.value })} placeholder="gpt-4, gpt-3.5-turbo" className="h-7 text-[12px] flex-1" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2.5">
+            <div className="flex items-center gap-2">
+              <label className="text-[12px] text-muted-foreground w-14 shrink-0">名称</label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="如 OpenAI" className="h-7 text-[13px] flex-1" />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[12px] text-muted-foreground w-14 shrink-0">API Key</label>
+              <Input type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} placeholder="sk-..." className="h-7 text-[13px] flex-1" />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[12px] text-muted-foreground w-14 shrink-0">Base URL</label>
+              <Input value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className="h-7 text-[13px] flex-1 font-mono" />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[12px] text-muted-foreground w-14 shrink-0">模型</label>
+              <Input value={form.models} onChange={(e) => setForm({ ...form, models: e.target.value })} placeholder="gpt-4, gpt-3.5-turbo" className="h-7 text-[13px] flex-1" />
+            </div>
           </div>
           <div className="flex items-center justify-between pt-1">
-            <div className="flex gap-4">
+            <div className="flex gap-5">
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-muted-foreground">设为默认</span>
-                <button
-                  role="switch"
-                  aria-checked={form.isDefault}
-                  onClick={() => setForm({ ...form, isDefault: !form.isDefault })}
-                  className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
-                    form.isDefault ? "bg-primary" : "bg-muted-foreground/20"
-                  }`}
-                >
-                  <span className={`pointer-events-none block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform duration-200 ${
-                    form.isDefault ? "translate-x-[14px]" : "translate-x-0.5"
-                  }`} />
-                </button>
+                <span className="text-[12px] text-muted-foreground">设为默认</span>
+                <ToggleSwitch checked={form.isDefault} onChange={() => setForm({ ...form, isDefault: !form.isDefault })} />
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-muted-foreground">开启思考</span>
-                <button
-                  role="switch"
-                  aria-checked={form.enableThinking}
-                  onClick={() => setForm({ ...form, enableThinking: !form.enableThinking })}
-                  className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
-                    form.enableThinking ? "bg-primary" : "bg-muted-foreground/20"
-                  }`}
-                >
-                  <span className={`pointer-events-none block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform duration-200 ${
-                    form.enableThinking ? "translate-x-[14px]" : "translate-x-0.5"
-                  }`} />
-                </button>
+                <span className="text-[12px] text-muted-foreground">开启思考</span>
+                <ToggleSwitch checked={form.enableThinking} onChange={() => setForm({ ...form, enableThinking: !form.enableThinking })} />
               </div>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => { setShowAdd(false); setForm(emptyForm) }}
-                className="h-7 px-3 text-[11px] font-medium rounded-md border border-border/40 hover:bg-muted/60 transition-colors cursor-pointer"
+                className="h-7 px-3 text-[12px] font-medium rounded-md border border-border/40 hover:bg-muted/60 transition-colors cursor-pointer"
               >
                 取消
               </button>
               <button
                 onClick={handleCreate}
                 disabled={!form.name || !form.baseUrl || saving === "new"}
-                className="h-7 px-3.5 text-[11px] font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors cursor-pointer flex items-center gap-1"
+                className="h-7 px-3.5 text-[12px] font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors cursor-pointer flex items-center gap-1"
+              >
+                {saving === "new" && <Loader2 className="h-3 w-3 animate-spin" />}
+                添加
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+      )}
+
+      {/* Custom provider modal */}
+      {showCustomModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowCustomModal(false)}>
+          <div className="bg-card rounded-xl border border-border/40 p-6 w-[420px] shadow-xl animate-in fade-in zoom-in-95 duration-150" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-sm font-semibold text-foreground/90">自定义供应商</h2>
+              <button onClick={() => setShowCustomModal(false)} className="text-muted-foreground/50 hover:text-foreground transition-colors cursor-pointer">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">名称</label>
+                <Input value={customForm.name} onChange={(e) => setCustomForm({ ...customForm, name: e.target.value })} placeholder="供应商名称" className="h-9 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">API Key</label>
+                <Input type="password" value={customForm.apiKey} onChange={(e) => setCustomForm({ ...customForm, apiKey: e.target.value })} placeholder="sk-..." className="h-9 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Base URL</label>
+                <Input value={customForm.baseUrl} onChange={(e) => setCustomForm({ ...customForm, baseUrl: e.target.value })} placeholder="https://api.example.com/v1" className="h-9 text-sm font-mono" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">模型 (逗号分隔)</label>
+                <Input value={customForm.models} onChange={(e) => setCustomForm({ ...customForm, models: e.target.value })} placeholder="model-1, model-2" className="h-9 text-sm" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setShowCustomModal(false)} className="h-8 px-4 text-[12px] rounded-md border border-border/40 hover:bg-muted/60 transition-colors cursor-pointer">
+                取消
+              </button>
+              <button
+                onClick={handleCustomCreate}
+                disabled={!customForm.name || !customForm.baseUrl || saving === "new"}
+                className="h-8 px-4 text-[12px] rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors cursor-pointer flex items-center gap-1"
               >
                 {saving === "new" && <Loader2 className="h-3 w-3 animate-spin" />}
                 添加
