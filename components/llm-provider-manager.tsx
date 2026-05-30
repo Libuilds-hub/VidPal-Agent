@@ -24,6 +24,14 @@ const BUILTIN_TEMPLATES: Record<string, { name: string; baseUrl: string; models:
     baseUrl: "https://openrouter.ai/api/v1",
     models: "deepseek/deepseek-v4-flash:free",
   },
+  openai: { name: "OpenAI", baseUrl: "https://api.openai.com/v1", models: "gpt-4o" },
+  anthropic: { name: "Anthropic", baseUrl: "https://api.anthropic.com/v1", models: "claude-sonnet-4-20250514" },
+  google: { name: "Google", baseUrl: "https://generativelanguage.googleapis.com/v1", models: "gemini-2.0-flash" },
+  moonshot: { name: "Moonshot", baseUrl: "https://api.moonshot.cn/v1", models: "moonshot-v1-8k" },
+  zhipu: { name: "Zhipu", baseUrl: "https://open.bigmodel.cn/api/paas/v4", models: "glm-4" },
+  ollama: { name: "Ollama", baseUrl: "http://localhost:11434/v1", models: "llama3" },
+  groq: { name: "Groq", baseUrl: "https://api.groq.com/openai/v1", models: "llama-3.1-8b-instant" },
+  together: { name: "Together", baseUrl: "https://api.together.xyz/v1", models: "meta-llama/Llama-3-8b-chat-hf" },
 }
 
 const OTHER_PROVIDERS = [
@@ -79,6 +87,14 @@ export default function LlmProviderManager() {
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [showCustomModal, setShowCustomModal] = useState(false)
   const [customForm, setCustomForm] = useState({ name: "", baseUrl: "", apiKey: "", logo: "" })
+
+  // Reset templateProvider when switching to a different provider
+  const [templateProvider, setTemplateProvider] = useState<Provider | null>(null)
+  useEffect(() => {
+    if (!activeFilter) {
+      setTemplateProvider(null)
+    }
+  }, [activeFilter])
 
   const fetchProviders = useCallback(async () => {
     const res = await fetch("/api/llm-providers")
@@ -196,6 +212,32 @@ export default function LlmProviderManager() {
     ? providers.filter((p) => p.name.toLowerCase() === activeFilter.toLowerCase())
     : providers
 
+  // Check if activeFilter matches a template (for providers not yet saved to DB)
+  const activeTemplate = useMemo(() => {
+    if (!activeFilter) return null
+    const entry = Object.entries(BUILTIN_TEMPLATES).find(
+      ([, t]) => t.name.toLowerCase() === activeFilter.toLowerCase()
+    )
+    return entry ? { key: entry[0], template: entry[1] } : null
+  }, [activeFilter])
+
+  // Build template provider object when DB has no match but template exists
+  const templateProviderObj = useMemo(() => {
+    if (filteredProviders.length > 0) return null
+    if (!activeTemplate) return null
+    // Use edited templateProvider state if available, otherwise use template defaults
+    if (templateProvider) return templateProvider
+    return {
+      id: `template-${activeTemplate.key}`,
+      name: activeTemplate.template.name,
+      apiKey: "",
+      baseUrl: activeTemplate.template.baseUrl,
+      models: activeTemplate.template.models,
+      isDefault: false,
+      enableThinking: true,
+    } as Provider
+  }, [filteredProviders, activeTemplate, templateProvider])
+
   const sidebarItems = useMemo(() => {
     return [
       ...providers.map((p) => ({ name: p.name, isConfigured: true })),
@@ -232,24 +274,78 @@ export default function LlmProviderManager() {
         onCustomClick={() => setShowCustomModal(true)}
       />
 
-      {/* Render detail view when a configured provider is selected */}
-      {activeFilter && filteredProviders.length === 1 ? (
-        <LlmProviderDetail
-          provider={filteredProviders[0]}
-          testing={testing === filteredProviders[0].id}
-          testResult={testResult[filteredProviders[0].id]}
-          saving={saving === filteredProviders[0].id}
-          editKey={editKeys[filteredProviders[0].id] ?? ""}
-          onTest={(modelName) => handleTest(filteredProviders[0].id)}
-          onUpdate={(field, value) => handleUpdate(filteredProviders[0].id, field, value)}
-          onSaveKey={() => handleSaveKey(filteredProviders[0].id)}
-          onEditKeyChange={(v) => setEditKeys((prev) => ({ ...prev, [filteredProviders[0].id]: v }))}
-          onDelete={() => {
-            handleDelete(filteredProviders[0].id, filteredProviders[0].name)
-            setActiveFilter(null)
-          }}
-          onBack={() => setActiveFilter(null)}
-        />
+      {/* Render detail view when a configured provider or template provider is selected */}
+      {activeFilter && (filteredProviders.length === 1 || templateProviderObj) ? (
+        (() => {
+          const provider = filteredProviders[0] || templateProviderObj!
+          const isTemplate = !filteredProviders.length
+          return (
+            <LlmProviderDetail
+              provider={provider}
+              testing={isTemplate ? false : testing === provider.id}
+              testResult={isTemplate ? undefined : testResult[provider.id]}
+              saving={isTemplate ? false : saving === provider.id}
+              editKey={editKeys[provider.id] ?? ""}
+              onTest={(modelName) => !isTemplate && handleTest(provider.id)}
+              onUpdate={async (field, value) => {
+                if (isTemplate) {
+                  if (field === "baseUrl" || field === "models") {
+                    // Update local state for template provider edits
+                    setTemplateProvider((prev) => prev ? { ...prev, [field]: value } : provider)
+                  }
+                } else {
+                  handleUpdate(provider.id, field, value)
+                }
+              }}
+              onSaveKey={async () => {
+                const key = editKeys[provider.id]
+                if (!key) return
+                if (isTemplate) {
+                  // Create new provider from template - use current templateProvider state if available
+                  const providerToSave = templateProvider || provider
+                  setSaving(providerToSave.id)
+                  const res = await fetch("/api/llm-providers", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      name: providerToSave.name,
+                      apiKey: key,
+                      baseUrl: providerToSave.baseUrl,
+                      models: providerToSave.models,
+                      isDefault: providers.length === 0,
+                      enableThinking: true,
+                    }),
+                  })
+                  if (res.ok) {
+                    setStatusMsg({ type: "success", text: `已添加 ${providerToSave.name}` })
+                    setEditKeys((prev) => ({ ...prev, [providerToSave.id]: "" }))
+                    setTemplateProvider(null)
+                    setActiveFilter(null)
+                    fetchProviders()
+                  } else {
+                    const data = await res.json()
+                    setStatusMsg({ type: "error", text: data.error || "添加失败" })
+                  }
+                  setSaving(null)
+                } else {
+                  await handleSaveKey(provider.id)
+                }
+              }}
+              onEditKeyChange={(v) => setEditKeys((prev) => ({ ...prev, [provider.id]: v }))}
+              onDelete={() => {
+                if (!isTemplate) {
+                  handleDelete(provider.id, provider.name)
+                }
+                setActiveFilter(null)
+                setTemplateProvider(null)
+              }}
+              onBack={() => {
+                setActiveFilter(null)
+                setTemplateProvider(null)
+              }}
+            />
+          )
+        })()
       ) : (
         <div className="flex-1 flex items-center justify-center bg-background/35">
           <StatusBanner type={statusMsg?.type ?? "success"} text={statusMsg?.text ?? ""} onDismiss={clearStatus} />
