@@ -240,6 +240,37 @@ export default function LlmProviderManager() {
     setStatusMsg({ type: "success", text: "API Key 已更新" })
   }
 
+  const handleSync = async (id: string): Promise<{ success: boolean; count?: number; error?: string }> => {
+    try {
+      const res = await fetch("/api/llm-providers/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerId: id })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        const pResult = data.results?.find((r: any) => r.id === id)
+        if (pResult) {
+          if (pResult.success) {
+            setStatusMsg({ type: "success", text: `已成功同步 ${pResult.name} 云端模型库，共获取 ${pResult.count} 个最新模型` })
+            await fetchProviders()
+            return { success: true, count: pResult.count }
+          } else {
+            setStatusMsg({ type: "error", text: pResult.error || "云端同步失败" })
+            return { success: false, error: pResult.error || "云端同步失败" }
+          }
+        }
+      }
+      setStatusMsg({ type: "error", text: data.error || "云端同步请求失败" })
+      return { success: false, error: data.error || "云端同步请求失败" }
+    } catch (err) {
+      console.error("Manual models sync failed:", err)
+      setStatusMsg({ type: "error", text: "网络连接失败，请检查网络配置" })
+      return { success: false, error: "网络连接失败，请检查网络配置" }
+    }
+  }
+
+
   const providerNames = new Set(providers.map((p) => p.name.toLowerCase()))
   const availableTemplates = Object.entries(BUILTIN_TEMPLATES).filter(
     ([, t]) => !providerNames.has(t.name.toLowerCase())
@@ -369,6 +400,7 @@ export default function LlmProviderManager() {
               testResult={testResult[provider.id]}
               saving={isTemplate ? false : saving === provider.id}
               editKey={editKeys[provider.id] ?? ""}
+              onSync={isTemplate ? undefined : async () => handleSync(provider.id)}
               onTest={async (modelName) => {
                 const typedKey = editKeys[provider.id]
                 if (isTemplate || typedKey) {

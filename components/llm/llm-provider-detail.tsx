@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
-import { Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Wrench, Video, Image, Plus, RotateCcw, Trash2, Pencil, X, Brain } from "lucide-react"
+import { Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Wrench, Video, Image, Plus, RotateCcw, Trash2, Pencil, X, Brain, RefreshCw } from "lucide-react"
 import { getProviderIcon, getProviderHeader, getProviderAvatar } from "./provider-icons"
 
 interface Provider {
@@ -63,6 +63,7 @@ interface Props {
   testResult?: { ok: boolean; msg: string }
   saving: boolean
   editKey: string
+  onSync?: () => Promise<any>
   onTest: (modelName?: string) => Promise<boolean>
   onUpdate: (field: string, value: string | boolean) => void
   onSaveKey: () => void
@@ -77,6 +78,7 @@ export default function LlmProviderDetail({
   testResult,
   saving,
   editKey,
+  onSync,
   onTest,
   onUpdate,
   onSaveKey,
@@ -89,6 +91,7 @@ export default function LlmProviderDetail({
   const [enabled, setEnabled] = useState(p.enabled !== false)
   const [autoTesting, setAutoTesting] = useState(false)
   const [localKey, setLocalKey] = useState(p.apiKey || "")
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     setEnabled(p.enabled !== false)
@@ -400,6 +403,31 @@ export default function LlmProviderDetail({
               <span className="text-xs text-muted-foreground">共 {modelCount} 个模型可用</span>
             </div>
             <div className="flex items-center gap-2">
+              {onSync && (
+                <button
+                  onClick={async () => {
+                    if (syncing) return
+                    setSyncing(true)
+                    try {
+                      await onSync()
+                    } catch (err) {
+                      console.error(err)
+                    } finally {
+                      setSyncing(false)
+                    }
+                  }}
+                  disabled={syncing || !p.apiKey}
+                  className="h-[30px] px-3 gap-1.5 border border-border/40 bg-background hover:bg-muted/60 disabled:opacity-50 rounded-md cursor-pointer flex items-center justify-center transition-all text-xs font-medium shadow-sm hover:scale-[1.02] active:scale-[0.98] text-foreground"
+                  title="从云端 API 获取最新模型列表并自动填充属性"
+                >
+                  {syncing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                  同步云端模型
+                </button>
+              )}
               <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg px-2.5 py-1.5 border border-border/30">
                 <Search className="h-3 w-3 text-muted-foreground/50" />
                 <input

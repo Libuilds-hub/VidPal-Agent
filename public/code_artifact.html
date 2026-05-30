@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>服务商管理 - 详情视图</title>
+<style>
+    /* ================= 全局重置与基础变量 ================= */
+    :root {
+        --primary-bg: #ffffff;
+        --secondary-bg: #f7f7f9;
+        --sidebar-bg: #ffffff;
+        --text-main: #1a1a1a;
+        --text-muted: #8c8c8c;
+        --border-color: #e5e5e5;
+        --hover-bg: #f0f0f0;
+        --active-bg: #f4f4f5;
+        --badge-bg: #edf2fa;
+        --badge-text: #2f54eb;
+        --dot-active: #52c41a;
+    }
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background-color: var(--primary-bg);
+        color: var(--text-main);
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    /* ================= 侧边栏样式 ================= */
+    .sidebar {
+        width: 260px;
+        background-color: var(--sidebar-bg);
+        border-right: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        padding: 16px 12px;
+        flex-shrink: 0;
+    }
+
+    .search-box {
+        display: flex;
+        align-items: center;
+        background-color: var(--secondary-bg);
+        border-radius: 8px;
+        padding: 6px 12px;
+        margin-bottom: 16px;
+    }
+
+    .search-box svg {
+        fill: var(--text-muted);
+        width: 16px;
+        height: 16px;
+        margin-right: 8px;
+    }
+
+    .search-box input {
+        border: none;
+        background: transparent;
+        outline: none;
+        flex: 1;
+        font-size: 14px;
+        color: var(--text-main);
+    }
+
+    .search-box .add-btn {
+        cursor: pointer;
+        color: var(--text-muted);
+        font-size: 18px;
+        line-height: 1;
+    }
+
+    .nav-item {
+        display: flex;
+        align-items: center;
+        padding: 10px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        color: var(--text-main);
+        margin-bottom: 4px;
+    }
+
+    .nav-item:hover {
+        background-color: var(--hover-bg);
+    }
+
+    .nav-item.active {
+        background-color: var(--active-bg);
+        font-weight: 500;
+    }
+
+    .nav-item .icon {
+        width: 20px;
+        height: 20px;
+        margin-right: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .nav-group-title {
+        font-size: 12px;
+        color: var(--text-muted);
+        padding: 12px 12px 4px;
+        display: flex;
+        align-items: center;
+    }
+
+    .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: var(--dot-active);
+        margin-left: auto;
+    }
+
+    .sidebar-scroll {
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .sidebar-scroll::-webkit-scrollbar { display: none; }
+
+    /* ================= 主内容区通用样式 ================= */
+    .main-content {
+        flex: 1;
+        padding: 40px;
+        overflow-y: auto;
+        background-color: var(--primary-bg);
+    }
+
+    /* ================= 纯 CSS 切换开关 (Toggle) ================= */
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 24px;
+    }
+
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 24px;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    input:checked + .slider {
+        background-color: #1a1a1a;
+    }
+
+    input:checked + .slider:before {
+        transform: translateX(20px);
+    }
+
+    /* ================= 右侧详情视图样式 ================= */
+    .provider-detail-view {
+        max-width: 900px;
+        margin: 0 auto;
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .detail-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 40px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .detail-logo {
+        font-size: 32px;
+        margin-right: 12px;
+    }
+
+    .detail-title {
+        font-size: 24px;
+        font-weight: 600;
+    }
+
+    .help-icon {
+        margin-left: 12px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: var(--secondary-bg);
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    /* 表单设置区 */
+    .setting-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 24px 0;
+        border-bottom: 1px dashed var(--border-color);
+        flex-wrap: wrap; /* 允许在空间不足时折行 */
+        gap: 16px; /* 使用 gap 替代 padding，更易于控制间距 */
+    }
+
+    .setting-info {
+        flex: 1 1 200px; /* 给予弹性和基础宽度 */
+        min-width: 200px; /* 确保文本区绝对不会被过度挤压 */
+    }
+
+    .setting-label {
+        font-size: 15px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        white-space: nowrap; /* 强制标题（如"API Key"）保持在一行 */
+    }
+
+    .setting-desc {
+        font-size: 13px;
+        color: var(--text-muted);
+        line-height: 1.5;
+        word-break: break-word; /* 保证较长的英文单词可以正常换行 */
+    }
+
+    .setting-control {
+        flex: 0 1 400px; /* 最大占用 400px，允许随窗口收缩 */
+        width: 100%;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .input-wrapper {
+        position: relative;
+        width: 100%;
+    }
+
+    .input-wrapper input {
+        width: 100%;
+        padding: 10px 36px 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    
+    .input-wrapper.no-icon input {
+        padding-right: 12px; 
+    }
+
+    .input-wrapper input:focus {
+        border-color: #1890ff;
+    }
+
+    .input-wrapper .eye-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 16px;
+    }
+
+    .control-group {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .custom-select {
+        flex: 1;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 0 12px;
+        outline: none;
+        background-color: white;
+        height: 38px;
+        font-size: 14px;
+        color: var(--text-main);
+        cursor: pointer;
+    }
+    
+    .custom-select:focus {
+        border-color: #1890ff;
+    }
+
+    .btn-check {
+        padding: 0 20px;
+        border: 1px solid var(--border-color);
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 80px;
+        transition: all 0.2s;
+        color: var(--text-main);
+    }
+
+    .btn-check:hover:not(:disabled) {
+        background: var(--hover-bg);
+    }
+    
+    .btn-check:disabled {
+        cursor: not-allowed;
+        background: var(--secondary-bg);
+        color: var(--text-muted);
+    }
+
+    .loading-spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(0, 0, 0, 0.1);
+        border-left-color: currentColor;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 6px;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .security-notice {
+        text-align: center;
+        padding: 24px 0;
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+
+    .security-notice .highlight {
+        color: #1890ff;
+    }
+
+    /* ================= 模型列表区 ================= */
+    .model-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+        margin-bottom: 24px;
+    }
+
+    .model-title strong {
+        font-size: 16px;
+        margin-right: 12px;
+    }
+
+    .model-count {
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+
+    .model-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .model-actions .search-box.small {
+        margin-bottom: 0;
+        border: 1px solid var(--border-color);
+        background: white;
+        padding: 4px 12px;
+        height: 34px;
+    }
+
+    .btn-secondary {
+        padding: 0 16px;
+        height: 34px;
+        border: 1px solid var(--border-color);
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-icon {
+        width: 34px;
+        height: 34px;
+        border: 1px solid var(--border-color);
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+    }
+
+    .model-tabs {
+        display: flex;
+        gap: 24px;
+        border-bottom: 2px solid var(--border-color);
+        margin-bottom: 16px;
+    }
+
+    .model-tabs .tab {
+        padding: 12px 0;
+        font-size: 14px;
+        color: var(--text-muted);
+        cursor: pointer;
+        position: relative;
+        margin-bottom: -2px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .model-tabs .tab.active {
+        color: var(--text-main);
+        font-weight: 500;
+        border-bottom: 2px solid var(--text-main);
+    }
+
+    .list-controls {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-bottom: 16px;
+        align-items: center;
+    }
+
+    .list-actions {
+        display: flex;
+        gap: 12px;
+        cursor: pointer;
+    }
+
+    /* ================= 模型列表项及 AI 分析 ================= */
+    .model-item {
+        display: flex;
+        flex-wrap: wrap; /* 允许折行以容纳 AI 洞察面板 */
+        align-items: center;
+        padding: 20px 0;
+        border-bottom: 1px solid var(--hover-bg);
+    }
+
+    .model-item:last-child {
+        border-bottom: none;
+    }
+
+    .model-item-main {
+        display: flex;
+        width: 100%;
+        align-items: center;
+    }
+
+    .model-item-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-right: 16px;
+    }
+
+    .model-item-info {
+        flex: 1;
+    }
+
+    .model-item-name {
+        font-size: 15px;
+        font-weight: 500;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+    }
+
+    .model-id {
+        font-size: 12px;
+        background: var(--secondary-bg);
+        color: var(--text-muted);
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-left: 8px;
+        font-weight: normal;
+        border: 1px solid var(--border-color);
+    }
+
+    .model-item-meta {
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+
+    .model-item-actions {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .context-badge {
+        background: var(--secondary-bg);
+        color: var(--text-muted);
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    /* ✨ 智能分析按钮样式 */
+    .btn-ai-sparkle {
+        background: linear-gradient(135deg, #f6ffed 0%, #e6f7ff 100%);
+        border: 1px solid #91caff;
+        color: #0958d9;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-size: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.3s;
+        font-weight: 500;
+    }
+    
+    .btn-ai-sparkle:hover {
+        background: linear-gradient(135deg, #e6f7ff 0%, #bae0ff 100%);
+        box-shadow: 0 2px 6px rgba(9, 88, 217, 0.15);
+    }
+
+    .btn-ai-sparkle:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    /* ✨ AI 洞察面板样式 */
+    .ai-insight-box {
+        width: 100%;
+        margin-top: 16px;
+        padding: 12px 16px;
+        background: linear-gradient(to right, #fbfdff, #ffffff);
+        border: 1px solid #bae0ff;
+        border-radius: 8px;
+        font-size: 13px;
+        color: #1a1a1a;
+        display: none;
+        line-height: 1.6;
+        position: relative;
+        animation: fadeIn 0.4s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    }
+
+    .ai-insight-box .ai-badge {
+        font-weight: 600;
+        color: #0958d9;
+        margin-right: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .ai-error {
+        color: #ff4d4f;
+    }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="search-box">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <input type="text" placeholder="搜索服务商...">
+        <span class="add-btn">+</span>
+    </div>
+
+    <div class="sidebar-scroll">
+        <div class="nav-item">
+            <div class="icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+            </div>
+            全部
+        </div>
+
+        <div class="nav-group-title">已启用</div>
+        <div class="nav-item active">
+            <div class="icon">🤖</div>
+            LobeHub
+            <div class="status-dot"></div>
+        </div>
+        <div class="nav-item">
+            <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 100 100"><path fill="#ff4d4f" d="M20,50 Q30,20 40,50 T60,50 T80,50" stroke="#ff4d4f" stroke-width="8" fill="none"/></svg>
+            </div>
+            MiniMax Token Plan
+            <div class="status-dot"></div>
+        </div>
+
+        <div class="nav-group-title">未启用</div>
+        <div class="nav-item"><div class="icon"><b>A\</b></div> Anthropic</div>
+        <div class="nav-item"><div class="icon">
+            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        </div> Google</div>
+        <div class="nav-item"><div class="icon" style="color:#2f54eb;">❖</div> GLM Coding Plan</div>
+        <div class="nav-item"><div class="icon">🌙</div> Kimi Code</div>
+        <div class="nav-item"><div class="icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22.28 11.23h-9.52V1.71a10.58 10.58 0 00-1.52 0v9.52H1.71a10.58 10.58 0 000 1.52h9.52v9.52a10.58 10.58 0 001.52 0v-9.52h9.52a10.58 10.58 0 000-1.52z"/></svg>
+        </div> OpenAI</div>
+        <div class="nav-item"><div class="icon" style="color:#1d39c4;">🐋</div> DeepSeek</div>
+        <div class="nav-item"><div class="icon" style="color:#722ed1;">X</div> Xinference</div>
+        <div class="nav-item"><div class="icon">🌑</div> Moonshot</div>
+        <div class="nav-item"><div class="icon" style="color:#1890ff;">⚙</div> Bedrock</div>
+        <div class="nav-item"><div class="icon" style="color:#13c2c2;">☁</div> Aliyun Bailian</div>
+        <div class="nav-item"><div class="icon" style="color:#2f54eb;">V</div> Vertex AI</div>
+        <div class="nav-item"><div class="icon" style="color:#096dd9;">A</div> Azure OpenAI</div>
+    </div>
+</div>
+
+<div class="main-content">
+    <div class="provider-detail-view">
+        <div class="detail-header">
+            <div class="detail-logo">🤖</div>
+            <h1 class="detail-title">LobeHub</h1>
+            <div class="help-icon">?</div>
+        </div>
+
+        <div class="settings-section">
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">API Key</div>
+                    <div class="setting-desc">请填写你的 API Key</div>
+                </div>
+                <div class="setting-control">
+                    <div class="input-wrapper">
+                        <input type="password" placeholder="API Key">
+                        <span class="eye-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">API 代理地址</div>
+                    <div class="setting-desc">自定义请求地址，例如使用代理服务器时填写。留空则使用默认地址。</div>
+                </div>
+                <div class="setting-control">
+                    <div class="input-wrapper no-icon">
+                        <input type="text" placeholder="https://api.deepseek.com/v1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">连通性检查</div>
+                    <div class="setting-desc">测试 Api Key 与代理地址是否正确填写</div>
+                </div>
+                <div class="setting-control control-group">
+                    <select class="custom-select">
+                        <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
+                        <option value="deepseek-v4-flash">DeepSeek V4 Flash</option>
+                        <option value="deepseek-chat">DeepSeek V3.2</option>
+                    </select>
+                    <button class="btn-check" id="check-btn">检查</button>
+                </div>
+            </div>
+
+            <div class="security-notice">
+                🔒 你的密钥与代理地址等将使用 <span class="highlight">AES-GCM</span> 加密算法进行加密
+            </div>
+        </div>
+
+        <div class="model-section">
+            <div class="model-header">
+                <div class="model-title">
+                    <strong>模型列表</strong>
+                    <span class="model-count">共 89 个模型可用</span>
+                </div>
+                <div class="model-actions">
+                    <div class="search-box small">
+                        <svg viewBox="0 0 24 24" style="fill:#8c8c8c; width:14px; height:14px; margin-right:6px;"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                        <input type="text" placeholder="搜索模型...">
+                    </div>
+                    <button class="btn-secondary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+                        获取模型列表
+                    </button>
+                    <button class="btn-icon">+</button>
+                    <button class="btn-icon">⋮</button>
+                </div>
+            </div>
+
+            <div class="model-tabs">
+                <div class="tab active"><span class="icon">▦</span> 全部 (89)</div>
+                <div class="tab"><span class="icon">💬</span> 对话 (69)</div>
+                <div class="tab"><span class="icon">🖼️</span> 图片 (16)</div>
+                <div class="tab"><span class="icon">📹</span> 视频 (3)</div>
+                <div class="tab"><span class="icon">⚙️</span> 向量化 (1)</div>
+            </div>
+
+            <div class="list-controls">
+                <span class="status-text">已启用</span>
+                <div class="list-actions">
+                    <span>👁️</span> <span>↓↑</span>
+                </div>
+            </div>
+
+            <div class="model-list">
+                <!-- 模型项 1 -->
+                <div class="model-item" data-model="DeepSeek V4 Pro">
+                    <div class="model-item-main">
+                        <div class="model-item-icon" style="background:#2f54eb; color:white;">🐋</div>
+                        <div class="model-item-info">
+                            <div class="model-item-name">
+                                DeepSeek V4 Pro <span class="model-id">deepseek-v4-pro</span>
+                            </div>
+                            <div class="model-item-meta">
+                                发布于 2026-04-24 · 输入 $0.43/M · 输出 $0.87/M
+                            </div>
+                        </div>
+                        <div class="model-item-actions">
+                            <button class="btn-ai-sparkle ai-analyze-btn">✨ 智能分析</button>
+                            <div class="context-badge">🔧 1M</div>
+                            <label class="switch">
+                                <input type="checkbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="ai-insight-box"></div>
+                </div>
+
+                <!-- 模型项 2 -->
+                <div class="model-item" data-model="DeepSeek V4 Flash">
+                    <div class="model-item-main">
+                        <div class="model-item-icon" style="background:#2f54eb; color:white;">🐋</div>
+                        <div class="model-item-info">
+                            <div class="model-item-name">
+                                DeepSeek V4 Flash <span class="model-id">deepseek-v4-flash</span>
+                            </div>
+                            <div class="model-item-meta">
+                                发布于 2026-04-24 · 输入 $0.14/M · 输出 $0.28/M
+                            </div>
+                        </div>
+                        <div class="model-item-actions">
+                            <button class="btn-ai-sparkle ai-analyze-btn">✨ 智能分析</button>
+                            <div class="context-badge">🔧 1M</div>
+                            <label class="switch">
+                                <input type="checkbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="ai-insight-box"></div>
+                </div>
+
+                <!-- 模型项 3 -->
+                <div class="model-item" data-model="DeepSeek V3.2">
+                    <div class="model-item-main">
+                        <div class="model-item-icon" style="background:#2f54eb; color:white;">🐋</div>
+                        <div class="model-item-info">
+                            <div class="model-item-name">
+                                DeepSeek V3.2 <span class="model-id">deepseek-chat</span>
+                            </div>
+                            <div class="model-item-meta">
+                                发布于 2025-12-01 · 输入 $0.14/M · 输出 $0.28/M
+                            </div>
+                        </div>
+                        <div class="model-item-actions">
+                            <button class="btn-ai-sparkle ai-analyze-btn">✨ 智能分析</button>
+                            <div class="context-badge">🔧 1M</div>
+                            <label class="switch">
+                                <input type="checkbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="ai-insight-box"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ================== Gemini API 配置 ==================
+    const apiKey = ""; // 执行环境将自动注入真实的 API Key
+    const geminiModel = "gemini-2.5-flash-preview-09-2025";
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
+
+    /**
+     * 调用 Gemini API 进行模型特性分析（带指数退避重试机制）
+     */
+    async function fetchModelInsightWithRetry(modelName) {
+        const promptText = `你是一个专业的 AI 大模型生态专家。请用一段简短精炼的中文（约40字左右），总结【${modelName}】这款模型的主要优势、特点以及最推荐的应用场景。直接输出分析结果，无需多余客套。`;
+        
+        const payload = {
+            contents: [{ parts: [{ text: promptText }] }],
+            systemInstruction: { parts: [{ text: "你是一个专业的AI大模型生态专家。" }] }
+        };
+
+        let retries = 5;
+        let delay = 1000;
+
+        for (let i = 0; i < retries; i++) {
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text || "暂无返回分析结果。";
+            } catch (error) {
+                if (i === retries - 1) throw error;
+                await new Promise(res => setTimeout(res, delay));
+                delay *= 2; // 指数退避 (1s, 2s, 4s...)
+            }
+        }
+    }
+
+    // ================== 页面交互逻辑 ==================
+    document.addEventListener('DOMContentLoaded', () => {
+        
+        // 1. 连通性检查按钮交互（原有逻辑）
+        const checkBtn = document.getElementById('check-btn');
+        if (checkBtn) {
+            checkBtn.addEventListener('click', () => {
+                const originalText = checkBtn.textContent;
+                checkBtn.innerHTML = '<span class="loading-spinner"></span> 检查中...';
+                checkBtn.disabled = true;
+                
+                setTimeout(() => {
+                    checkBtn.innerHTML = '<span style="color: #52c41a; font-weight: 500;">✓ 检查通过</span>';
+                    checkBtn.style.borderColor = '#52c41a';
+                    checkBtn.style.backgroundColor = '#f6ffed'; 
+                    
+                    setTimeout(() => {
+                        checkBtn.innerHTML = originalText;
+                        checkBtn.disabled = false;
+                        checkBtn.style.borderColor = 'var(--border-color)';
+                        checkBtn.style.backgroundColor = 'white';
+                    }, 2000);
+                }, 1500);
+            });
+        }
+
+        // 2. ✨ 智能分析按钮交互（Gemini AI 集成）
+        const analyzeBtns = document.querySelectorAll('.ai-analyze-btn');
+        
+        analyzeBtns.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const modelItem = e.target.closest('.model-item');
+                const modelName = modelItem.getAttribute('data-model');
+                const insightBox = modelItem.querySelector('.ai-insight-box');
+                
+                // 设置 Loading 状态
+                btn.innerHTML = '<span class="loading-spinner" style="width:12px;height:12px;border-width:1.5px;"></span> 分析中...';
+                btn.disabled = true;
+                insightBox.style.display = 'block';
+                insightBox.innerHTML = '<span class="ai-badge">✨ Gemini:</span> 正在请求智能生态分析...';
+                
+                try {
+                    // 调用 Gemini API
+                    const insightText = await fetchModelInsightWithRetry(modelName);
+                    
+                    // 渲染成功结果
+                    insightBox.innerHTML = `<span class="ai-badge">✨ Gemini 智能洞察:</span> <span>${insightText}</span>`;
+                    btn.innerHTML = '✨ 重新分析';
+                } catch (error) {
+                    // 渲染失败结果
+                    insightBox.innerHTML = `<span class="ai-error">❌ 分析请求失败，请检查网络或稍后重试。</span>`;
+                    btn.innerHTML = '✨ 智能分析';
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
+    });
+</script>
+
+</body>
+</html>
