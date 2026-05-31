@@ -27,15 +27,11 @@ const DEFAULT_URLS: Record<string, string> = {
   Moonshot: "https://api.moonshot.cn/v1",
   Zhipu: "https://open.bigmodel.cn/api/paas/v4",
   Ollama: "http://localhost:11434/v1",
-  Groq: "https://api.groq.com/openai/v1",
-  Together: "https://api.together.xyz/v1",
   Qwen: "https://dashscope.aliyuncs.com/compatible-mode/v1",
   SiliconFlow: "https://api.siliconflow.cn/v1",
   LMStudio: "http://localhost:1234/v1",
   Stepfun: "https://api.stepfun.com/v1",
-  Yi: "https://api.lingyiwanwu.com/v1",
   Mistral: "https://api.mistral.ai/v1",
-  Perplexity: "https://api.perplexity.ai",
   "X.AI": "https://api.x.ai/v1",
   Doubao: "https://ark.cn-beijing.volces.com/api/v3",
 }
@@ -89,7 +85,6 @@ export default function LlmProviderDetail({
   const [showKey, setShowKey] = useState(false)
   const [testModel, setTestModel] = useState(parseModels(p.models)[0] || "")
   const [enabled, setEnabled] = useState(p.enabled !== false)
-  const [autoTesting, setAutoTesting] = useState(false)
   const [localKey, setLocalKey] = useState(p.apiKey || "")
   const [syncing, setSyncing] = useState(false)
 
@@ -258,17 +253,13 @@ export default function LlmProviderDetail({
             {p.id.startsWith("template-") || editKey.trim() !== "" ? (
               <button
                 onClick={async () => {
-                  if (saving || testing || autoTesting) return
-                  setAutoTesting(true)
+                  if (saving || testing) return
                   const pass = await onTest(testModel)
-                  setAutoTesting(false)
                   if (pass) {
                     onSaveKey()
-                  } else {
-                    alert("API 连通性测试未通过，请检查您的 API Key 和请求地址！")
                   }
                 }}
-                disabled={!editKey.trim() || saving || autoTesting}
+                disabled={!editKey.trim() || saving || testing}
                 className="h-8 px-4 text-[12px] font-medium rounded-md bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm hover:scale-[1.02] active:scale-[0.98]"
               >
                 保存
