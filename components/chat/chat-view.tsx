@@ -64,13 +64,27 @@ const iconStyle = { fontSize: 16 }
 
 interface ModelOption { label: string; desc: string; provider?: string; enableThinking?: boolean; logo?: string | null }
 
-function buildModelOptions(providers: Array<{ name: string; models: string; enableThinking: boolean; logo?: string | null }>): Record<string, ModelOption> {
+function buildModelOptions(providers: Array<{ id: string; name: string; models: string; enableThinking: boolean; logo?: string | null }>): Record<string, ModelOption> {
   const opts: Record<string, ModelOption> = {
     '': { label: '默认模型', desc: '使用默认供应商的第一个模型' },
   }
   for (const p of providers) {
     const modelList = p.models.split(",").map((m: string) => m.trim()).filter(Boolean)
+    
+    let enabledMap: Record<string, boolean> = {}
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`llm_enabled_models_${p.id}`)
+      if (saved) {
+        try {
+          enabledMap = JSON.parse(saved)
+        } catch {}
+      }
+    }
+
     for (const model of modelList) {
+      if (enabledMap[model] === false) {
+        continue
+      }
       opts[model] = {
         label: `${model}`,
         desc: `${p.name} 供应商`,

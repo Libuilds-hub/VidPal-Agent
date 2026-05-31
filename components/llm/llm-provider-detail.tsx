@@ -96,6 +96,29 @@ export default function LlmProviderDetail({
     setLocalKey(p.apiKey || "")
   }, [p.apiKey])
   const [enabledModels, setEnabledModels] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`llm_enabled_models_${p.id}`)
+      if (saved) {
+        try {
+          setEnabledModels(JSON.parse(saved))
+        } catch {}
+      } else {
+        setEnabledModels({})
+      }
+    }
+  }, [p.id])
+
+  const toggleModelEnabled = (model: string) => {
+    setEnabledModels((prev) => {
+      const next = { ...prev, [model]: prev[model] === false ? true : false }
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`llm_enabled_models_${p.id}`, JSON.stringify(next))
+      }
+      return next
+    })
+  }
   
   const [localTestStatus, setLocalTestStatus] = useState<"idle" | "testing" | "success" | "fail">("idle")
 
@@ -548,7 +571,7 @@ export default function LlmProviderDetail({
                     <button
                       role="switch"
                       aria-checked={enabledModels[model] !== false}
-                      onClick={() => setEnabledModels((prev) => ({ ...prev, [model]: prev[model] === false ? true : false }))}
+                      onClick={() => toggleModelEnabled(model)}
                       className={`relative inline-flex h-5 w-8.5 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
                         enabledModels[model] !== false ? "bg-foreground" : "bg-muted-foreground/25"
                       }`}
