@@ -96,7 +96,17 @@ export default function LlmProviderDetail({
     setLocalKey(p.apiKey || "")
   }, [p.apiKey])
   const [enabledModels, setEnabledModels] = useState<Record<string, boolean>>({})
-  const [openRouterModels, setOpenRouterModels] = useState<any[]>([])
+  const [openRouterModels, setOpenRouterModels] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("llm_openrouter_models_cache")
+      if (cached) {
+        try {
+          return JSON.parse(cached)
+        } catch {}
+      }
+    }
+    return []
+  })
 
   useEffect(() => {
     fetch("https://openrouter.ai/api/v1/models")
@@ -104,6 +114,9 @@ export default function LlmProviderDetail({
       .then((data) => {
         if (data && Array.isArray(data.data)) {
           setOpenRouterModels(data.data)
+          if (typeof window !== "undefined") {
+            localStorage.setItem("llm_openrouter_models_cache", JSON.stringify(data.data))
+          }
         }
       })
       .catch((err) => console.error("Failed to load global OpenRouter model database:", err))
