@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Wrench, Video, Image, Plus, RotateCcw, Trash2, Pencil, X, Brain, RefreshCw } from "lucide-react"
 import { getProviderIcon, getProviderHeader, getProviderAvatar } from "./provider-icons"
-import { getModelMetaFromRegistry } from "@/lib/model-registry"
 
 interface Provider {
   id: string
@@ -97,6 +96,18 @@ export default function LlmProviderDetail({
     setLocalKey(p.apiKey || "")
   }, [p.apiKey])
   const [enabledModels, setEnabledModels] = useState<Record<string, boolean>>({})
+  const [openRouterModels, setOpenRouterModels] = useState<any[]>([])
+
+  useEffect(() => {
+    fetch("https://openrouter.ai/api/v1/models")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Array.isArray(data.data)) {
+          setOpenRouterModels(data.data)
+        }
+      })
+      .catch((err) => console.error("Failed to load global OpenRouter model database:", err))
+  }, [])
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -174,15 +185,6 @@ export default function LlmProviderDetail({
         }
       }
     }
-
-    // Try to get from static model registry
-    const registryMeta = getModelMetaFromRegistry(model)
-    if (registryMeta) {
-      return {
-        id: model,
-        ...registryMeta,
-      }
-    }
     
     // Fallback default meta
     const mLower = model.toLowerCase()
@@ -201,10 +203,10 @@ export default function LlmProviderDetail({
       defaultType = "TTS"
     }
 
-    const isThinking = mLower.includes("reasoner") || mLower.includes("reasoning") || mLower.includes("thinking") || mLower.includes("r1") || mLower.includes("o1") || mLower.includes("o3") || mLower.includes("qwq")
-    const isVision = mLower.includes("vision") || mLower.includes("vl") || mLower.includes("multimodal") || mLower.includes("omni") || mLower.includes("gpt-4o") || mLower.includes("gpt-5") || mLower.includes("gemini") || mLower.includes("claude-3.5") || mLower.includes("claude-sonnet") || mLower.includes("claude-opus") || mLower.includes("pixtral") || mLower.includes("llava") || mLower.includes("internvl") || mLower.includes("minicpm") || mLower.includes("molmo")
-    const isVideo = mLower.includes("video") || mLower.includes("sora") || mLower.includes("kling") || mLower.includes("vidu") || mLower.includes("cogvideo")
-    const isTools = mLower.includes("gpt-4") || mLower.includes("gpt-5") || mLower.includes("claude") || mLower.includes("gemini") || mLower.includes("fc") || mLower.includes("tool") || mLower.includes("qwen") || mLower.includes("deepseek") || mLower.includes("glm") || mLower.includes("llama") || mLower.includes("mistral") || mLower.includes("mixtral") || mLower.includes("codestral") || mLower.includes("grok") || mLower.includes("step") || mLower.includes("minimax") || mLower.includes("doubao") || mLower.includes("yi") || mLower.includes("command") || mLower.includes("abab")
+    let isThinking = mLower.includes("reasoner") || mLower.includes("reasoning") || mLower.includes("thinking") || mLower.includes("r1") || mLower.includes("o1") || mLower.includes("o3") || mLower.includes("qwq")
+    let isVision = mLower.includes("vision") || mLower.includes("vl") || mLower.includes("multimodal") || mLower.includes("omni") || mLower.includes("gpt-4o") || mLower.includes("gpt-5") || mLower.includes("gemini") || mLower.includes("claude-3.5") || mLower.includes("claude-sonnet") || mLower.includes("claude-opus") || mLower.includes("pixtral") || mLower.includes("llava") || mLower.includes("internvl") || mLower.includes("minicpm") || mLower.includes("molmo")
+    let isVideo = mLower.includes("video") || mLower.includes("sora") || mLower.includes("kling") || mLower.includes("vidu") || mLower.includes("cogvideo")
+    let isTools = mLower.includes("gpt-4") || mLower.includes("gpt-5") || mLower.includes("claude") || mLower.includes("gemini") || mLower.includes("fc") || mLower.includes("tool") || mLower.includes("qwen") || mLower.includes("deepseek") || mLower.includes("glm") || mLower.includes("llama") || mLower.includes("mistral") || mLower.includes("mixtral") || mLower.includes("codestral") || mLower.includes("grok") || mLower.includes("step") || mLower.includes("minimax") || mLower.includes("doubao") || mLower.includes("yi") || mLower.includes("command") || mLower.includes("abab")
     
     let defaultContext = "128000"
     const contextMatch = mLower.match(/(?:-|_|\b)(\d+)(k|m)(?:\b|_|-)/)
@@ -224,9 +226,40 @@ export default function LlmProviderDetail({
       defaultContext = "16000"
     }
 
+    let displayName = model
+
+    // Cross-reference with OpenRouter global models database
+    if (openRouterModels && openRouterModels.length > 0) {
+      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "")
+      const modelNorm = normalize(model)
+      
+      const matched = openRouterModels.find((m: any) => {
+        const parts = m.id.split("/")
+        const lastPart = parts[parts.length - 1]
+        if (normalize(lastPart) === modelNorm) return true
+        if (normalize(m.id) === modelNorm) return true
+        if (modelNorm.length > 3 && (normalize(lastPart).includes(modelNorm) || modelNorm.includes(normalize(lastPart)))) return true
+        return false
+      })
+
+      if (matched) {
+        displayName = matched.name || model
+        defaultContext = matched.context_length ? String(matched.context_length) : defaultContext
+        
+        // Match capabilities dynamically
+        if (matched.supported_parameters?.includes("tools")) {
+          isTools = true
+        }
+        const modalities = matched.architecture?.input_modalities || []
+        if (modalities.includes("image") || matched.architecture?.modality?.includes("image")) {
+          isVision = true
+        }
+      }
+    }
+
     return {
       id: model,
-      name: model,
+      name: displayName,
       type: defaultType,
       context: defaultContext,
       thinking: isThinking,
