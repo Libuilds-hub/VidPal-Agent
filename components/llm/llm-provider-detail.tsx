@@ -206,9 +206,35 @@ export default function LlmProviderDetail({
     let defaultType = "文本"
     if (mLower.includes("embed") || mLower.includes("vector")) {
       defaultType = "向量化"
-    } else if (mLower.includes("image") || mLower.includes("dall") || mLower.includes("flux") || mLower.includes("recraft") || mLower.includes("sd-") || mLower.includes("cogview")) {
+    } else if (
+      mLower.includes("image") || 
+      mLower.includes("dall") || 
+      mLower.includes("flux") || 
+      mLower.includes("recraft") || 
+      mLower.includes("sd-") || 
+      mLower.includes("sdxl") || 
+      mLower.includes("stable-diffusion") || 
+      mLower.includes("cogview") || 
+      mLower.includes("midjourney") || 
+      mLower.includes("mj") || 
+      mLower.includes("kolors") ||
+      mLower.includes("wanx") || 
+      mLower.includes("drawing")
+    ) {
       defaultType = "图片"
-    } else if (mLower.includes("video") || mLower.includes("sora") || mLower.includes("kling") || mLower.includes("vidu") || mLower.includes("cogvideo")) {
+    } else if (
+      mLower.includes("video") || 
+      mLower.includes("sora") || 
+      mLower.includes("kling") || 
+      mLower.includes("vidu") || 
+      mLower.includes("cogvideo") || 
+      mLower.includes("runway") || 
+      mLower.includes("gen-2") || 
+      mLower.includes("gen-3") || 
+      mLower.includes("luma") || 
+      mLower.includes("pika") || 
+      mLower.includes("hunyuan-video")
+    ) {
       defaultType = "视频"
     } else if (mLower.includes("whisper") || mLower.includes("asr")) {
       defaultType = "ASR"
