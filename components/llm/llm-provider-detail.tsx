@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Wrench, Video, Image, Plus, RotateCcw, Trash2, Pencil, X, Brain, RefreshCw } from "lucide-react"
 import { getProviderIcon, getProviderHeader, getProviderAvatar } from "./provider-icons"
+import { getModelMetaFromRegistry } from "@/lib/model-registry"
 
 interface Provider {
   id: string
@@ -173,6 +174,15 @@ export default function LlmProviderDetail({
         }
       }
     }
+
+    // Try to get from static model registry
+    const registryMeta = getModelMetaFromRegistry(model)
+    if (registryMeta) {
+      return {
+        id: model,
+        ...registryMeta,
+      }
+    }
     
     // Fallback default meta
     const mLower = model.toLowerCase()
@@ -209,8 +219,6 @@ export default function LlmProviderDetail({
     } else if (mLower.includes("gemini")) {
       defaultContext = mLower.includes("pro") ? "2000000" : "1000000"
     } else if (mLower.includes("claude")) {
-      defaultContext = "200000"
-    } else if (mLower.includes("minimax")) {
       defaultContext = "200000"
     } else if (mLower.includes("gpt-3.5")) {
       defaultContext = "16000"
