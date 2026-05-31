@@ -417,31 +417,6 @@ export default function LlmProviderDetail({
               <span className="text-xs text-muted-foreground">共 {modelCount} 个模型可用</span>
             </div>
             <div className="flex items-center gap-2">
-              {onSync && (
-                <button
-                  onClick={async () => {
-                    if (syncing) return
-                    setSyncing(true)
-                    try {
-                      await onSync()
-                    } catch (err) {
-                      console.error(err)
-                    } finally {
-                      setSyncing(false)
-                    }
-                  }}
-                  disabled={syncing || !p.apiKey}
-                  className="h-[30px] px-3 gap-1.5 border border-border/40 bg-background hover:bg-muted/60 disabled:opacity-50 rounded-md cursor-pointer flex items-center justify-center transition-all text-xs font-medium shadow-sm hover:scale-[1.02] active:scale-[0.98] text-foreground"
-                  title="从云端 API 获取最新模型列表并自动填充属性"
-                >
-                  {syncing ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-3.5 w-3.5" />
-                  )}
-                  同步云端模型
-                </button>
-              )}
               <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg px-2.5 py-1.5 border border-border/30">
                 <Search className="h-3 w-3 text-muted-foreground/50" />
                 <input
@@ -469,12 +444,30 @@ export default function LlmProviderDetail({
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>
-              <button
-                className="w-[30px] h-[30px] border border-border/40 bg-background hover:bg-muted/60 rounded-md cursor-pointer flex items-center justify-center transition-colors"
-                title="重置模型列表"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-              </button>
+              {onSync && (
+                <button
+                  onClick={async () => {
+                    if (syncing) return
+                    setSyncing(true)
+                    try {
+                      await onSync()
+                    } catch (err) {
+                      console.error(err)
+                    } finally {
+                      setSyncing(false)
+                    }
+                  }}
+                  disabled={syncing || !p.apiKey}
+                  className="w-[30px] h-[30px] border border-border/40 bg-background hover:bg-muted/60 disabled:opacity-50 rounded-md cursor-pointer flex items-center justify-center transition-colors"
+                  title="从云端 API 获取最新模型列表并自动填充属性"
+                >
+                  {syncing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
