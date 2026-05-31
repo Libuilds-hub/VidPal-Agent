@@ -196,11 +196,29 @@ export default function LlmProviderDetail({
     const isVideo = mLower.includes("video") || mLower.includes("sora") || mLower.includes("kling") || mLower.includes("vidu") || mLower.includes("cogvideo")
     const isTools = mLower.includes("gpt-4") || mLower.includes("gpt-5") || mLower.includes("claude") || mLower.includes("gemini") || mLower.includes("fc") || mLower.includes("tool") || mLower.includes("qwen") || mLower.includes("deepseek") || mLower.includes("glm") || mLower.includes("llama") || mLower.includes("mistral") || mLower.includes("mixtral") || mLower.includes("codestral") || mLower.includes("grok") || mLower.includes("step") || mLower.includes("minimax") || mLower.includes("doubao") || mLower.includes("yi") || mLower.includes("command") || mLower.includes("abab")
     
+    let defaultContext = "128000"
+    const contextMatch = mLower.match(/(?:-|_|\b)(\d+)(k|m)(?:\b|_|-)/)
+    if (contextMatch) {
+      const num = parseInt(contextMatch[1])
+      const unit = contextMatch[2]
+      if (unit === "k") {
+        defaultContext = String(num * 1000)
+      } else if (unit === "m") {
+        defaultContext = String(num * 1000000)
+      }
+    } else if (mLower.includes("gemini")) {
+      defaultContext = mLower.includes("pro") ? "2000000" : "1000000"
+    } else if (mLower.includes("claude")) {
+      defaultContext = "200000"
+    } else if (mLower.includes("gpt-3.5")) {
+      defaultContext = "16000"
+    }
+
     return {
       id: model,
       name: model,
       type: defaultType,
-      context: mLower.includes("gemini-3.5") || mLower.includes("gemini-3.1") ? "2097152" : (mLower.includes("grok-4") ? "1000000" : (mLower.includes("pro-seed-2") || mLower.includes("step-3") ? "256000" : "128000")),
+      context: defaultContext,
       thinking: isThinking,
       vision: isVision,
       video: isVideo,
