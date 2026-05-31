@@ -210,6 +210,8 @@ export default function LlmProviderDetail({
       defaultContext = mLower.includes("pro") ? "2000000" : "1000000"
     } else if (mLower.includes("claude")) {
       defaultContext = "200000"
+    } else if (mLower.includes("minimax")) {
+      defaultContext = "200000"
     } else if (mLower.includes("gpt-3.5")) {
       defaultContext = "16000"
     }
