@@ -244,6 +244,10 @@ export default function LlmProviderDetail({
 
       if (matched) {
         displayName = matched.name || model
+        if (displayName.includes(":")) {
+          const colonParts = displayName.split(":")
+          displayName = colonParts[colonParts.length - 1].trim()
+        }
         defaultContext = matched.context_length ? String(matched.context_length) : defaultContext
         
         // Match capabilities dynamically
