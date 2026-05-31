@@ -207,6 +207,21 @@ export default function LlmProviderDetail({
     if (mLower.includes("embed") || mLower.includes("vector")) {
       defaultType = "向量化"
     } else if (
+      mLower.includes("video") || 
+      mLower.includes("sora") || 
+      mLower.includes("kling") || 
+      mLower.includes("vidu") || 
+      mLower.includes("cogvideo") || 
+      mLower.includes("runway") || 
+      mLower.includes("gen-2") || 
+      mLower.includes("gen-3") || 
+      mLower.includes("luma") || 
+      mLower.includes("pika") || 
+      mLower.includes("hunyuan-video") ||
+      mLower.includes("t2v")
+    ) {
+      defaultType = "视频"
+    } else if (
       mLower.includes("image") || 
       mLower.includes("dall") || 
       mLower.includes("flux") || 
@@ -219,23 +234,10 @@ export default function LlmProviderDetail({
       mLower.includes("mj") || 
       mLower.includes("kolors") ||
       mLower.includes("wanx") || 
-      mLower.includes("drawing")
+      mLower.includes("drawing") ||
+      mLower.includes("t2i")
     ) {
       defaultType = "图片"
-    } else if (
-      mLower.includes("video") || 
-      mLower.includes("sora") || 
-      mLower.includes("kling") || 
-      mLower.includes("vidu") || 
-      mLower.includes("cogvideo") || 
-      mLower.includes("runway") || 
-      mLower.includes("gen-2") || 
-      mLower.includes("gen-3") || 
-      mLower.includes("luma") || 
-      mLower.includes("pika") || 
-      mLower.includes("hunyuan-video")
-    ) {
-      defaultType = "视频"
     } else if (mLower.includes("whisper") || mLower.includes("asr")) {
       defaultType = "ASR"
     } else if (mLower.includes("tts") || mLower.includes("audio")) {
@@ -790,7 +792,7 @@ export default function LlmProviderDetail({
                     className="w-full h-9 rounded-md border border-border/40 bg-background px-2.5 text-sm outline-none focus:border-blue-500 cursor-pointer"
                   >
                     <option value="文本">文本</option>
-                    <option value="图像">图像</option>
+                    <option value="图片">图片</option>
                     <option value="视频">视频</option>
                     <option value="向量化">向量化</option>
                     <option value="ASR">ASR</option>
