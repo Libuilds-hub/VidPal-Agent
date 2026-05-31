@@ -20,6 +20,7 @@ import {
 } from '@ant-design/icons'
 import type { GetRef, MenuProps } from 'antd'
 import { Button, Divider, Dropdown, Flex, Input, message, Pagination } from 'antd'
+import { getProviderAvatar } from '@/components/llm/provider-icons'
 
 interface SpeechRecognition extends EventTarget {
   lang: string
@@ -61,16 +62,22 @@ const XSwitch = Sender.Switch
 
 const iconStyle = { fontSize: 16 }
 
-interface ModelOption { label: string; desc: string; provider?: string; enableThinking?: boolean }
+interface ModelOption { label: string; desc: string; provider?: string; enableThinking?: boolean; logo?: string | null }
 
-function buildModelOptions(providers: Array<{ name: string; models: string; enableThinking: boolean }>): Record<string, ModelOption> {
+function buildModelOptions(providers: Array<{ name: string; models: string; enableThinking: boolean; logo?: string | null }>): Record<string, ModelOption> {
   const opts: Record<string, ModelOption> = {
     '': { label: '默认模型', desc: '使用默认供应商的第一个模型' },
   }
   for (const p of providers) {
     const modelList = p.models.split(",").map((m: string) => m.trim()).filter(Boolean)
     for (const model of modelList) {
-      opts[model] = { label: `${model}`, desc: `${p.name} 供应商`, provider: p.name, enableThinking: p.enableThinking }
+      opts[model] = {
+        label: `${model}`,
+        desc: `${p.name} 供应商`,
+        provider: p.name,
+        enableThinking: p.enableThinking,
+        logo: p.logo,
+      }
     }
   }
   return opts
@@ -694,11 +701,22 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
     label: AgentInfo[key].label,
   }))
 
-  const modelItems: MenuProps['items'] = Object.entries(modelOptions).map(([key, { label }]) => ({
-    key,
-    icon: <RobotOutlined />,
-    label,
-  }))
+  const modelItems: MenuProps['items'] = Object.entries(modelOptions).map(([key, { label, provider, logo }]) => {
+    let avatar: React.ReactNode
+    if (provider) {
+      avatar = getProviderAvatar(provider, 20, 'circle', logo)
+    } else {
+      const defaultProvider = providers.find((p) => p.isDefault) || providers[0]
+      avatar = defaultProvider
+        ? getProviderAvatar(defaultProvider.name, 20, 'circle', defaultProvider.logo)
+        : <RobotOutlined />
+    }
+    return {
+      key,
+      icon: avatar,
+      label,
+    }
+  })
 
   const handleAgentClick: MenuProps['onClick'] = (item) => {
     setActiveAgentKey(item.key)
@@ -729,7 +747,23 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
                   items: modelItems,
                 }}
               >
-                <XSwitch value={false} icon={<RobotOutlined />}>
+                <XSwitch
+                  value={false}
+                  icon={(() => {
+                    if (selectedModel && modelOptions[selectedModel]?.provider) {
+                      return getProviderAvatar(
+                        modelOptions[selectedModel].provider!,
+                        20,
+                        'circle',
+                        modelOptions[selectedModel].logo
+                      )
+                    }
+                    const defaultProvider = providers.find((p) => p.isDefault) || providers[0]
+                    return defaultProvider
+                      ? getProviderAvatar(defaultProvider.name, 20, 'circle', defaultProvider.logo)
+                      : <RobotOutlined />
+                  })()}
+                >
                   {modelOptions[selectedModel]?.label || '模型'}
                 </XSwitch>
               </Dropdown>
