@@ -191,10 +191,10 @@ export default function LlmProviderDetail({
       defaultType = "TTS"
     }
 
-    const isThinking = mLower.includes("reasoner") || mLower.includes("thinking") || mLower.includes("r1") || mLower.includes("o1") || mLower.includes("o3")
-    const isVision = mLower.includes("vision") || mLower.includes("vl") || mLower.includes("multimodal") || mLower.includes("omni") || mLower.includes("gpt-4o") || mLower.includes("gpt-5") || mLower.includes("gemini") || mLower.includes("claude-3.5") || mLower.includes("claude-sonnet") || mLower.includes("claude-opus")
-    const isVideo = mLower.includes("video") || mLower.includes("sora") || mLower.includes("kling") || mLower.includes("vidu")
-    const isTools = mLower.includes("gpt-4") || mLower.includes("gpt-5") || mLower.includes("claude") || mLower.includes("gemini") || mLower.includes("fc") || mLower.includes("tool") || mLower.includes("qwen") || mLower.includes("deepseek") || mLower.includes("glm")
+    const isThinking = mLower.includes("reasoner") || mLower.includes("reasoning") || mLower.includes("thinking") || mLower.includes("r1") || mLower.includes("o1") || mLower.includes("o3") || mLower.includes("qwq")
+    const isVision = mLower.includes("vision") || mLower.includes("vl") || mLower.includes("multimodal") || mLower.includes("omni") || mLower.includes("gpt-4o") || mLower.includes("gpt-5") || mLower.includes("gemini") || mLower.includes("claude-3.5") || mLower.includes("claude-sonnet") || mLower.includes("claude-opus") || mLower.includes("pixtral") || mLower.includes("llava") || mLower.includes("internvl") || mLower.includes("minicpm") || mLower.includes("molmo")
+    const isVideo = mLower.includes("video") || mLower.includes("sora") || mLower.includes("kling") || mLower.includes("vidu") || mLower.includes("cogvideo")
+    const isTools = mLower.includes("gpt-4") || mLower.includes("gpt-5") || mLower.includes("claude") || mLower.includes("gemini") || mLower.includes("fc") || mLower.includes("tool") || mLower.includes("qwen") || mLower.includes("deepseek") || mLower.includes("glm") || mLower.includes("llama") || mLower.includes("mistral") || mLower.includes("mixtral") || mLower.includes("codestral") || mLower.includes("grok") || mLower.includes("step") || mLower.includes("minimax") || mLower.includes("doubao") || mLower.includes("yi") || mLower.includes("command") || mLower.includes("abab")
     
     return {
       id: model,
