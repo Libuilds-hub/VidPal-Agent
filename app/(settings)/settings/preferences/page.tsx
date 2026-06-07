@@ -61,20 +61,25 @@ export default function PreferencesPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin bg-background/35">
-      <SettingsPageHeader title="偏好设置" description="定制界面的个性化展现与转写默认值" />
-      <div className="max-w-2xl space-y-4 animate-in fade-in-50 duration-150">
-        <div className="space-y-1">
-          <SettingRow label="主题" description="界面配色方案">
-            <Dropdown value={theme} options={THEME_OPTIONS} width="140px" onChange={(v) => { setTheme(v); setMessage(null) }} />
-          </SettingRow>
-          <SettingRow label="转写默认语言" description="视频语音转文字的默认目标语言">
-            <Dropdown value={transcribeLang} options={LANG_OPTIONS} width="140px" onChange={(v) => { setTranscribeLang(v); setMessage(null) }} />
-          </SettingRow>
-          <SettingRow label="UI 密度" description="控制界面信息密度与间距">
-            <Dropdown value={uiDensity} options={DENSITY_OPTIONS} width="110px" onChange={(v) => { setUiDensity(v); setMessage(null) }} />
-          </SettingRow>
+      <div className="max-w-2xl mx-auto w-full py-4 space-y-6 animate-in fade-in-50 duration-150">
+        <SettingsPageHeader title="偏好设置" description="定制界面的个性化展现与转写默认值" />
+        
+        <div className="space-y-2.5">
+          <h2 className="text-[12px] font-semibold text-muted-foreground/80 pl-1 uppercase tracking-wider select-none">常规</h2>
+          <div className="rounded-xl border border-border/40 bg-card/45 px-5 py-1.5 shadow-xs">
+            <SettingRow label="主题" description="界面配色方案">
+              <Dropdown value={theme} options={THEME_OPTIONS} width="140px" onChange={(v) => { setTheme(v); setMessage(null) }} />
+            </SettingRow>
+            <SettingRow label="转写默认语言" description="视频语音转文字的默认目标语言">
+              <Dropdown value={transcribeLang} options={LANG_OPTIONS} width="140px" onChange={(v) => { setTranscribeLang(v); setMessage(null) }} />
+            </SettingRow>
+            <SettingRow label="UI 密度" description="控制界面信息密度与间距">
+              <Dropdown value={uiDensity} options={DENSITY_OPTIONS} width="110px" onChange={(v) => { setUiDensity(v); setMessage(null) }} />
+            </SettingRow>
+          </div>
         </div>
-        <div className="flex items-center justify-between mt-6 pt-4 border-t border-border/20">
+
+        <div className="flex items-center justify-between pt-2">
           <StatusBanner type={message?.type ?? "success"} text={message?.text ?? ""} onDismiss={() => setMessage(null)} />
           <button onClick={handleSave} disabled={saving} className="ml-auto h-7 px-3.5 flex items-center gap-1.5 text-[11px] font-semibold rounded-md border border-border/40 bg-card hover:bg-muted/70 disabled:opacity-50 transition-all duration-150 cursor-pointer select-none">
             {saving && <Loader2 className="h-3 w-3 animate-spin" />}

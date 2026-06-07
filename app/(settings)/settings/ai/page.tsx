@@ -52,58 +52,70 @@ export default function AiAgentPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin bg-background/35">
-      <SettingsPageHeader title="AI & Agent" description="自动化调度与辅助 Agent 参数配置" />
-      <div className="max-w-2xl space-y-3 animate-in fade-in-50 duration-150">
-        <p className="text-[11.5px] text-muted-foreground/80 mb-3 leading-normal">配置 AI Agent 连接和自动化以激活更高级的代码辅助或视频生成指令</p>
-
-        <div className="space-y-1">
-          {/* Openclaw */}
-          <div className="flex items-center justify-between py-2.5 border-b border-border/20">
-            <div className="min-w-0">
-              <div className="text-[13px] font-semibold text-foreground/85">Openclaw</div>
-              <div className="text-[11px] text-muted-foreground/65 mt-0.5">多平台 AI Agent 调度与控制引擎</div>
-            </div>
-            <Toggle checked={openclawEnabled} onChange={(v) => { setOpenclawEnabled(v); saveAgentSetting("openclawEnabled", v) }} />
+      <div className="max-w-2xl mx-auto w-full py-4 space-y-6 animate-in fade-in-50 duration-150">
+        <SettingsPageHeader title="AI & Agent" description="自动化调度与辅助 Agent 参数配置" />
+        
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between pl-1">
+            <h2 className="text-[12px] font-semibold text-muted-foreground/80 uppercase tracking-wider select-none">AI 代理</h2>
+            <span className="text-[10.5px] text-muted-foreground/60 leading-none select-none">配置 Agent 连接以激活高级功能</span>
           </div>
-          {openclawEnabled && (
-            <div className="pl-3 border-l-2 border-border/45 my-1">
-              <SettingRow label="API Key" description="Openclaw 服务连接密钥">
-                <Input type="password" value={openclawKey} onChange={(e) => { setOpenclawKey(e.target.value) }} onBlur={() => saveAgentSetting("openclawKey", openclawKey)} placeholder="sk-..." className="w-[240px] h-8 text-[12px]" />
-              </SettingRow>
+          
+          <div className="rounded-xl border border-border/40 bg-card/45 px-5 py-1.5 shadow-xs divide-y divide-border/20">
+            {/* Openclaw */}
+            <div className="py-4">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-medium text-foreground">Openclaw</div>
+                  <div className="text-xs text-muted-foreground mt-0.5 leading-normal">多平台 AI Agent 调度与控制引擎</div>
+                </div>
+                <Toggle checked={openclawEnabled} onChange={(v) => { setOpenclawEnabled(v); saveAgentSetting("openclawEnabled", v) }} />
+              </div>
+              {openclawEnabled && (
+                <div className="mt-3.5 pt-3.5 border-t border-dashed border-border/25">
+                  <SettingRow label="API Key" description="Openclaw 服务连接密钥">
+                    <Input type="password" value={openclawKey} onChange={(e) => { setOpenclawKey(e.target.value) }} onBlur={() => saveAgentSetting("openclawKey", openclawKey)} placeholder="sk-..." className="w-[240px] h-8 text-[12px]" />
+                  </SettingRow>
+                </div>
+              )}
             </div>
-          )}
 
-          {/* Hermes Agent */}
-          <div className="flex items-center justify-between py-2.5 border-b border-border/20">
-            <div className="min-w-0">
-              <div className="text-[13px] font-semibold text-foreground/85">Hermes Agent</div>
-              <div className="text-[11px] text-muted-foreground/65 mt-0.5">智能对话与工作流串联 Agent</div>
+            {/* Hermes Agent */}
+            <div className="py-4">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-medium text-foreground">Hermes Agent</div>
+                  <div className="text-xs text-muted-foreground mt-0.5 leading-normal">智能对话与工作流串联 Agent</div>
+                </div>
+                <Toggle checked={hermesEnabled} onChange={(v) => { setHermesEnabled(v); saveAgentSetting("hermesEnabled", v) }} />
+              </div>
+              {hermesEnabled && (
+                <div className="mt-3.5 pt-3.5 border-t border-dashed border-border/25">
+                  <SettingRow label="API Key" description="Hermes Agent 连接密钥">
+                    <Input type="password" value={hermesKey} onChange={(e) => { setHermesKey(e.target.value) }} onBlur={() => saveAgentSetting("hermesKey", hermesKey)} placeholder="sk-..." className="w-[240px] h-8 text-[12px]" />
+                  </SettingRow>
+                </div>
+              )}
             </div>
-            <Toggle checked={hermesEnabled} onChange={(v) => { setHermesEnabled(v); saveAgentSetting("hermesEnabled", v) }} />
-          </div>
-          {hermesEnabled && (
-            <div className="pl-3 border-l-2 border-border/45 my-1">
-              <SettingRow label="API Key" description="Hermes Agent 连接密钥">
-                <Input type="password" value={hermesKey} onChange={(e) => { setHermesKey(e.target.value) }} onBlur={() => saveAgentSetting("hermesKey", hermesKey)} placeholder="sk-..." className="w-[240px] h-8 text-[12px]" />
-              </SettingRow>
-            </div>
-          )}
 
-          {/* Claude Code */}
-          <div className="flex items-center justify-between py-2.5 border-b border-border/20 last:border-0">
-            <div className="min-w-0">
-              <div className="text-[13px] font-semibold text-foreground/85">Claude Code</div>
-              <div className="text-[11px] text-muted-foreground/65 mt-0.5">Anthropic 开发级交互式辅助 Agent</div>
+            {/* Claude Code */}
+            <div className="py-4">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-medium text-foreground">Claude Code</div>
+                  <div className="text-xs text-muted-foreground mt-0.5 leading-normal">Anthropic 开发级交互式辅助 Agent</div>
+                </div>
+                <Toggle checked={claudeCodeEnabled} onChange={(v) => { setClaudeCodeEnabled(v); saveAgentSetting("claudeCodeEnabled", v) }} />
+              </div>
+              {claudeCodeEnabled && (
+                <div className="mt-3.5 pt-3.5 border-t border-dashed border-border/25">
+                  <SettingRow label="API Key" description="Claude Code 连接密钥">
+                    <Input type="password" value={claudeCodeKey} onChange={(e) => { setClaudeCodeKey(e.target.value) }} onBlur={() => saveAgentSetting("claudeCodeKey", claudeCodeKey)} placeholder="sk-..." className="w-[240px] h-8 text-[12px]" />
+                  </SettingRow>
+                </div>
+              )}
             </div>
-            <Toggle checked={claudeCodeEnabled} onChange={(v) => { setClaudeCodeEnabled(v); saveAgentSetting("claudeCodeEnabled", v) }} />
           </div>
-          {claudeCodeEnabled && (
-            <div className="pl-3 border-l-2 border-border/45 my-1">
-              <SettingRow label="API Key" description="Claude Code 连接密钥">
-                <Input type="password" value={claudeCodeKey} onChange={(e) => { setClaudeCodeKey(e.target.value) }} onBlur={() => saveAgentSetting("claudeCodeKey", claudeCodeKey)} placeholder="sk-..." className="w-[240px] h-8 text-[12px]" />
-              </SettingRow>
-            </div>
-          )}
         </div>
       </div>
     </div>

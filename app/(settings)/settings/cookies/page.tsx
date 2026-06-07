@@ -56,30 +56,34 @@ export default function CookiesPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin bg-background/35">
-      <SettingsPageHeader title="Cookie 配置" description="配置解析和视频抓取的登录 Cookies 以支持更高清下载" />
-      <div className="max-w-2xl space-y-4 animate-in fade-in-50 duration-150">
-        <p className="text-[11.5px] text-muted-foreground/80 leading-normal">配置各平台的 Cookie 用于跳过防爬机制，下载更清晰视频及专享字幕内容</p>
-        <div className="space-y-1">
-          <SettingRow label="Bilibili Cookie" description="Bilibili 视频解析和下载所需的登录 Cookie">
-            <Input
-              type="password"
-              value={bilibiliCookie}
-              onChange={(e) => { setBilibiliCookie(e.target.value); setMessage(null) }}
-              placeholder="粘贴 Bilibili Cookie"
-              className="w-[240px] h-8 text-[12px]"
-            />
-          </SettingRow>
-          <SettingRow label="YouTube Cookie" description="YouTube 加密视频和高码率下载所需的 Cookie">
-            <Input
-              type="password"
-              value={youtubeCookie}
-              onChange={(e) => { setYoutubeCookie(e.target.value); setMessage(null) }}
-              placeholder="粘贴 YouTube Cookie"
-              className="w-[240px] h-8 text-[12px]"
-            />
-          </SettingRow>
+      <div className="max-w-2xl mx-auto w-full py-4 space-y-6 animate-in fade-in-50 duration-150">
+        <SettingsPageHeader title="Cookie 配置" description="配置解析和视频抓取的登录 Cookies 以支持更高清下载" />
+        
+        <div className="space-y-2.5">
+          <h2 className="text-[12px] font-semibold text-muted-foreground/80 pl-1 uppercase tracking-wider select-none">站点 Cookie</h2>
+          <div className="rounded-xl border border-border/40 bg-card/45 px-5 py-1.5 shadow-xs">
+            <SettingRow label="Bilibili Cookie" description="Bilibili 视频解析和下载所需的登录 Cookie">
+              <Input
+                type="password"
+                value={bilibiliCookie}
+                onChange={(e) => { setBilibiliCookie(e.target.value); setMessage(null) }}
+                placeholder="粘贴 Bilibili Cookie"
+                className="w-[240px] h-8 text-[12px]"
+              />
+            </SettingRow>
+            <SettingRow label="YouTube Cookie" description="YouTube 加密视频和高码率下载所需的 Cookie">
+              <Input
+                type="password"
+                value={youtubeCookie}
+                onChange={(e) => { setYoutubeCookie(e.target.value); setMessage(null) }}
+                placeholder="粘贴 YouTube Cookie"
+                className="w-[240px] h-8 text-[12px]"
+              />
+            </SettingRow>
+          </div>
         </div>
-        <div className="flex items-center justify-between mt-6 pt-4 border-t border-border/20">
+
+        <div className="flex items-center justify-between pt-2">
           <StatusBanner type={message?.type ?? "success"} text={message?.text ?? ""} onDismiss={() => setMessage(null)} />
           <button onClick={handleSave} disabled={saving} className="ml-auto h-7 px-3.5 flex items-center gap-1.5 text-[11px] font-semibold rounded-md border border-border/40 bg-card hover:bg-muted/70 disabled:opacity-50 transition-all duration-150 cursor-pointer select-none">
             {saving && <Loader2 className="h-3 w-3 animate-spin" />}
