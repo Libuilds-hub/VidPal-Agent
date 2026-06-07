@@ -7,6 +7,36 @@ export async function GET() {
     orderBy: { createdAt: "asc" },
   })
 
+  // Automatically rename "Moonshot" provider to "Kimi" and update its default models in the database if they need update
+  const kimiProvider = providers.find(p => p.name === "Kimi" || p.name === "Moonshot")
+  if (kimiProvider) {
+    const needRename = kimiProvider.name === "Moonshot"
+    const needModelsUpdate = !kimiProvider.models.includes("kimi-k2.6")
+    
+    if (needRename || needModelsUpdate) {
+      let newModels = kimiProvider.models
+      if (needModelsUpdate) {
+        // Prepend the new kimi-k2.6 and kimi-k2.5 models if they are not in the list
+        const defaultModels = ["kimi-k2.6", "kimi-k2.5"]
+        const existingList = kimiProvider.models.split(",").map(m => m.trim()).filter(Boolean)
+        const updatedList = Array.from(new Set([...defaultModels, ...existingList]))
+        newModels = updatedList.join(", ")
+      }
+      
+      await prisma.llmProvider.update({
+        where: { id: kimiProvider.id },
+        data: { 
+          name: "Kimi",
+          models: newModels
+        }
+      })
+      // Reload providers after update
+      return NextResponse.json(await prisma.llmProvider.findMany({
+        orderBy: { createdAt: "asc" }
+      }))
+    }
+  }
+
   // Get the last sync timestamp
   const lastSyncSetting = await prisma.setting.findUnique({
     where: { key: "last_model_sync_time" }

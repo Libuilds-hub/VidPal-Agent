@@ -72,6 +72,7 @@ const providerDescriptions: Record<string, string> = {
   anthropic: "Anthropic 构建了 Claude 系列模型，以安全性和推理能力著称。",
   lmstudio: "LM Studio 支持本地运行开源模型，提供隐私优先的推理服务。",
   moonshot: "Kimi 由 Moonshot AI 提供，支持超长上下文与深度理解。",
+  kimi: "Kimi 由 Moonshot AI 提供，支持超长上下文与深度理解。",
   zhipu: "智谱 AI 提供 GLM 系列模型，适用于编程与企业级应用。",
   ollama: "Ollama 本地运行开源模型，简单易用的 LLM 部署工具。",
   qwen: "通义千问由阿里云提供，在中文对话、逻辑推理与代码生成上表现优异。",

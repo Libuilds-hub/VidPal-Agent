@@ -94,13 +94,16 @@ let _embeddingsPromise: Promise<OpenAIEmbeddings> | null = null
 function buildModelKwargs(provider: LlmProviderInfo): Record<string, any> {
   const modelKwargs: Record<string, any> = {}
   
-  const isDeepSeekOrOpenRouter = 
+  const isThinkingSupportedProvider = 
     provider.baseUrl.includes("deepseek") || 
     provider.baseUrl.includes("openrouter") ||
+    provider.baseUrl.includes("moonshot") ||
     provider.name.toLowerCase().includes("deepseek") ||
-    provider.name.toLowerCase().includes("openrouter")
+    provider.name.toLowerCase().includes("openrouter") ||
+    provider.name.toLowerCase().includes("kimi") ||
+    provider.name.toLowerCase().includes("moonshot")
 
-  if (isDeepSeekOrOpenRouter) {
+  if (isThinkingSupportedProvider) {
     if (provider.enableThinking) {
       modelKwargs.reasoning_effort = "high"
       modelKwargs.extra_body = {

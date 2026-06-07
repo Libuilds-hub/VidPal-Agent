@@ -24,7 +24,7 @@ const DEFAULT_URLS: Record<string, string> = {
   OpenAI: "https://api.openai.com/v1",
   Anthropic: "https://api.anthropic.com/v1",
   Google: "https://generativelanguage.googleapis.com/v1beta/openai",
-  Moonshot: "https://api.moonshot.cn/v1",
+  Kimi: "https://api.moonshot.cn/v1",
   Zhipu: "https://open.bigmodel.cn/api/paas/v4",
   Ollama: "http://localhost:11434/v1",
   Qwen: "https://dashscope.aliyuncs.com/compatible-mode/v1",

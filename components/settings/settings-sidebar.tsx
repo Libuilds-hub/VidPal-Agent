@@ -42,7 +42,6 @@ const sidebarGroups = [
     items: [
       { id: "llm", label: "AI 供应商", icon: BotIcon, href: "/settings/llm" },
       { id: "ai", label: "AI & Agent", icon: SparklesIcon, href: "/settings/ai" },
-      { id: "assistant", label: "AI 助手", icon: BotIcon, href: "/settings/assistant" },
       { id: "cookies", label: "Cookie 配置", icon: Key, href: "/settings/cookies" },
       { id: "integrations", label: "集成合作", icon: Plug, href: "/settings/integrations" },
     ],

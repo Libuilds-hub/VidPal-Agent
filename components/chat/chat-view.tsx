@@ -21,6 +21,7 @@ import {
 import type { GetRef, MenuProps } from 'antd'
 import { Button, Divider, Dropdown, Flex, Input, message, Pagination } from 'antd'
 import { getProviderAvatar } from '@/components/llm/provider-icons'
+import { Input as SearchInput } from '@/components/ui/input'
 
 interface SpeechRecognition extends EventTarget {
   lang: string
@@ -64,11 +65,12 @@ const iconStyle = { fontSize: 16 }
 
 interface ModelOption { label: string; desc: string; provider?: string; enableThinking?: boolean; logo?: string | null }
 
-function buildModelOptions(providers: Array<{ id: string; name: string; models: string; enableThinking: boolean; logo?: string | null }>): Record<string, ModelOption> {
-  const opts: Record<string, ModelOption> = {
-    '': { label: '默认模型', desc: '使用默认供应商的第一个模型' },
-  }
+function buildModelOptions(providers: Array<{ id: string; name: string; models: string; enableThinking: boolean; logo?: string | null; enabled?: boolean }>): Record<string, ModelOption> {
+  const opts: Record<string, ModelOption> = {}
   for (const p of providers) {
+    if (p.enabled === false) {
+      continue
+    }
     const modelList = p.models.split(",").map((m: string) => m.trim()).filter(Boolean)
     
     let enabledMap: Record<string, boolean> = {}
@@ -181,6 +183,8 @@ interface ChatViewProps {
   defaultMessages?: StoredMessage[]
 }
 
+let cachedProviders: any[] | null = null
+
 export default function ChatView({ initialConversationId, defaultMessages }: ChatViewProps) {
   const router = useRouter()
   const providerRef = useRef<ShancnChatProvider | null>(null)
@@ -198,10 +202,17 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
   const [agentSkill, setAgentSkill] = useState<SenderProps['skill']>(undefined)
   const [agentSlotConfig, setAgentSlotConfig] = useState<SenderProps['slotConfig']>([])
   const [listening, setListening] = useState(false)
-  const [selectedModel, setSelectedModel] = useState('')
-  const [providers, setProviders] = useState<any[]>([])
-  const [modelOptions, setModelOptions] = useState<Record<string, ModelOption>>(
-    buildModelOptions([])
+  const [selectedModel, setSelectedModel] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('video-shancn-selected-model') || ''
+    }
+    return ''
+  })
+  const [modelSearchQuery, setModelSearchQuery] = useState('')
+  const [providers, setProviders] = useState<any[]>(() => cachedProviders || [])
+  const [loadingProviders, setLoadingProviders] = useState(() => !cachedProviders)
+  const [modelOptions, setModelOptions] = useState<Record<string, ModelOption>>(() =>
+    buildModelOptions(cachedProviders || [])
   )
 
   const stableDefaultMessages = useMemo(() => {
@@ -230,15 +241,56 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
   }, [])
 
   useEffect(() => {
+    if (!cachedProviders) {
+      setLoadingProviders(true)
+    }
     fetch('/api/llm-providers')
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
+          cachedProviders = data
           setProviders(data)
-          setModelOptions(buildModelOptions(data))
+          const opts = buildModelOptions(data)
+          setModelOptions(opts)
+
+          // Prioritize loading saved selected model from localStorage
+          const savedSelectedModel = localStorage.getItem('video-shancn-selected-model')
+          if (savedSelectedModel && opts[savedSelectedModel]) {
+            setSelectedModel(savedSelectedModel)
+          } else {
+            // Otherwise fallback to default provider logic
+            const enabledProviders = data.filter((p: any) => p.enabled !== false)
+            if (enabledProviders.length > 0) {
+              // Find the default provider or the first enabled one
+              const defaultProvider = enabledProviders.find((p: any) => p.isDefault) || enabledProviders[0]
+              const modelList = defaultProvider.models.split(",").map((m: string) => m.trim()).filter(Boolean)
+              
+              let enabledMap: Record<string, boolean> = {}
+              const saved = localStorage.getItem(`llm_enabled_models_${defaultProvider.id}`)
+              if (saved) {
+                try {
+                  enabledMap = JSON.parse(saved)
+                } catch {}
+              }
+              
+              const firstEnabledModel = modelList.find((model: string) => enabledMap[model] !== false)
+              if (firstEnabledModel && opts[firstEnabledModel]) {
+                setSelectedModel(firstEnabledModel)
+              } else {
+                // Fallback: select the first model found in opts
+                const optKeys = Object.keys(opts)
+                if (optKeys.length > 0) {
+                  setSelectedModel(optKeys[0])
+                }
+              }
+            }
+          }
         }
       })
       .catch(() => {})
+      .finally(() => {
+        setLoadingProviders(false)
+      })
   }, [])
 
   const isThinkingEnabled = useMemo(() => {
@@ -248,6 +300,10 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
     const defaultProvider = providers.find(p => p.isDefault) || providers[0]
     return defaultProvider ? defaultProvider.enableThinking !== false : true
   }, [selectedModel, modelOptions, providers])
+
+  const hasConfiguredModels = useMemo(() => {
+    return Object.keys(modelOptions).length > 0
+  }, [modelOptions])
 
   const { messages, onRequest, isRequesting, abort, onReload, setMessage, setMessages, isDefaultMessagesRequesting } = useXChat<
     ChatMessage,
@@ -732,6 +788,27 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
     }
   })
 
+  const filteredModelItems = useMemo(() => {
+    const query = modelSearchQuery.trim().toLowerCase()
+    if (!query) return modelItems
+    const filtered = modelItems.filter(item => {
+      if (!item) return false
+      const labelStr = 'label' in item && typeof item.label === 'string' ? item.label : ''
+      return labelStr.toLowerCase().includes(query)
+    })
+    
+    if (filtered.length === 0) {
+      return [
+        {
+          key: 'no-results',
+          label: <span className="text-muted-foreground/60 text-xs select-none">无匹配模型</span>,
+          disabled: true,
+        }
+      ]
+    }
+    return filtered
+  }, [modelItems, modelSearchQuery])
+
   const handleAgentClick: MenuProps['onClick'] = (item) => {
     setActiveAgentKey(item.key)
     setAgentSkill(AgentInfo[item.key].skill)
@@ -753,44 +830,89 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
         footer={(actionNode) => (
           <Flex justify="space-between" align="center">
             <Flex gap="small" align="center">
+              {loadingProviders ? (
+                <Button
+                  style={iconStyle}
+                  type="text"
+                  icon={<RobotOutlined spin />}
+                />
+              ) : !hasConfiguredModels ? (
+                <Button
+                  style={iconStyle}
+                  type="text"
+                  icon={<RobotOutlined />}
+                  onClick={() => router.push('/settings/llm')}
+                  title="未配置 AI 模型，点击前往设置"
+                />
+              ) : (
+                <Dropdown
+                  placement="topLeft"
+                  menu={{
+                    selectedKeys: [selectedModel],
+                    onClick: ({ key }) => {
+                      setSelectedModel(key)
+                      localStorage.setItem('video-shancn-selected-model', key)
+                      setModelSearchQuery('')
+                    },
+                    items: filteredModelItems,
+                    style: { height: 240, overflowY: 'auto', border: 'none', boxShadow: 'none', background: 'transparent' },
+                  }}
+                  dropdownRender={(menu) => (
+                    <div className="bg-popover text-popover-foreground rounded-lg border border-border shadow-md" style={{ minWidth: 200 }}>
+                      <div className="p-2 border-b border-border">
+                        <SearchInput
+                          placeholder="搜索模型..."
+                          value={modelSearchQuery}
+                          onChange={(e) => setModelSearchQuery(e.target.value)}
+                          onKeyDown={(e) => e.stopPropagation()}
+                          className="h-8 text-xs bg-muted/40"
+                        />
+                      </div>
+                      {menu}
+                    </div>
+                  )}
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setModelSearchQuery('')
+                    }
+                  }}
+                >
+                  <Button
+                    style={iconStyle}
+                    type="text"
+                    icon={(() => {
+                      if (selectedModel && modelOptions[selectedModel]?.provider) {
+                        return getProviderAvatar(
+                          modelOptions[selectedModel].provider!,
+                          20,
+                          'circle',
+                          modelOptions[selectedModel].logo
+                        )
+                      }
+                      const defaultProvider = providers.find((p) => p.isDefault) || providers[0]
+                      return defaultProvider
+                        ? getProviderAvatar(defaultProvider.name, 20, 'circle', defaultProvider.logo)
+                        : <RobotOutlined />
+                    })()}
+                    title={modelOptions[selectedModel]?.label || '模型'}
+                  />
+                </Dropdown>
+              )}
               <Button style={iconStyle} type="text" icon={<PaperClipOutlined />} />
               <Dropdown
-                menu={{
-                  selectedKeys: [selectedModel],
-                  onClick: ({ key }) => setSelectedModel(key),
-                  items: modelItems,
-                }}
-              >
-                <XSwitch
-                  value={false}
-                  icon={(() => {
-                    if (selectedModel && modelOptions[selectedModel]?.provider) {
-                      return getProviderAvatar(
-                        modelOptions[selectedModel].provider!,
-                        20,
-                        'circle',
-                        modelOptions[selectedModel].logo
-                      )
-                    }
-                    const defaultProvider = providers.find((p) => p.isDefault) || providers[0]
-                    return defaultProvider
-                      ? getProviderAvatar(defaultProvider.name, 20, 'circle', defaultProvider.logo)
-                      : <RobotOutlined />
-                  })()}
-                >
-                  {modelOptions[selectedModel]?.label || '模型'}
-                </XSwitch>
-              </Dropdown>
-              <Dropdown
+                placement="topLeft"
                 menu={{
                   selectedKeys: [activeAgentKey],
                   onClick: handleAgentClick,
                   items: agentItems,
                 }}
               >
-                <XSwitch value={false} icon={<AntDesignOutlined />}>
-                  {activeAgentKey ? AgentInfo[activeAgentKey]?.label : '快捷功能'}
-                </XSwitch>
+                <Button
+                  style={iconStyle}
+                  type="text"
+                  icon={activeAgentKey ? AgentInfo[activeAgentKey]?.icon : <AntDesignOutlined />}
+                  title={activeAgentKey ? AgentInfo[activeAgentKey]?.label : '快捷功能'}
+                />
               </Dropdown>
             </Flex>
             <Flex align="center">
