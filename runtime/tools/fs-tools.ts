@@ -12,8 +12,23 @@ export function createFsTools(workspace: string): AgentTool[] {
    * 解析并校验路径在根目录内，返回绝对路径；越界抛错。
    * 词法校验之外再做 realpath 校验：跟随符号链接/junction 解析真实路径，
    * 防止工作区内指向外部的链接导致越权读写（已存在的文件/目录直接解析真实路径；
-   * 新文件则解析其父目录，阻止经链接把文件写到白名单外）。
+   * 新文件则解析其最近存在的祖先目录，阻止经链接把文件写到白名单外，
+   * 同时允许 write_file 自动创建尚不存在的深层父目录链）。
    */
+  // 从 p 开始逐级向上找最近存在的祖先并 realpath；全链不存在则抛错
+  function realpathNearestExisting(p: string): string {
+    let cur = p
+    for (;;) {
+      try {
+        return fs.realpathSync(cur)
+      } catch {
+        const parent = path.dirname(cur)
+        if (parent === cur) throw new Error(`路径不可达: ${p}`)
+        cur = parent
+      }
+    }
+  }
+
   function resolveInside(rootDir: string, p: string, allowNewFile = false): string {
     const abs = path.resolve(rootDir, p)
     const realRoot = fs.realpathSync(rootDir)
@@ -29,7 +44,7 @@ export function createFsTools(workspace: string): AgentTool[] {
     if (fs.existsSync(abs)) {
       check(fs.realpathSync(abs)) // 已存在：直接解析真实路径（跟随符号链接）
     } else if (allowNewFile) {
-      check(fs.realpathSync(path.dirname(abs))) // 新文件：解析父目录真实路径
+      check(realpathNearestExisting(path.dirname(abs))) // 新文件：解析最近存在祖先的真实路径
     } else {
       // 不存在时无真实路径可泄露；但词法上已越界的仍按白名单外报错（保留既有行为）
       const a = fold(abs)
