@@ -2,7 +2,7 @@
 import { DynamicTool } from "@langchain/core/tools"
 import { MemoryVectorStore } from "@langchain/classic/vectorstores/memory"
 import { Document } from "@langchain/core/documents"
-import { getEmbeddings } from "@/lib/llm"
+import { getEmbeddings } from "@/runtime/llm"
 import { prisma } from "@/lib/db"
 
 let _store: MemoryVectorStore | null = null

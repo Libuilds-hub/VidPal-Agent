@@ -1,7 +1,7 @@
 // lib/agent.ts
 import { createReactAgent } from "@langchain/langgraph/prebuilt"
 import { type BaseMessage, HumanMessage, AIMessage } from "@langchain/core/messages"
-import { getChatModel, LLMNotConfiguredError, clearLLMCache } from "./llm"
+import { getChatModel, LLMNotConfiguredError, clearLLMCache } from "@/runtime/llm"
 import { searchVideosTool } from "./tools/search-videos"
 import { searchTranscriptsTool } from "./tools/search-transcripts"
 import { getVideoContextTool } from "./tools/get-video-context"

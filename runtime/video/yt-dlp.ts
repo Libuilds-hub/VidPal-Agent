@@ -1,11 +1,33 @@
-import { exec } from "child_process"
+import { exec, type ExecOptions } from "child_process"
 import { promisify } from "util"
 import path from "path"
 import fs from "fs"
 import { existsSync, mkdirSync, writeFileSync, unlinkSync, renameSync } from "fs"
-import { prisma } from "@/lib/db"
+import { prisma } from "../../lib/db"
 
 const execAsync = promisify(exec)
+
+// 支持 AbortSignal 的 exec 封装（取消任务时终止子进程）
+function execWithSignal(
+  command: string,
+  signal: AbortSignal | undefined,
+  options: ExecOptions = {}
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = exec(command, { ...options, signal }, (err, stdout, stderr) => {
+      if (err) {
+        if (signal?.aborted) {
+          reject(new Error("任务已取消"))
+        } else {
+          reject(err)
+        }
+        return
+      }
+      resolve({ stdout: stdout.toString(), stderr: stderr.toString() })
+    })
+    void child
+  })
+}
 
 // ffmpeg 转码进度会持续写入 stderr，长视频转码可能超过 Node exec 默认 1MB 缓冲，
 // 一旦超限 Node 会杀掉 cmd.exe 子进程，导致转码中断且留下不完整文件。

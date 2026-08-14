@@ -1,6 +1,6 @@
 // lib/llm.ts
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai"
-import { prisma } from "./db"
+import { prisma } from "../lib/db"
 
 export class LLMNotConfiguredError extends Error {
   constructor() {

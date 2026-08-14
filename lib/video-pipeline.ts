@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db"
-import { getVideoInfo, downloadVideo, downloadThumbnail, recoverVideoFile, isMp4Complete } from "@/lib/yt-dlp"
-import { getChatModel, LLMNotConfiguredError } from "@/lib/llm"
+import { getVideoInfo, downloadVideo, downloadThumbnail, recoverVideoFile, isMp4Complete } from "@/runtime/video/yt-dlp"
+import { getChatModel, LLMNotConfiguredError } from "@/runtime/llm"
 import { HumanMessage } from "@langchain/core/messages"
-import { extractAudio, transcribeAudio } from "@/lib/whisper"
+import { extractAudio, transcribeAudio } from "@/runtime/video/whisper"
 import path from "path"
 import fs from "fs"
 
