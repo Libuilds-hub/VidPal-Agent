@@ -157,3 +157,34 @@ test("worker 循环自动执行两个 echo 任务到 done，事件完整", async
   }
   db.close()
 })
+
+test("worker 循环在 DB 故障时不被击穿：claimNext 抛错被捕获、进程不崩溃", async () => {
+  const db = createRuntimeDb(":memory:")
+  const bus = new TaskEventBus(db)
+  const queue = new TaskQueue(db, bus, [echoHandler])
+
+  // 拦截 console.error：验证循环异常被捕获并记录（而非成为未处理拒绝击穿进程）
+  const logged: string[] = []
+  const origError = console.error
+  console.error = (...args: unknown[]) => {
+    logged.push(args.map(String).join(" "))
+  }
+
+  try {
+    queue.startWorker()
+    // 关闭连接：之后 prepare/run 抛 "The database connection is not open"
+    db.close()
+
+    // 空轮询 300ms 后 claimNext 首次抛错 → catch → sleep(1000)；多等 100ms 确保日志已落
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    queue.stopWorker()
+  } finally {
+    console.error = origError
+  }
+
+  // catch 分支已触发：输出了 worker 循环异常日志，且未发生未处理拒绝（进程存活）
+  assert.ok(
+    logged.some((msg) => msg.includes("worker 循环异常")),
+    `应捕获到 worker 循环异常日志，实际日志: ${JSON.stringify(logged)}`
+  )
+})

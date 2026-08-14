@@ -249,16 +249,19 @@ export class TaskQueue {
 
   private async loop(): Promise<void> {
     while (this.workerRunning) {
-      const row = this.claimNext()
-      if (!row) {
-        await sleep(300)
-        continue
+      try {
+        const row = this.claimNext()
+        if (!row) {
+          await sleep(300)
+          continue
+        }
+        void this.runTaskById(row.id).catch((err) =>
+          console.error(`[runtime] 任务 ${row.id} 执行异常:`, err)
+        )
+      } catch (err) {
+        console.error("[runtime] worker 循环异常，1s 后重试:", err)
+        await sleep(1000)
       }
-      void this.runTaskById(row.id).catch((err) => {
-        // 协作式取消是正常终态，不按异常记日志
-        if (err instanceof TaskCancelledError) return
-        console.error(`[runtime] 任务 ${row.id} 执行异常:`, err)
-      })
     }
   }
 }
