@@ -8,12 +8,21 @@ export interface ToolResult {
   artifactId?: string
 }
 
-export interface AgentTool {
+/** 工具元信息（list() 输出，P3 生成 tool-calling schema 用） */
+export interface ToolMeta {
   name: string
   description: string
-  inputSchema: z.ZodTypeAny
   dangerous: boolean
-  execute(args: unknown): Promise<ToolResult>
+  inputSchema: z.ZodTypeAny
+}
+
+export interface AgentTool<TInput extends z.ZodTypeAny = z.ZodTypeAny> {
+  name: string
+  description: string
+  inputSchema: TInput
+  dangerous: boolean
+  /** args 是 zod OUTPUT（defaults/transforms 已应用），无需在工具内再 cast */
+  execute(args: z.output<TInput>): Promise<ToolResult>
 }
 
 export class ToolRegistry {
@@ -26,11 +35,12 @@ export class ToolRegistry {
     this.tools.set(tool.name, tool)
   }
 
-  list(): Array<{ name: string; description: string; dangerous: boolean }> {
+  list(): ToolMeta[] {
     return [...this.tools.values()].map((t) => ({
       name: t.name,
       description: t.description,
       dangerous: t.dangerous,
+      inputSchema: t.inputSchema,
     }))
   }
 
@@ -44,7 +54,7 @@ export class ToolRegistry {
     const parsed = tool.inputSchema.safeParse(args)
     if (!parsed.success) {
       throw new Error(
-        `工具 ${name} 参数校验失败: ${JSON.stringify(parsed.error.flatten())}`
+        `工具 ${name} 参数校验失败: ${z.prettifyError(parsed.error)}`
       )
     }
     return tool.execute(parsed.data)
