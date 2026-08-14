@@ -46,6 +46,43 @@ test("幂等键去重：同 key 返回已有任务", () => {
   db.close()
 })
 
+test("终态任务后同 key 重新入队：创建新任务而非复用", async () => {
+  const db = createRuntimeDb(":memory:")
+  const bus = new TaskEventBus(db)
+  const queue = new TaskQueue(db, bus, [echoHandler])
+
+  // 第一次入队并执行到终态（done）
+  const a = queue.enqueue({
+    type: "echo",
+    input: { message: "第一次", delayMs: 5 },
+    idempotencyKey: "k1",
+  })
+  assert.equal(a.reused, false)
+  await queue.runTaskById(a.taskId)
+  assert.equal(
+    (db.prepare("SELECT status FROM task WHERE id = ?").get(a.taskId) as { status: string }).status,
+    "done"
+  )
+
+  // 同 key 重新入队：终态任务不再拦截，应创建新任务
+  const b = queue.enqueue({
+    type: "echo",
+    input: { message: "第二次", delayMs: 5 },
+    idempotencyKey: "k1",
+  })
+
+  assert.notEqual(a.taskId, b.taskId)
+  assert.equal(b.reused, false)
+
+  // 新任务可正常执行到 done
+  await queue.runTaskById(b.taskId)
+  assert.equal(
+    (db.prepare("SELECT status FROM task WHERE id = ?").get(b.taskId) as { status: string }).status,
+    "done"
+  )
+  db.close()
+})
+
 test("运行中的任务可被协作式取消", async () => {
   const db = createRuntimeDb(":memory:")
   const bus = new TaskEventBus(db)

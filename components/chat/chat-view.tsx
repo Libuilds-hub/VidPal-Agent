@@ -1229,7 +1229,7 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
                     }
 
                     const msgItem = messages.find((m) => m.id === msg.id)
-                    const videoAttachment = msgItem?.extraInfo?.videoAttachment as { id: string; title: string } | undefined
+                    const videoAttachment = msgItem?.extraInfo?.videoAttachment as { title: string; localPath: string } | undefined
 
                     let cleanContent = msg.content
                     if (cleanContent.startsWith('[已关联本地视频')) {

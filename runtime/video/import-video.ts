@@ -58,7 +58,12 @@ export function ensureLocalSource(videoDir: string, localPath: string | undefine
 export const importVideoHandler: TaskHandler = {
   type: "import_video",
   async run(ctx: TaskContext) {
-    const input = ctx.input as { url?: string; localPath?: string; title?: string }
+    const input = ctx.input as {
+      url?: string
+      localPath?: string
+      title?: string
+      source?: string
+    }
     const isLocalUpload = !!input.localPath && !input.url
 
     // ---- 建行/复用（URL 按 url 查重；本地上传按 localPath 查重，崩溃重跑不建重复行）----
@@ -70,7 +75,7 @@ export const importVideoHandler: TaskHandler = {
       video = await prisma.video.create({
         data: isLocalUpload
           ? { title: input.title ?? "本地视频", source: "local", localPath: input.localPath, status: "transcribing" }
-          : { source: "bilibili", url: input.url, status: "downloading" },
+          : { source: input.source ?? "bilibili", url: input.url, status: "downloading" },
       })
     } else {
       await prisma.video.update({

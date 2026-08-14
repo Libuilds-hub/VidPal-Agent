@@ -60,10 +60,13 @@ export class TaskQueue {
     idempotencyKey?: string
   }): CreateTaskResponse {
     const now = Date.now()
-    // 幂等去重
+    // 幂等去重：仅对非终态任务（pending/running）去重；
+    // 终态任务（done/failed/cancelled/interrupted）同 key 重新入队应创建新任务，否则失败/取消后永远无法重试同一 URL
     if (input.idempotencyKey) {
       const existing = this.db
-        .prepare("SELECT id FROM task WHERE idempotency_key = ?")
+        .prepare(
+          "SELECT id FROM task WHERE idempotency_key = ? AND status IN ('pending', 'running')"
+        )
         .get(input.idempotencyKey) as { id: string } | undefined
       if (existing) {
         const row = this.db

@@ -9,9 +9,18 @@ export async function POST(request: NextRequest) {
   try {
     const { url } = await request.json()
     if (!url) return NextResponse.json({ error: "URL is required" }, { status: 400 })
+    // 来源检测：B 站 / YouTube，其余来源不支持
+    let source: string
+    if (url.includes("bilibili.com")) {
+      source = "bilibili"
+    } else if (url.includes("youtube.com") || url.includes("youtu.be")) {
+      source = "youtube"
+    } else {
+      return NextResponse.json({ error: "Unsupported video source" }, { status: 400 })
+    }
     const result = await runtime.submitTask({
       type: "import_video",
-      input: { url },
+      input: { url, source },
       idempotencyKey: `video:${url}`,
     })
     return NextResponse.json({ taskId: result.taskId, status: result.status })
