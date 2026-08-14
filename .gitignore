@@ -33,6 +33,11 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# 敏感/临时文件
+/cookies.txt
+/scratch/
+/test-screenshots/
+
 # vercel
 .vercel
 

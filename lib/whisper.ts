@@ -6,6 +6,9 @@ import { existsSync } from "fs"
 
 const execAsync = promisify(exec)
 
+// 放宽 exec 输出缓冲上限（ffmpeg 进度写入 stderr，长音频提取可能超过默认 1MB）
+const EXEC_MAX_BUFFER = 128 * 1024 * 1024
+
 const VIDEOS_DIR = path.join(process.cwd(), "public", "videos")
 const PYTHON_SCRIPT = path.join(process.cwd(), "scripts", "transcribe.py")
 
@@ -118,7 +121,7 @@ export async function transcribeAudio(
   const command = `python "${PYTHON_SCRIPT}" "${audioPath}" "${modelSize}" "${language}"`
 
   try {
-    const { stdout, stderr } = await execAsync(command, { encoding: "utf-8" })
+    const { stdout, stderr } = await execAsync(command, { encoding: "utf-8", maxBuffer: EXEC_MAX_BUFFER })
 
     // stderr contains progress messages
     if (stderr) {
@@ -144,7 +147,7 @@ export async function extractAudio(videoPath: string, outputPath: string): Promi
   const command = `ffmpeg -i "${videoPath}" -vn -acodec mp3 -ar 16000 -ac 1 "${outputPath}" -y`
 
   try {
-    await execAsync(command)
+    await execAsync(command, { maxBuffer: EXEC_MAX_BUFFER })
   } catch (error) {
     console.error("Audio extraction failed:", error)
     throw new Error("Failed to extract audio from video")

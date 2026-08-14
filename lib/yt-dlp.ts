@@ -3,12 +3,21 @@ import { promisify } from "util"
 import path from "path"
 import fs from "fs"
 import { existsSync, mkdirSync, writeFileSync, unlinkSync, renameSync } from "fs"
+import { prisma } from "@/lib/db"
 
 const execAsync = promisify(exec)
+
+// ffmpeg 转码进度会持续写入 stderr，长视频转码可能超过 Node exec 默认 1MB 缓冲，
+// 一旦超限 Node 会杀掉 cmd.exe 子进程，导致转码中断且留下不完整文件。
+// 这里统一放宽缓冲上限。
+const EXEC_MAX_BUFFER = 128 * 1024 * 1024
 
 const VIDEOS_DIR = path.join(process.cwd(), "public", "videos")
 const COOKIES_FILE = path.join(process.cwd(), "cookies.txt")
 const FFMPEG_PATH = "D:\\python3.10\\Scripts\\ffmpeg.exe"
+
+const BILIBILI_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 
 // 获取视频资源目录
 export function getVideoDir(videoId: string): string {
@@ -32,9 +41,9 @@ export interface VideoInfo {
   extractor: string
 }
 
-// 设置 Bilibili Cookie（从环境变量或直接设置）
+// 设置 Bilibili Cookie（将原始 Cookie 字符串转换为 Netscape 格式写入）
 export function setBilibiliCookie(cookie: string): void {
-  writeFileSync(COOKIES_FILE, cookie, "utf-8")
+  writeFileSync(COOKIES_FILE, rawCookiesToNetscape(cookie), "utf-8")
 }
 
 // 清除 Cookie
@@ -47,6 +56,38 @@ export function clearCookie(): void {
 // 获取 Cookie 参数
 function getCookieArg(): string {
   return existsSync(COOKIES_FILE) ? `--cookies "${COOKIES_FILE}"` : ""
+}
+
+// 将浏览器导出的原始 Cookie 字符串（如 "SESSDATA=xxx; bili_jct=xxx; ..."）转换为 Netscape 格式
+function rawCookiesToNetscape(raw: string): string {
+  const lines = ["# Netscape HTTP Cookie File"]
+  // 兼容开头带 "Cookie:" 前缀的粘贴内容
+  const cleaned = raw.replace(/^Cookie:\s*/i, "")
+  for (const part of cleaned.split(";")) {
+    const idx = part.indexOf("=")
+    if (idx <= 0) continue
+    const name = part.slice(0, idx).trim()
+    const value = part.slice(idx + 1).trim()
+    if (!name || !value) continue
+    // 统一按 .bilibili.com 域写入；SESSDATA 等 HttpOnly Cookie 需要 HttpOnly 标记
+    lines.push(`#HttpOnly_.bilibili.com\tTRUE\t/\tTRUE\t2147483647\t${name}\t${value}`)
+  }
+  return lines.join("\n")
+}
+
+// 从数据库同步 Bilibili Cookie 到 cookies.txt（仅当设置中存在时写入）
+async function syncBilibiliCookie(): Promise<void> {
+  try {
+    const setting = await prisma.setting.findUnique({
+      where: { key: "bilibiliCookie" },
+    })
+    const raw = setting?.value?.trim()
+    if (raw) {
+      writeFileSync(COOKIES_FILE, rawCookiesToNetscape(raw), "utf-8")
+    }
+  } catch (err) {
+    console.error("Failed to sync bilibili cookie:", err)
+  }
 }
 
 export async function ensureVideosDir(): Promise<void> {
@@ -77,8 +118,13 @@ export async function downloadThumbnail(
 }
 
 export async function getVideoInfo(url: string): Promise<VideoInfo> {
+  // B站视频需先同步登录 Cookie（否则可能被风控 412 拦截）
+  if (url.includes("bilibili.com")) {
+    await syncBilibiliCookie()
+  }
   const cookieArg = getCookieArg()
-  const command = `yt-dlp --dump-json --no-download --no-warnings -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" ${cookieArg} "${url}"`
+  const extraArgs = url.includes("bilibili.com") ? `--user-agent "${BILIBILI_UA}" ` : ""
+  const command = `yt-dlp --dump-json --no-download --no-warnings -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" ${extraArgs}${cookieArg} "${url}"`
 
   try {
     const { stdout, stderr } = await execAsync(command, { encoding: "utf-8" })
@@ -106,6 +152,11 @@ export async function getVideoInfo(url: string): Promise<VideoInfo> {
     console.error("Failed to get video info:", error)
     // Re-throw with user-friendly message
     if (error instanceof Error) {
+      if (error.message.includes("HTTP Error 412") || error.message.includes("Precondition Failed")) {
+        throw new Error(
+          "B站风控拦截（HTTP 412）。请到 设置 → Cookie 配置 填入已登录 bilibili.com 的浏览器 Cookie（需包含 SESSDATA），保存后重新导入；或更换网络环境后重试。"
+        )
+      }
       if (error.message.includes("HTTP Error 403") || error.message.includes("Forbidden")) {
         throw new Error("B站视频需要登录Cookie才能下载。请先设置Cookie。")
       }
@@ -118,16 +169,68 @@ export async function getVideoInfo(url: string): Promise<VideoInfo> {
   }
 }
 
+// 判断 mp4 文件是否完整（moov atom 存在于文件头或文件尾）
+// 被中断的转码文件缺少 moov atom，无法正常播放
+export function isMp4Complete(filePath: string): boolean {
+  try {
+    const fd = fs.openSync(filePath, "r")
+    try {
+      const size = fs.fstatSync(fd).size
+      const headSize = Math.min(size, 1024 * 1024)
+      const tailSize = Math.min(size, 1024 * 1024)
+      const head = Buffer.alloc(headSize)
+      fs.readSync(fd, head, 0, headSize, 0)
+      const tail = Buffer.alloc(tailSize)
+      fs.readSync(fd, tail, 0, tailSize, size - tailSize)
+      return head.includes(Buffer.from("moov")) || tail.includes(Buffer.from("moov"))
+    } finally {
+      fs.closeSync(fd)
+    }
+  } catch {
+    return false
+  }
+}
+
 // 转码为 H.264（因为 HEVC 在很多浏览器不支持）
+// -y 覆盖不完整的旧输出；veryfast 预设对 4K60 AV1 源显著提速，画质对转写场景足够
 async function transcodeToH264(inputPath: string, outputPath: string): Promise<void> {
-  const command = `"${FFMPEG_PATH}" -i "${inputPath}" -c:v libx264 -c:a aac -strict experimental "${outputPath}"`
+  const command = `"${FFMPEG_PATH}" -y -i "${inputPath}" -c:v libx264 -preset veryfast -crf 23 -c:a aac -strict experimental "${outputPath}"`
 
   try {
-    await execAsync(command)
+    await execAsync(command, { encoding: "utf-8", maxBuffer: EXEC_MAX_BUFFER })
   } catch (error) {
     console.error("Transcode failed:", error)
     throw error
   }
+}
+
+/**
+ * 本地恢复被中断的下载（不联网）：
+ * 1. video.mp4 已完整 → 直接返回
+ * 2. original.mp4 完整 → 重新转码生成 video.mp4 并删除 original.mp4
+ * 3. 两者都不可用 → 抛错（由调用方标记为 error）
+ */
+export async function recoverVideoFile(videoId: string): Promise<string> {
+  const videoDir = await ensureVideoDir(videoId)
+  const videoPath = path.join(videoDir, "video.mp4")
+  const originalPath = path.join(videoDir, "original.mp4")
+
+  if (existsSync(videoPath) && isMp4Complete(videoPath)) {
+    console.log(`[recover] ${videoId}: video.mp4 已完整，无需重新转码`)
+    return `/videos/${videoId}/video.mp4`
+  }
+
+  if (existsSync(originalPath) && isMp4Complete(originalPath)) {
+    console.log(`[recover] ${videoId}: video.mp4 不完整，从 original.mp4 重新转码...`)
+    await transcodeToH264(originalPath, videoPath)
+    unlinkSync(originalPath)
+    console.log(`[recover] ${videoId}: 转码完成`)
+    return `/videos/${videoId}/video.mp4`
+  }
+
+  throw new Error(
+    `本地文件缺失或损坏（video.mp4 / original.mp4 均不可用），请删除该视频后重新导入`
+  )
 }
 
 export async function downloadVideo(
@@ -137,13 +240,18 @@ export async function downloadVideo(
 ): Promise<string> {
   const videoDir = await ensureVideoDir(videoId)
 
+  // B站视频需先同步登录 Cookie
+  if (url.includes("bilibili.com")) {
+    await syncBilibiliCookie()
+  }
   const tempPath = path.join(videoDir, "original.mp4")
   const outputPath = path.join(videoDir, "video.mp4")
   const cookieArg = getCookieArg()
-  const command = `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "${tempPath}" --no-warnings ${cookieArg} "${url}"`
+  const extraArgs = url.includes("bilibili.com") ? `--user-agent "${BILIBILI_UA}" ` : ""
+  const command = `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "${tempPath}" --no-warnings ${extraArgs}${cookieArg} "${url}"`
 
   try {
-    await execAsync(command, { encoding: "utf-8" })
+    await execAsync(command, { encoding: "utf-8", maxBuffer: EXEC_MAX_BUFFER })
 
     // 转码为 H.264（兼容浏览器）
     await transcodeToH264(tempPath, outputPath)
@@ -156,6 +264,10 @@ export async function downloadVideo(
     console.error("Download failed:", error)
     // 如果转码失败，尝试直接使用原文件
     if (existsSync(tempPath)) {
+      // 输出路径可能存在不完整的 video.mp4，需先删除再重命名（Windows 不允许覆盖重命名）
+      if (existsSync(outputPath)) {
+        unlinkSync(outputPath)
+      }
       renameSync(tempPath, outputPath)
       return `/videos/${videoId}/video.mp4`
     }
@@ -169,9 +281,14 @@ export async function downloadAudio(
 ): Promise<string> {
   const videoDir = await ensureVideoDir(videoId)
 
+  // B站视频需先同步登录 Cookie
+  if (url.includes("bilibili.com")) {
+    await syncBilibiliCookie()
+  }
   const outputPath = path.join(videoDir, "audio.mp3")
   const cookieArg = getCookieArg()
-  const command = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" --no-warnings ${cookieArg} "${url}"`
+  const extraArgs = url.includes("bilibili.com") ? `--user-agent "${BILIBILI_UA}" ` : ""
+  const command = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" --no-warnings ${extraArgs}${cookieArg} "${url}"`
 
   try {
     await execAsync(command, { encoding: "utf-8" })

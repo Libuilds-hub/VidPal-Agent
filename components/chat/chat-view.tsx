@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bubble, Sender, SenderProps, Think, CodeHighlighter, Mermaid, Actions } from '@ant-design/x'
+import { Bubble, Sender, SenderProps, Think, CodeHighlighter, Mermaid, Actions, Attachments } from '@ant-design/x'
 import { useXChat, XRequest } from '@ant-design/x-sdk'
 import XMarkdown, { type ComponentProps } from '@ant-design/x-markdown'
 import { ShancnChatProvider } from '@/lib/chat-provider'
@@ -16,6 +16,7 @@ import {
   PaperClipOutlined,
   RedoOutlined,
   RobotOutlined,
+  VideoCameraOutlined,
   YoutubeOutlined,
 } from '@ant-design/icons'
 import type { GetRef, MenuProps } from 'antd'
@@ -195,6 +196,10 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
   }
 
   const senderRef = useRef<GetRef<typeof Sender>>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const pendingAttachmentRef = useRef<any>(null)
+  const [attachedFiles, setAttachedFiles] = useState<any[]>([])
+
   const bubbleListRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<InstanceType<typeof SpeechRecognition> | null>(null)
   const conversationIdRef = useRef<string>(initialConversationId || '')
@@ -202,6 +207,70 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
   const [agentSkill, setAgentSkill] = useState<SenderProps['skill']>(undefined)
   const [agentSlotConfig, setAgentSlotConfig] = useState<SenderProps['slotConfig']>([])
   const [listening, setListening] = useState(false)
+
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    e.target.value = ""
+
+    const fileUid = `attachment-${Date.now()}`
+    const newAttachment = {
+      uid: fileUid,
+      name: file.name,
+      status: 'uploading' as const,
+      percent: 0,
+    }
+
+    setAttachedFiles([newAttachment])
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const res = await fetch("/api/video/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "上传文件失败")
+      }
+
+      setAttachedFiles([
+        {
+          uid: fileUid,
+          name: file.name,
+          status: 'done' as const,
+          percent: 100,
+          videoId: data.id,
+          title: data.title,
+          localPath: data.localPath,
+        }
+      ])
+
+      message.success('视频上传成功，正在后台解析中...')
+
+      fetch("/api/video/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId: data.id }),
+      }).catch((err) => console.error("Trigger transcription error:", err))
+
+    } catch (error) {
+      console.error("Upload error:", error)
+      setAttachedFiles([
+        {
+          uid: fileUid,
+          name: file.name,
+          status: 'error' as const,
+        }
+      ])
+      message.error(error instanceof Error ? error.message : "文件上传失败")
+    }
+  }, [])
   const [selectedModel, setSelectedModel] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('video-shancn-selected-model') || ''
@@ -715,6 +784,25 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
     }
   }, [messages])
 
+  useEffect(() => {
+    if (pendingAttachmentRef.current && messages.length > 0) {
+      const lastUserMsgIndex = [...messages].reverse().findIndex(m => m.message.role === 'user')
+      if (lastUserMsgIndex !== -1) {
+        const actualIndex = messages.length - 1 - lastUserMsgIndex
+        const lastUserMsg = messages[actualIndex]
+        if (lastUserMsg && !lastUserMsg.extraInfo?.videoAttachment) {
+          setMessage(lastUserMsg.id, {
+            extraInfo: {
+              ...lastUserMsg.extraInfo,
+              ...pendingAttachmentRef.current
+            }
+          })
+          pendingAttachmentRef.current = null
+        }
+      }
+    }
+  }, [messages, setMessage])
+
   const handleVoiceInput = useCallback(() => {
     const SpeechRecognitionAPI: { new (): SpeechRecognition } | undefined =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -819,6 +907,13 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
 
   const senderNode = (
     <div className={`px-4 py-3 max-w-2xl mx-auto w-full ${hasMessages ? 'shrink-0 border-t border-border/45 bg-background/60 backdrop-blur-sm' : ''}`}>
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="video/*"
+        style={{ display: 'none' }}
+      />
       <Sender
         ref={senderRef}
         loading={isRequesting}
@@ -827,6 +922,14 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
         placeholder="输入消息，Enter 发送"
         autoSize={{ minRows: 2, maxRows: 6 }}
         suffix={false}
+        header={attachedFiles.length > 0 ? (
+          <Attachments
+            items={attachedFiles}
+            onChange={(info) => {
+              setAttachedFiles(info.fileList)
+            }}
+          />
+        ) : undefined}
         footer={(actionNode) => (
           <Flex justify="space-between" align="center">
             <Flex gap="small" align="center">
@@ -857,7 +960,7 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
                     items: filteredModelItems,
                     style: { height: 240, overflowY: 'auto', border: 'none', boxShadow: 'none', background: 'transparent' },
                   }}
-                  dropdownRender={(menu) => (
+                  popupRender={(menu) => (
                     <div className="bg-popover text-popover-foreground rounded-lg border border-border shadow-md" style={{ minWidth: 200 }}>
                       <div className="p-2 border-b border-border">
                         <SearchInput
@@ -898,7 +1001,14 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
                   />
                 </Dropdown>
               )}
-              <Button style={iconStyle} type="text" icon={<PaperClipOutlined />} />
+              <Button
+                style={iconStyle}
+                type="text"
+                icon={<PaperClipOutlined />}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={attachedFiles.some((f) => f.status === 'uploading')}
+                title="上传本地视频"
+              />
               <Dropdown
                 placement="topLeft"
                 menu={{
@@ -937,10 +1047,29 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
           }
         }}
         onSubmit={(content, _, skill) => {
+          const doneAttachment = attachedFiles.find((f) => f.status === 'done')
+          const attachmentExtra = doneAttachment
+            ? {
+                videoAttachment: {
+                  id: doneAttachment.videoId,
+                  title: doneAttachment.title,
+                  localPath: doneAttachment.localPath,
+                },
+              }
+            : undefined
+
           let query = content
-          if (skill?.value) {
-            query = `[${skill.value}] ${content}`
+          if (doneAttachment) {
+            query = `[已关联本地视频(ID: ${doneAttachment.videoId}, 标题: "${doneAttachment.title}")]\n${query}`
           }
+          if (skill?.value) {
+            query = `[${skill.value}] ${query}`
+          }
+
+          if (attachmentExtra) {
+            pendingAttachmentRef.current = attachmentExtra
+          }
+          setAttachedFiles([])
 
           if (!conversationIdRef.current) {
             const convId = `conv_${Date.now()}`
@@ -948,12 +1077,13 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
 
             const conversation = {
               id: convId,
-              title: query.slice(0, 40) || '新对话',
+              title: content.slice(0, 40) || '新对话',
               messages: [{
                 id: 'msg_0',
                 role: 'user' as const,
                 content: query,
                 createdAt: new Date().toISOString(),
+                extraInfo: attachmentExtra,
               }],
               createdAt: convId.replace('conv_', ''),
               updatedAt: new Date().toISOString(),
@@ -1105,7 +1235,32 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
                         </div>
                       )
                     }
-                    return <div className="whitespace-pre-wrap">{msg.content}</div>
+
+                    const msgItem = messages.find((m) => m.id === msg.id)
+                    const videoAttachment = msgItem?.extraInfo?.videoAttachment as { id: string; title: string } | undefined
+
+                    let cleanContent = msg.content
+                    if (cleanContent.startsWith('[已关联本地视频')) {
+                      const newlineIndex = cleanContent.indexOf('\n')
+                      if (newlineIndex !== -1) {
+                        cleanContent = cleanContent.slice(newlineIndex + 1)
+                      }
+                    }
+
+                    return (
+                      <div className="space-y-2">
+                        <div className="whitespace-pre-wrap">{cleanContent}</div>
+                        {videoAttachment && (
+                          <div className="flex items-center gap-3.5 px-4.5 py-3 rounded-xl border border-border bg-card/65 text-xs font-semibold shadow-xs select-none max-w-sm mt-2 transition-all hover:bg-card">
+                            <VideoCameraOutlined className="text-xl text-primary shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-foreground/85">{videoAttachment.title}</div>
+                              <div className="text-[10px] text-muted-foreground/60 mt-0.5">本地视频 · 已关联</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
                   }
                 },
               }}

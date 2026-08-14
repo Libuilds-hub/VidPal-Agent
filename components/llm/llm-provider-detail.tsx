@@ -109,9 +109,17 @@ export default function LlmProviderDetail({
   })
 
   useEffect(() => {
-    fetch("https://openrouter.ai/api/v1/models")
-      .then((res) => res.json())
+    let cancelled = false
+    // 经服务端代理获取全局模型库，避免浏览器直连 openrouter.ai 的 CORS / 网络问题
+    fetch("/api/openrouter/models")
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`)
+        }
+        return res.json()
+      })
       .then((data) => {
+        if (cancelled) return
         if (data && Array.isArray(data.data)) {
           setOpenRouterModels(data.data)
           if (typeof window !== "undefined") {
@@ -119,7 +127,12 @@ export default function LlmProviderDetail({
           }
         }
       })
-      .catch((err) => console.error("Failed to load global OpenRouter model database:", err))
+      .catch(() => {
+        // 模型库加载失败时静默降级：保留本地缓存数据，模型元数据由内置启发式兜底
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
