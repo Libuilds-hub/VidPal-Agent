@@ -20,7 +20,18 @@ export class TaskEventBus {
     const ev: TaskEvent = { taskId, seq, type, payload: payload ?? {}, createdAt }
     const set = this.listeners.get(taskId)
     if (set) {
-      for (const fn of [...set]) fn(ev)
+      // 逐个监听器隔离：单个监听器抛错（如 SSE 写坏 socket）只记录日志，
+      // 不影响其他监听器收到事件，也不让异常逃出 emit 进入任务循环
+      for (const fn of [...set]) {
+        try {
+          fn(ev)
+        } catch (err) {
+          console.error(
+            `[TaskEventBus] listener${fn.name ? ` "${fn.name}"` : ""} for task "${taskId}" (seq ${seq}, type ${type}) threw:`,
+            err
+          )
+        }
+      }
     }
   }
 
@@ -32,6 +43,18 @@ export class TaskEventBus {
       set.delete(fn)
       if (set.size === 0) this.listeners.delete(taskId)
     }
+  }
+
+  /**
+   * 原子订阅：先同步回放 seq > afterSeq 的历史事件（调用 fn），
+   * 再注册实时监听（语义同 on()）。避免"先回放后订阅"之间的事件缺口，
+   * 用于 SSE 断线续传（Last-Event-ID）。返回退订函数。
+   */
+  subscribeFrom(taskId: string, afterSeq: number, fn: Listener): () => void {
+    for (const ev of this.replay(taskId, afterSeq)) {
+      fn(ev)
+    }
+    return this.on(taskId, fn)
   }
 
   lastSeq(taskId: string): number {
