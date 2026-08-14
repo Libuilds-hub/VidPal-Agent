@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { clearRuntimeLlmCache } from "@/lib/runtime-client"
 
 export async function POST(req: NextRequest) {
   try {
@@ -135,6 +136,9 @@ export async function POST(req: NextRequest) {
       update: { value: new Date().toISOString() },
       create: { key: "last_model_sync_time", value: new Date().toISOString() }
     })
+
+    // 写操作后通知 Runtime 清除 LLM 缓存（fire-and-forget：不阻塞响应、Runtime 不可用也静默）
+    void clearRuntimeLlmCache()
 
     return NextResponse.json({
       success: true,

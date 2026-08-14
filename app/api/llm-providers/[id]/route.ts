@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { clearRuntimeLlmCache } from "@/lib/runtime-client"
 
 // GET — get full provider (with unmasked key for editing)
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -35,6 +36,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     },
   })
 
+  // 写操作后通知 Runtime 清除 LLM 缓存（fire-and-forget：不阻塞响应、Runtime 不可用也静默）
+  void clearRuntimeLlmCache()
+
   return NextResponse.json(updated)
 }
 
@@ -42,6 +46,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   await prisma.llmProvider.delete({ where: { id } })
+  // 写操作后通知 Runtime 清除 LLM 缓存（fire-and-forget：不阻塞响应、Runtime 不可用也静默）
+  void clearRuntimeLlmCache()
   return NextResponse.json({ success: true })
 }
 

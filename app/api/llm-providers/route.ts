@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { clearRuntimeLlmCache } from "@/lib/runtime-client"
 
 // GET — list all providers (return unmasked keys)
 export async function GET() {
@@ -156,6 +157,9 @@ export async function POST(req: NextRequest) {
       logo: logo || null,
     },
   })
+
+  // 写操作后通知 Runtime 清除 LLM 缓存（fire-and-forget：不阻塞响应、Runtime 不可用也静默）
+  void clearRuntimeLlmCache()
 
   return NextResponse.json(provider)
 }

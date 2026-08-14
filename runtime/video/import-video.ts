@@ -55,6 +55,35 @@ export function ensureLocalSource(videoDir: string, localPath: string | undefine
   return target
 }
 
+/** Prisma P2025：目标记录不存在（任务运行中视频行被用户删除） */
+function isRowMissing(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: unknown }).code === "P2025"
+  )
+}
+
+/**
+ * 把视频行标记为 error。若行已被删除（P2025），仅告警并吞掉该 update 错误，
+ * 让调用方继续抛出阶段原始错误——避免 P2025 掩盖真正的失败原因。
+ */
+async function markVideoError(videoId: string, message: string): Promise<void> {
+  try {
+    await prisma.video.update({
+      where: { id: videoId },
+      data: { status: "error", error: message },
+    })
+  } catch (err) {
+    if (isRowMissing(err)) {
+      console.warn(`[runtime] 视频行可能已被删除: ${videoId}`)
+      return
+    }
+    console.warn(`[runtime] 视频行标记失败 (${videoId}): ${err instanceof Error ? err.message : err}`)
+  }
+}
+
 export const importVideoHandler: TaskHandler = {
   type: "import_video",
   async run(ctx: TaskContext) {
@@ -95,10 +124,8 @@ export const importVideoHandler: TaskHandler = {
       try {
         ensureLocalSource(dir, input.localPath)
       } catch (err) {
-        await prisma.video.update({
-          where: { id: videoId },
-          data: { status: "error", error: err instanceof Error ? err.message : String(err) },
-        })
+        // 行已被删除时 markVideoError 吞掉 P2025，原始错误照常上抛
+        await markVideoError(videoId, err instanceof Error ? err.message : String(err))
         throw err
       }
     }
@@ -166,13 +193,11 @@ export const importVideoHandler: TaskHandler = {
             }
           } catch (err) {
             // 中途失败：把视频行置为 error，避免状态卡死在 downloading/transcoding/transcribing
-            await prisma.video.update({
-              where: { id: videoId },
-              data: {
-                status: "error",
-                error: `处理失败（${stage} 阶段）: ${err instanceof Error ? err.message : err}`,
-              },
-            })
+            // （行已被删除时 markVideoError 吞掉 P2025，原始错误照常上抛）
+            await markVideoError(
+              videoId,
+              `处理失败（${stage} 阶段）: ${err instanceof Error ? err.message : err}`
+            )
             throw err
           }
           break
@@ -189,10 +214,8 @@ export const importVideoHandler: TaskHandler = {
           const summaryOk = summary.overview && summary.overview.length > 0
           const mindmapOk = mindmap != null
           if (!summaryOk && !mindmapOk) {
-            await prisma.video.update({
-              where: { id: videoId },
-              data: { status: "error", error: "LLM 摘要与导图均生成失败，请检查 API Key 与模型配置" },
-            })
+            // 行已被删除时 markVideoError 吞掉 P2025，原始错误照常上抛
+            await markVideoError(videoId, "LLM 摘要与导图均生成失败，请检查 API Key 与模型配置")
             throw new Error("LLM 摘要与导图均生成失败，请检查 API Key 与模型配置")
           }
           await prisma.video.update({
@@ -205,13 +228,18 @@ export const importVideoHandler: TaskHandler = {
       }
     }
 
-    // 全部阶段完成后兜底置 done
+    // 全部阶段完成后兜底置 done（行已被删除则静默跳过）
     const final = await prisma.video.findUnique({ where: { id: videoId } })
     if (final && final.status !== "done" && final.status !== "error") {
-      await prisma.video.update({
-        where: { id: videoId },
-        data: { status: "done", localPath: `/videos/${videoId}/video.mp4` },
-      })
+      try {
+        await prisma.video.update({
+          where: { id: videoId },
+          data: { status: "done", localPath: `/videos/${videoId}/video.mp4` },
+        })
+      } catch (err) {
+        // P2025：行已被删除，静默跳过兜底置 done；其余错误照常上抛
+        if (!isRowMissing(err)) throw err
+      }
     }
     ctx.setResult({ videoId, status: "done" })
   },

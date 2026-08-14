@@ -128,3 +128,16 @@ export function createRuntimeClient(baseUrl: string = DEFAULT_URL) {
 }
 
 export type RuntimeClient = ReturnType<typeof createRuntimeClient>
+
+/**
+ * 通知 Runtime 清除进程内 LLM 模型/Embedding 缓存（POST /llm/cache/clear）。
+ * 设置页修改默认 provider/model 后调用，避免 summarize/regenerate 继续使用旧模型。
+ * fire-and-forget：Runtime 未启动/重启时静默吞掉错误，绝不阻塞或失败 Web 请求。
+ */
+export async function clearRuntimeLlmCache(): Promise<void> {
+  try {
+    await fetch(`${DEFAULT_URL}/llm/cache/clear`, { method: "POST", cache: "no-store" })
+  } catch {
+    // 忽略：Runtime 暂不可用；下一次写操作会再次触发清除
+  }
+}
