@@ -8,11 +8,35 @@ import type { AgentTool, ToolResult } from "./registry"
 export function createFsTools(workspace: string): AgentTool[] {
   const root = path.resolve(workspace)
 
-  /** 解析并校验路径在根目录内，返回绝对路径；越界抛错 */
-  function resolveInside(rootDir: string, p: string): string {
+  /**
+   * 解析并校验路径在根目录内，返回绝对路径；越界抛错。
+   * 词法校验之外再做 realpath 校验：跟随符号链接/junction 解析真实路径，
+   * 防止工作区内指向外部的链接导致越权读写（已存在的文件/目录直接解析真实路径；
+   * 新文件则解析其父目录，阻止经链接把文件写到白名单外）。
+   */
+  function resolveInside(rootDir: string, p: string, allowNewFile = false): string {
     const abs = path.resolve(rootDir, p)
-    if (abs !== root && !abs.startsWith(root + path.sep)) {
-      throw new Error(`路径在白名单外: ${p}`)
+    const realRoot = fs.realpathSync(rootDir)
+    // Windows 下路径大小写不敏感：realpath 来自同一盘符，统一小写比较安全
+    const fold = (s: string) => (process.platform === "win32" ? s.toLowerCase() : s)
+    const rootKey = fold(realRoot)
+    const check = (target: string) => {
+      const t = fold(target)
+      if (t !== rootKey && !t.startsWith(rootKey + path.sep)) {
+        throw new Error(`路径在白名单外: ${p}`)
+      }
+    }
+    if (fs.existsSync(abs)) {
+      check(fs.realpathSync(abs)) // 已存在：直接解析真实路径（跟随符号链接）
+    } else if (allowNewFile) {
+      check(fs.realpathSync(path.dirname(abs))) // 新文件：解析父目录真实路径
+    } else {
+      // 不存在时无真实路径可泄露；但词法上已越界的仍按白名单外报错（保留既有行为）
+      const a = fold(abs)
+      if (a !== rootKey && !a.startsWith(rootKey + path.sep)) {
+        throw new Error(`路径在白名单外: ${p}`)
+      }
+      throw new Error(`文件不存在: ${p}`)
     }
     return abs
   }
@@ -31,6 +55,12 @@ export function createFsTools(workspace: string): AgentTool[] {
       if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
         throw new Error(`文件不存在: ${args.path}`)
       }
+      // 大小超限直接拒绝，避免一次性读入超大文件导致 OOM
+      const MAX_BYTES = 10 * 1024 * 1024
+      const size = fs.statSync(abs).size
+      if (size > MAX_BYTES) {
+        throw new Error(`文件过大（${(size / (1024 * 1024)).toFixed(1)} MB），拒绝读取`)
+      }
       const content = fs.readFileSync(abs, "utf-8")
       const MAX = 10_000
       const truncated = content.length > MAX
@@ -46,7 +76,7 @@ export function createFsTools(workspace: string): AgentTool[] {
     inputSchema: writeFileSchema,
     dangerous: true,
     async execute(args) {
-      const abs = resolveInside(root, args.path)
+      const abs = resolveInside(root, args.path, true)
       fs.mkdirSync(path.dirname(abs), { recursive: true })
       fs.writeFileSync(abs, args.content, "utf-8")
       return { summary: `已写入 ${args.path}（${args.content.length} 字符）` }

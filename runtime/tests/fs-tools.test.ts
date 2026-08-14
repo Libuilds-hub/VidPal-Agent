@@ -65,3 +65,72 @@ test("write_file 创建/覆盖，dangerous=true；目录内相对路径", async 
     fs.rmSync(ws, { recursive: true, force: true })
   }
 })
+
+test("junction/symlink 指向外部目录被拒（逃逸）", async (t) => {
+  const ws = makeWorkspace()
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "rt-fs-out-"))
+  try {
+    fs.writeFileSync(path.join(outside, "secret.txt"), "top-secret")
+    // Windows junction 无需管理员权限；非 Windows 用目录符号链接
+    const linkType = process.platform === "win32" ? "junction" : "dir"
+    try {
+      fs.symlinkSync(outside, path.join(ws, "link"), linkType)
+    } catch (err) {
+      t.skip(`无法创建 ${linkType} 链接: ${(err as Error).message}`)
+      return
+    }
+    const tools = createFsTools(ws)
+    const read = tools.find((x) => x.name === "read_file")!
+    const write = tools.find((x) => x.name === "write_file")!
+
+    // 经链接读外部文件必须被拒
+    await assert.rejects(() => read.execute({ path: "link/secret.txt" }), /白名单外/)
+    // 经链接写新文件 / 覆盖外部已有文件都必须被拒
+    await assert.rejects(() => write.execute({ path: "link/new.txt", content: "x" }), /白名单外/)
+    await assert.rejects(() => write.execute({ path: "link/secret.txt", content: "evil" }), /白名单外/)
+    // 外部真实文件未被改动
+    assert.equal(fs.readFileSync(path.join(outside, "secret.txt"), "utf-8"), "top-secret")
+  } finally {
+    fs.rmSync(ws, { recursive: true, force: true })
+    fs.rmSync(outside, { recursive: true, force: true })
+  }
+})
+
+test("read_file 长文件截断（10000 字符）", async () => {
+  const ws = makeWorkspace()
+  try {
+    fs.writeFileSync(path.join(ws, "long.txt"), "x".repeat(15000))
+    const tools = createFsTools(ws)
+    const read = tools.find((x) => x.name === "read_file")!
+    const r = await read.execute({ path: "long.txt" })
+    assert.match(r.summary, /已截断/)
+    assert.ok(r.summary.length < 15000)
+  } finally {
+    fs.rmSync(ws, { recursive: true, force: true })
+  }
+})
+
+test("read_file 拒绝大于 10MB 的文件（防 OOM）", async () => {
+  const ws = makeWorkspace()
+  try {
+    fs.writeFileSync(path.join(ws, "big.bin"), Buffer.alloc(11 * 1024 * 1024, 0x61))
+    const tools = createFsTools(ws)
+    const read = tools.find((x) => x.name === "read_file")!
+    await assert.rejects(() => read.execute({ path: "big.bin" }), /文件过大/)
+  } finally {
+    fs.rmSync(ws, { recursive: true, force: true })
+  }
+})
+
+const caseInsensitiveTest = process.platform === "win32" ? test : test.skip
+caseInsensitiveTest("Windows 路径大小写不敏感（大写工作区路径可读）", async () => {
+  const ws = makeWorkspace()
+  try {
+    const tools = createFsTools(ws)
+    const read = tools.find((x) => x.name === "read_file")!
+    const r = await read.execute({ path: path.join(ws.toUpperCase(), "a.txt") })
+    assert.equal(r.summary, "hello")
+  } finally {
+    fs.rmSync(ws, { recursive: true, force: true })
+  }
+})
