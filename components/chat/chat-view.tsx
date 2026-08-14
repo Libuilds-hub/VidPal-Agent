@@ -245,19 +245,12 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
           name: file.name,
           status: 'done' as const,
           percent: 100,
-          videoId: data.id,
           title: data.title,
           localPath: data.localPath,
         }
       ])
 
       message.success('视频上传成功，正在后台解析中...')
-
-      fetch("/api/video/transcribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoId: data.id }),
-      }).catch((err) => console.error("Trigger transcription error:", err))
 
     } catch (error) {
       console.error("Upload error:", error)
@@ -1051,7 +1044,6 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
           const attachmentExtra = doneAttachment
             ? {
                 videoAttachment: {
-                  id: doneAttachment.videoId,
                   title: doneAttachment.title,
                   localPath: doneAttachment.localPath,
                 },
@@ -1060,7 +1052,7 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
 
           let query = content
           if (doneAttachment) {
-            query = `[已关联本地视频(ID: ${doneAttachment.videoId}, 标题: "${doneAttachment.title}")]\n${query}`
+            query = `[已关联本地视频(标题: "${doneAttachment.title}")]\n${query}`
           }
           if (skill?.value) {
             query = `[${skill.value}] ${query}`

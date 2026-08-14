@@ -4,6 +4,7 @@ import { ensureDevDbWAL, prisma } from "./video/db"
 import { TaskEventBus } from "./events"
 import { TaskQueue } from "./tasks/queue"
 import { echoHandler } from "./tasks/echo"
+import { importVideoHandler, regenerateHandler } from "./video/import-video"
 import { recoverInterruptedTasks } from "./recovery"
 import { createRuntimeServer } from "./server"
 import { config } from "./config"
@@ -13,7 +14,7 @@ if (process.env.DATABASE_URL) {
   ensureDevDbWAL(process.env.DATABASE_URL)
 }
 const bus = new TaskEventBus(db)
-const queue = new TaskQueue(db, bus, [echoHandler])
+const queue = new TaskQueue(db, bus, [echoHandler, importVideoHandler, regenerateHandler])
 
 // 1. 崩溃恢复（唯一 owner：Runtime）
 recoverInterruptedTasks(db)

@@ -229,13 +229,6 @@ export default function VideosPage() {
         throw new Error(data.error || "上传视频失败")
       }
 
-      // 异步触发转写与分析流程
-      fetch("/api/video/transcribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoId: data.id }),
-      }).catch((err) => console.error("Trigger transcription error:", err))
-
       setImportMessage({ type: "success", text: "视频文件上传成功，正在后台解析中..." })
       setFileName(null)
 
