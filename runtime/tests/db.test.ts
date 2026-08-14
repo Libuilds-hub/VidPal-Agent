@@ -47,3 +47,59 @@ test("createRuntimeDb 建表并支持读写", () => {
 
   db.close()
 })
+
+test("旧版 agent.db（列级 UNIQUE）迁移：保留数据并重建部分唯一索引", () => {
+  const fs = require("fs") as typeof import("fs")
+  const os = require("os") as typeof import("os")
+  const path = require("path") as typeof import("path")
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rt-mig-"))
+  const dbPath = path.join(tmpDir, "agent.db")
+  try {
+    // 用旧 DDL 造库（列级 UNIQUE）
+    const Database = require("better-sqlite3")
+    const legacy = new Database(dbPath)
+    legacy.exec(`
+      CREATE TABLE task (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        session_id TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        stage TEXT NOT NULL DEFAULT 'init',
+        input TEXT NOT NULL,
+        result TEXT,
+        error TEXT,
+        idempotency_key TEXT UNIQUE,
+        cancel_requested INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      INSERT INTO task (id, type, status, input, idempotency_key, created_at, updated_at)
+        VALUES ('t-done', 'echo', 'done', '{}', 'k1', 1, 1),
+               ('t-pending', 'echo', 'pending', '{}', 'k2', 1, 1),
+               ('t-nokey', 'echo', 'pending', '{}', NULL, 1, 1);
+    `)
+    legacy.close()
+
+    // 用新 createRuntimeDb 打开 → 触发迁移
+    const db = createRuntimeDb(dbPath)
+    // 数据保留
+    const rows = db.prepare("SELECT id, status FROM task ORDER BY id").all() as Array<{ id: string; status: string }>
+    assert.deepEqual(rows, [
+      { id: "t-done", status: "done" },
+      { id: "t-nokey", status: "pending" },
+      { id: "t-pending", status: "pending" },
+    ])
+    // 部分唯一索引生效：pending 同 key 再插被拒，done 同 key 允许
+    assert.throws(() => {
+      db.prepare(
+        "INSERT INTO task (id, type, status, input, idempotency_key, created_at, updated_at) VALUES (?, 'echo', 'pending', '{}', 'k2', 1, 1)"
+      ).run("t-x")
+    })
+    db.prepare(
+      "INSERT INTO task (id, type, status, input, idempotency_key, created_at, updated_at) VALUES (?, 'echo', 'done', '{}', 'k1', 1, 1)"
+    ).run("t-y")
+    db.close()
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  }
+})
