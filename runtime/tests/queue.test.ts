@@ -158,6 +158,53 @@ test("worker 循环自动执行两个 echo 任务到 done，事件完整", async
   db.close()
 })
 
+test("worker 取消任务：取消是正常终态，不输出执行异常日志", async () => {
+  const db = createRuntimeDb(":memory:")
+  const bus = new TaskEventBus(db)
+  const queue = new TaskQueue(db, bus, [echoHandler])
+
+  const { taskId } = queue.enqueue({
+    type: "echo",
+    input: { message: "取消我", delayMs: 200 },
+  })
+
+  // 拦截 console.error：验证取消路径不产生"执行异常"日志
+  const logged: string[] = []
+  const origError = console.error
+  console.error = (...args: unknown[]) => {
+    logged.push(args.map(String).join(" "))
+  }
+
+  try {
+    queue.startWorker()
+    // 等 worker 认领并进入 echo 延时（200ms 分两段），30ms 后请求取消
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    const ok = queue.requestCancel(taskId)
+    assert.equal(ok, true)
+
+    // 轮询等待任务到达 cancelled（2 秒超时，每 50ms 查一次）
+    const statusOf = (id: string) =>
+      (db.prepare("SELECT status FROM task WHERE id = ?").get(id) as { status: string }).status
+    const deadline = Date.now() + 2000
+    while (Date.now() < deadline && statusOf(taskId) !== "cancelled") {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+  } finally {
+    queue.stopWorker()
+    console.error = origError
+  }
+
+  // 取消是正常终态：不应有任何"执行异常"日志
+  assert.equal(
+    logged.some((msg) => msg.includes("执行异常")),
+    false,
+    `取消不应记录执行异常日志，实际日志: ${JSON.stringify(logged)}`
+  )
+  const task = db.prepare("SELECT * FROM task WHERE id = ?").get(taskId) as Record<string, unknown>
+  assert.equal(task.status, "cancelled")
+  db.close()
+})
+
 test("worker 循环在 DB 故障时不被击穿：claimNext 抛错被捕获、进程不崩溃", async () => {
   const db = createRuntimeDb(":memory:")
   const bus = new TaskEventBus(db)

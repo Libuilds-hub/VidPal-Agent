@@ -255,9 +255,10 @@ export class TaskQueue {
           await sleep(300)
           continue
         }
-        void this.runTaskById(row.id).catch((err) =>
+        void this.runTaskById(row.id).catch((err) => {
+          if (err instanceof TaskCancelledError) return // 取消是正常终态，不记错误日志
           console.error(`[runtime] 任务 ${row.id} 执行异常:`, err)
-        )
+        })
       } catch (err) {
         console.error("[runtime] worker 循环异常，1s 后重试:", err)
         await sleep(1000)
