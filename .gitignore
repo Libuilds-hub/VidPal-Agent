@@ -50,3 +50,6 @@ next-env.d.ts
 /.agents/
 
 /.playwright-cli/
+
+# Runtime 本地数据（SQLite 等，不入库）
+/data/
