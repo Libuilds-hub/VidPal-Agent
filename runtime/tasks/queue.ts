@@ -122,6 +122,10 @@ export class TaskQueue {
   }
 
   requestCancel(taskId: string): boolean {
+    const row = this.db.prepare("SELECT status FROM task WHERE id = ?").get(taskId) as
+      | { status: string }
+      | undefined
+    if (!row || (row.status !== "pending" && row.status !== "running")) return false
     const res = this.db
       .prepare(
         `UPDATE task SET cancel_requested = 1, updated_at = ?,
@@ -129,6 +133,11 @@ export class TaskQueue {
          WHERE id = ? AND status IN ('pending', 'running')`
       )
       .run(Date.now(), taskId)
+    // pending → cancelled 由 requestCancel 直接完成状态流转，必须补发取消事件；
+    // running 只置取消标志，事件由 handler 阶段检查经 markCancelled 发出，避免重复。
+    if (row.status === "pending") {
+      this.bus.emit(taskId, "task_cancelled", {})
+    }
     return res.changes > 0
   }
 
@@ -141,7 +150,16 @@ export class TaskQueue {
 
   /** 执行单个任务到终态（测试与 worker 共用） */
   async runTaskById(taskId: string): Promise<void> {
-    const row = this.db.prepare("SELECT * FROM task WHERE id = ?").get(taskId) as TaskDbRow
+    const row = this.db.prepare("SELECT * FROM task WHERE id = ?").get(taskId) as
+      | TaskDbRow
+      | undefined
+    if (!row) {
+      console.error(`[runtime] runTaskById: 任务不存在: ${taskId}`)
+      return
+    }
+    // 终态任务（done/failed/cancelled/interrupted）不重跑 handler
+    if (row.status !== "pending" && row.status !== "running") return
+
     const handler = this.handlers.get(row.type)
     if (!handler) {
       this.markFailed(taskId, `未知任务类型: ${row.type}`)
@@ -153,9 +171,18 @@ export class TaskQueue {
     }
 
     this.bus.emit(taskId, "task_started", { type: row.type })
+
+    // 输入解析：损坏的输入直接判失败，不进入 handler
+    let input: unknown
+    try {
+      input = JSON.parse(row.input)
+    } catch {
+      this.markFailed(taskId, "任务输入损坏")
+      return
+    }
     const ctx: TaskContext = createTaskContext(
       taskId,
-      JSON.parse(row.input),
+      input,
       this.bus,
       () => this.isCancelled(taskId),
       (result) => this.markDone(taskId, result)
@@ -186,14 +213,18 @@ export class TaskQueue {
 
   private markDone(taskId: string, result: string): void {
     this.db
-      .prepare("UPDATE task SET status = 'done', result = ?, updated_at = ? WHERE id = ?")
+      .prepare(
+        "UPDATE task SET status = 'done', result = ?, cancel_requested = 0, updated_at = ? WHERE id = ?"
+      )
       .run(result, Date.now(), taskId)
     this.bus.emit(taskId, "task_done", { result })
   }
 
   private markFailed(taskId: string, error: string): void {
     this.db
-      .prepare("UPDATE task SET status = 'failed', error = ?, updated_at = ? WHERE id = ?")
+      .prepare(
+        "UPDATE task SET status = 'failed', error = ?, cancel_requested = 0, updated_at = ? WHERE id = ?"
+      )
       .run(error, Date.now(), taskId)
     this.bus.emit(taskId, "task_failed", { error })
   }
