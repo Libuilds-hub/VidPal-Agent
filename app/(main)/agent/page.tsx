@@ -12,8 +12,12 @@ export default function AgentPage() {
   const refresh = useCallback(async () => {
     try {
       const res = await fetch("/api/agent/tasks", { cache: "no-store" })
+      if (!res.ok) throw new Error("Runtime 不可用")
       const data = await res.json()
-      if (Array.isArray(data)) setTasks(data)
+      if (Array.isArray(data)) {
+        setTasks(data)
+        setError(null)
+      }
     } catch {
       setError("无法连接 Agent Runtime，请先运行 npm run dev:runtime")
     }
