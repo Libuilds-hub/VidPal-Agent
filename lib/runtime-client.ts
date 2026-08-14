@@ -10,32 +10,58 @@ import type {
 const DEFAULT_URL = process.env.NEXT_PUBLIC_RUNTIME_URL || "http://localhost:3100"
 
 export function createRuntimeClient(baseUrl: string = DEFAULT_URL) {
-  async function request<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(`${baseUrl}${path}`, {
-      ...init,
-      headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-      cache: "no-store",
-    })
+  // 归一化：去掉尾斜杠。否则 "http://localhost:3100/" 会拼出 "//tasks"，
+  // 服务端按 path === "/tasks" 精确匹配 → 全部请求 404（SSE 静默失效）。
+  const root = baseUrl.replace(/\/+$/, "")
+
+  async function request<T>(
+    path: string,
+    init?: RequestInit,
+    opts?: { allow?: number[] }
+  ): Promise<T> {
+    const method = init?.method ?? "GET"
+    let res: Response
+    try {
+      res = await fetch(`${root}${path}`, {
+        ...init,
+        headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+        cache: "no-store",
+      })
+    } catch (err) {
+      // 网络错误（runtime 未启动/连接被拒等）必须能识别，而不是裸 TypeError
+      throw new Error(`Runtime 请求失败 (${method} ${path}): ${(err as Error).message}`, {
+        cause: err,
+      })
+    }
     if (!res.ok) {
+      // 白名单状态码：解析并返回 body 而非抛错。如取消不存在的任务
+      // 服务端返回 404 {"ok": false}，cancelTask 应解析为 { ok: false }。
+      if (opts?.allow?.includes(res.status)) {
+        return res.json() as Promise<T>
+      }
       const body = (await res.json().catch(() => ({}))) as { error?: string }
-      throw new Error(body.error || `Runtime 请求失败: HTTP ${res.status}`)
+      throw new Error(body.error || `Runtime 请求失败 (${method} ${path}): HTTP ${res.status}`)
     }
     return res.json() as Promise<T>
   }
 
   return {
-    baseUrl,
+    baseUrl: root,
     submitTask(req: CreateTaskRequest): Promise<CreateTaskResponse> {
       return request("/tasks", { method: "POST", body: JSON.stringify(req) })
     },
     getTask(taskId: string): Promise<TaskRow> {
-      return request(`/tasks/${taskId}`)
+      return request(`/tasks/${encodeURIComponent(taskId)}`)
     },
     listTasks(sessionId?: string): Promise<TaskRow[]> {
       return request(`/tasks${sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ""}`)
     },
     cancelTask(taskId: string): Promise<{ ok: boolean }> {
-      return request(`/tasks/${taskId}/cancel`, { method: "POST" })
+      return request(
+        `/tasks/${encodeURIComponent(taskId)}/cancel`,
+        { method: "POST" },
+        { allow: [404] }
+      )
     },
     createSession(title?: string): Promise<{ id: string; title: string }> {
       return request("/sessions", { method: "POST", body: JSON.stringify({ title }) })
@@ -48,18 +74,37 @@ export function createRuntimeClient(baseUrl: string = DEFAULT_URL) {
      * 服务端据此回放未消费事件。
      */
     subscribeTaskEvents(taskId: string, onEvent: (ev: TaskEvent) => void): () => void {
-      const es = new EventSource(`${baseUrl}/tasks/${taskId}/events`)
+      const es = new EventSource(`${root}/tasks/${encodeURIComponent(taskId)}/events`)
       const handlers = new Map<string, (e: MessageEvent) => void>()
+      let closed = false
+      // 幂等关闭：终态事件触发自动关闭后，外部再调用退订函数也安全
+      const close = () => {
+        if (closed) return
+        closed = true
+        for (const [type, fn] of handlers) es.removeEventListener(type, fn)
+        es.close()
+      }
       const handle = (type: string) => {
         const fn = (e: MessageEvent) => {
-          const payload = JSON.parse(e.data)
+          let payload: Record<string, unknown>
+          try {
+            payload = JSON.parse(e.data)
+          } catch {
+            // 单条坏帧不该中断整个监听器分发
+            console.warn(`[runtime-client] 忽略无法解析的事件数据 (${type}):`, e.data)
+            return
+          }
           onEvent({
             taskId,
-            seq: payload.seq ?? 0,
+            seq: (payload.seq as number) ?? 0,
             type: type as TaskEvent["type"],
             payload,
-            createdAt: Date.now(),
+            createdAt: (payload.createdAt as number) ?? Date.now(),
           })
+          // 终态事件后流不可能再产生有用数据：自动断开，避免无谓长连接
+          if (type === "task_done" || type === "task_failed" || type === "task_cancelled") {
+            close()
+          }
         }
         handlers.set(type, fn)
         es.addEventListener(type, fn)
@@ -77,10 +122,7 @@ export function createRuntimeClient(baseUrl: string = DEFAULT_URL) {
       es.onerror = () => {
         /* 浏览器自动重连，无需处理 */
       }
-      return () => {
-        for (const [type, fn] of handlers) es.removeEventListener(type, fn)
-        es.close()
-      }
+      return close
     },
   }
 }

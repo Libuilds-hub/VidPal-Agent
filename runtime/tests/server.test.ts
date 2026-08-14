@@ -125,6 +125,8 @@ test("POST /tasks → GET /tasks/:id → SSE 事件流 → done", async () => {
     assert.match(sseText, /event: stage/)
     // SSE 帧应携带 id 行（spec 兼容，支持 Last-Event-ID 断线续传）
     assert.match(sseText, /^id: \d+$/m)
+    // SSE 帧 data 应携带服务端真实 createdAt（客户端不再伪造时间戳）
+    assert.match(sseText, /"createdAt":\d+/)
   } finally {
     server.close()
   }
@@ -384,6 +386,35 @@ test("runtime-client 提交任务并轮询到 done", async () => {
     assert.equal(sessions.length, 1)
     assert.equal(sessions[0].title, "测试会话")
     assert.ok("createdAt" in sessions[0])
+  } finally {
+    server.close()
+  }
+})
+
+test("runtime-client：baseUrl 带尾斜杠也能正常工作", async () => {
+  const { server, base } = startTestServer()
+  try {
+    // 回归测试：baseUrl 以 "/" 结尾时，旧实现拼出 "//tasks" 导致所有请求 404。
+    // 修复后工厂内部归一化 root，全部 URL 从 root 拼接，baseUrl 属性返回归一化结果。
+    const { createRuntimeClient } = await import("../../lib/runtime-client")
+    const client = createRuntimeClient(`${base}/`)
+    assert.equal(client.baseUrl, base, "baseUrl 属性应返回归一化（无尾斜杠）的 root")
+    const created = await client.submitTask({ type: "echo", input: { message: "尾斜杠" } })
+    assert.ok(created.taskId, "提交任务应成功返回 taskId")
+  } finally {
+    server.close()
+  }
+})
+
+test("runtime-client：取消不存在的任务返回 { ok: false } 而非抛错", async () => {
+  const { server, base } = startTestServer()
+  try {
+    // 回归测试：服务端对不存在的任务返回 404 {"ok": false}，旧实现 request()
+    // 对 !res.ok 一律抛错，导致 cancelTask 永远无法解析为 { ok: false }。
+    const { createRuntimeClient } = await import("../../lib/runtime-client")
+    const client = createRuntimeClient(base)
+    const result = await client.cancelTask("no-such-task-id")
+    assert.deepEqual(result, { ok: false })
   } finally {
     server.close()
   }

@@ -203,14 +203,32 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
       // 回放历史事件（评审修正 D：回放阶段逐条保护，防订阅者抛错中断回放）
       try {
         for (const ev of bus.replay(taskId, Number.isFinite(after) ? after : 0)) {
-          sendSSE(res, ev.type, { ...(ev.payload as Record<string, unknown>), seq: ev.seq }, ev.seq)
+          sendSSE(
+            res,
+            ev.type,
+            {
+              ...(ev.payload as Record<string, unknown>),
+              seq: ev.seq,
+              createdAt: ev.createdAt,
+            },
+            ev.seq
+          )
         }
       } catch {
         /* 回放失败不致命 */
       }
 
       const unsubscribe = bus.on(taskId, (ev) => {
-        sendSSE(res, ev.type, { ...(ev.payload as Record<string, unknown>), seq: ev.seq }, ev.seq)
+        sendSSE(
+          res,
+          ev.type,
+          {
+            ...(ev.payload as Record<string, unknown>),
+            seq: ev.seq,
+            createdAt: ev.createdAt,
+          },
+          ev.seq
+        )
       })
 
       const heartbeat = setInterval(() => {
