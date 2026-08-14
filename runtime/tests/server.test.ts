@@ -362,3 +362,29 @@ test("请求体过大：413 显式 Connection: close，连接不被毒化", asyn
     server.close()
   }
 })
+
+test("runtime-client 提交任务并轮询到 done", async () => {
+  const { server, db, base } = startTestServer()
+  try {
+    // 模拟 Web 侧使用：直接注入 base URL
+    const { createRuntimeClient } = await import("../../lib/runtime-client")
+    const client = createRuntimeClient(base)
+    const { taskId } = await client.submitTask({ type: "echo", input: { message: "客户端", delayMs: 5 } })
+
+    // 手动执行（测试环境 worker 未启动）
+    await new TaskQueue(db, new TaskEventBus(db), [echoHandler]).runTaskById(taskId)
+
+    const task = await client.getTask(taskId)
+    assert.equal(task.status, "done")
+    assert.equal(task.result, '"客户端"')
+
+    // listSessions 返回 camelCase SessionRow
+    await client.createSession("测试会话")
+    const sessions = await client.listSessions()
+    assert.equal(sessions.length, 1)
+    assert.equal(sessions[0].title, "测试会话")
+    assert.ok("createdAt" in sessions[0])
+  } finally {
+    server.close()
+  }
+})
