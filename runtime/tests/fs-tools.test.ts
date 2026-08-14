@@ -130,6 +130,30 @@ test("junction 指向外部时，深层新文件写入被拒（最近存在祖�
   }
 })
 
+test("write_file 悬空符号链接作为最终分量被拒（不创建外部文件）", async (t) => {
+  const ws = makeWorkspace()
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "rt-fs-out3-"))
+  try {
+    const linkPath = path.join(ws, "dangling")
+    const target = path.join(outside, "x.txt")
+    try {
+      fs.symlinkSync(target, linkPath, "file")
+    } catch (err) {
+      // win32 未开启开发者模式时创建文件符号链接可能 EPERM/EACCES；无法创建则跳过
+      t.skip(`无法创建符号链接: ${(err as Error).message}`)
+      return
+    }
+    const tools = createFsTools(ws)
+    const write = tools.find((x) => x.name === "write_file")!
+    // ws/dangling -> <outside>/x.txt（目标不存在）：写入必须被拒，且不得在目标处创建外部文件
+    await assert.rejects(() => write.execute({ path: "dangling", content: "PWNED" }), /白名单外/)
+    assert.equal(fs.existsSync(target), false)
+  } finally {
+    fs.rmSync(ws, { recursive: true, force: true })
+    fs.rmSync(outside, { recursive: true, force: true })
+  }
+})
+
 test("read_file 长文件截断（10000 字符）", async () => {
   const ws = makeWorkspace()
   try {

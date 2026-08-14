@@ -44,7 +44,38 @@ export function createFsTools(workspace: string): AgentTool[] {
     if (fs.existsSync(abs)) {
       check(fs.realpathSync(abs)) // 已存在：直接解析真实路径（跟随符号链接）
     } else if (allowNewFile) {
-      check(realpathNearestExisting(path.dirname(abs))) // 新文件：解析最近存在祖先的真实路径
+      // 最终分量可能是（悬空）符号链接：lstat 检查，解析目标后做包含性校验
+      let isLink = false
+      try {
+        isLink = fs.lstatSync(abs).isSymbolicLink()
+      } catch {
+        // 普通不存在的路径（lstat ENOENT）：检查父目录即可
+        check(realpathNearestExisting(path.dirname(abs)))
+        return abs
+      }
+      if (isLink) {
+        // 循环防护地解析链接链（lstat 不跟随链接，悬空链接也能解析出目标）
+        let target = abs
+        const seen = new Set<string>()
+        for (;;) {
+          try {
+            if (!fs.lstatSync(target).isSymbolicLink()) break
+          } catch {
+            break // 目标不存在：悬空终点，停止解析
+          }
+          if (seen.has(target)) throw new Error(`符号链接循环: ${p}`)
+          seen.add(target)
+          target = path.resolve(path.dirname(target), fs.readlinkSync(target))
+        }
+        if (fs.existsSync(target)) {
+          check(fs.realpathSync(target)) // 目标存在：realpath 后校验
+        } else {
+          // 目标不存在（悬空）：解析目标父目录的最近存在祖先并校验，阻止经链接写到白名单外
+          check(realpathNearestExisting(path.dirname(target)))
+        }
+      } else {
+        check(realpathNearestExisting(path.dirname(abs)))
+      }
     } else {
       // 不存在时无真实路径可泄露；但词法上已越界的仍按白名单外报错（保留既有行为）
       const a = fold(abs)
