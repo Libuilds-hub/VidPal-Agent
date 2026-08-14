@@ -48,8 +48,10 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
         total += chunk.length
         if (total > 1_000_000) {
           reject(new Error("body too large"))
-          // 暂停接收即可避免内存无限增长；连接保持打开，让 413 响应能写出去，
-          // 响应结束后 Node 会因请求体未读完而自行关闭连接
+          // 暂停接收即可避免内存无限增长；但未读的请求体会残留在连接上，
+          // Node 不会自动关闭连接 —— 413 路径必须显式 Connection: close 并在
+          // 响应冲刷后销毁 socket（见 sendBodyError），否则 keep-alive 连接会被
+          // 残留 body 毒化，下一个请求挂起/解析错乱。
           req.pause()
           return
         }
@@ -80,6 +82,42 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
     if (err.message !== "body too large" && err.message !== "invalid JSON") return null
     const status = bodyErrorStatus(err)
     return { status, error: status === 413 ? "请求体过大" : "请求体不是合法 JSON" }
+  }
+
+  /** readBody 已知错误的响应。413（请求体过大）时必须显式 Connection: close，
+   *  并在响应冲刷后排空残留请求体、销毁 socket：请求体未读完，残留 body 会毒化
+   *  keep-alive 连接（同一连接的下一个请求挂起/解析错乱，且 413 有时无法送达
+   *  客户端）；Node 不会自动关闭连接，必须显式处理。400（非法 JSON）请求体已
+   *  读完，普通响应即可。返回是否已处理（false = 未知错误，由外层全局兜底转 500）。 */
+  function sendBodyError(req: http.IncomingMessage, res: http.ServerResponse, err: unknown): boolean {
+    const e = bodyError(err)
+    if (!e) return false
+    if (e.status === 413) {
+      cors(res)
+      res.setHeader("Connection", "close")
+      res.writeHead(413, { "Content-Type": "application/json; charset=utf-8" })
+      // 响应冲刷完成后关闭连接。注意不能直接 destroy：请求体残留未读数据
+      // （parser 已被 pause），直接 destroy 会因未读数据触发 RST，反而丢失 413。
+      // 先 resume 排空已到达的请求体（内存有界、正常客户端瞬时完成），排空完成
+      // 或超时后销毁 socket —— 连接被有意关闭，杜绝毒化后 keep-alive 复用。
+      res.on("finish", () => {
+        const socket = req.socket
+        if (req.readableEnded) {
+          socket?.destroy()
+          return
+        }
+        req.resume()
+        const destroy = () => socket?.destroy()
+        req.once("end", destroy)
+        const guard = setTimeout(destroy, 1500)
+        guard.unref()
+        socket?.once("close", () => clearTimeout(guard))
+      })
+      res.end(JSON.stringify({ error: e.error }))
+    } else {
+      json(res, e.status, { error: e.error })
+    }
+    return true
   }
 
   function sendSSE(res: http.ServerResponse, event: string, data: unknown, id?: number): void {
@@ -120,9 +158,7 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
         })
         json(res, 200, result)
       } catch (err) {
-        const e = bodyError(err)
-        if (!e) throw err // 未知错误交给全局兜底（500）
-        json(res, e.status, { error: e.error })
+        if (!sendBodyError(req, res, err)) throw err // 未知错误交给全局兜底（500）
       }
       return
     }
@@ -198,9 +234,7 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
       try {
         parsed = SessionSchema.safeParse(await readBody(req))
       } catch (err) {
-        const e = bodyError(err)
-        if (!e) throw err // 未知错误交给全局兜底（500）
-        json(res, e.status, { error: e.error })
+        if (!sendBodyError(req, res, err)) throw err // 未知错误交给全局兜底（500）
         return
       }
       // 合法 JSON 但 schema 校验失败（如 title 非 string、body 非对象）→ 400，

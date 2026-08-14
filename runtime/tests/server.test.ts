@@ -1,6 +1,7 @@
 // runtime/tests/server.test.ts —— 起真实 HTTP 服务（端口 0）做集成测试
 import { test } from "node:test"
 import assert from "node:assert/strict"
+import http from "node:http"
 import { createRuntimeDb } from "../db"
 import { TaskEventBus } from "../events"
 import { TaskQueue } from "../tasks/queue"
@@ -16,6 +17,70 @@ function startTestServer() {
   server.listen(0)
   const port = (server.address() as AddressInfo).port
   return { server, db, port, base: `http://127.0.0.1:${port}` }
+}
+
+/** 裸 node:http 客户端：可精确控制 Connection 语义（fetch 无法做到），
+ *  收集 statusCode + headers + body；超时 5s 避免挂起拖死测试。
+ *  opts.waitForClose：响应 end 后是否等待客户端 socket 观察到 close（服务端
+ *  主动关闭/销毁连接时 true）——用于验证 413 后连接不被 keep-alive 复用。 */
+function rawRequest(
+  base: string,
+  path: string,
+  method: string,
+  headers: Record<string, string>,
+  body: string,
+  opts?: { agent?: http.Agent; waitForClose?: boolean }
+): Promise<{ statusCode: number; headers: http.IncomingHttpHeaders; body: string; socketClosed: boolean }> {
+  return new Promise((resolve, reject) => {
+    const url = new URL(path, base)
+    const req = http.request(
+      {
+        host: url.hostname,
+        port: url.port,
+        path: url.pathname,
+        method,
+        headers,
+        agent: opts?.agent,
+      },
+      (res) => {
+        const chunks: Buffer[] = []
+        let socketClosed = false
+        const socket = res.socket
+        socket?.on("close", () => {
+          socketClosed = true
+        })
+        res.on("data", (c: Buffer) => chunks.push(c))
+        res.on("end", () => {
+          const payload = {
+            statusCode: res.statusCode ?? 0,
+            headers: res.headers,
+            body: Buffer.concat(chunks).toString("utf-8"),
+          }
+          if (opts?.waitForClose && socket && !socketClosed) {
+            // 服务端销毁 socket 的 FIN 可能晚于响应 end 到达：短暂等待 close
+            let done = false
+            const settle = () => {
+              if (!done) {
+                done = true
+                resolve({ ...payload, socketClosed })
+              }
+            }
+            socket.once("close", () => {
+              socketClosed = true
+              settle()
+            })
+            const t = setTimeout(settle, 1500)
+            socket.once("close", () => clearTimeout(t))
+          } else {
+            resolve({ ...payload, socketClosed })
+          }
+        })
+      }
+    )
+    req.on("error", (err) => reject(err))
+    req.setTimeout(5000, () => req.destroy(new Error("request timed out")))
+    req.end(body)
+  })
 }
 
 test("POST /tasks → GET /tasks/:id → SSE 事件流 → done", async () => {
@@ -242,6 +307,57 @@ test("DB 异常时请求返回 500 且进程存活（全局兜底，不崩溃进
     // 进程存活：不触碰 DB 的路由仍正常响应
     const ok = await fetch(`${base}/skills`)
     assert.equal(ok.status, 200)
+  } finally {
+    server.close()
+  }
+})
+
+test("请求体过大：413 显式 Connection: close，连接不被毒化", async () => {
+  // 回归测试：readBody 在 1MB 处 reject 后，未读的请求体残留在连接上。
+  // 旧实现 413 响应不关闭连接（注释误称“Node 自行关闭连接”，实际 Node 不会），
+  // keep-alive 连接被未读 body 毒化 —— 同一连接的下一个请求可能无限挂起
+  // （实测 7/15 复现），且 413 有时到不了客户端。
+  // 修复后：413 路径显式回 Connection: close，并在响应冲刷完成后销毁 socket，
+  // 从根上杜绝连接复用，毒化场景不再可能发生。
+  // 这里用裸 node:http 客户端（而非 fetch）精确控制连接语义：
+  // 1) 客户端显式 Connection: close 的 >1MB 请求 → 必须拿到 413 + connection: close；
+  // 2) 之后用全新连接发小请求 → 200，证明服务未因超限 body 而损坏；
+  // 3) 决定性断言：keep-alive 连接上客户端未发 Connection: close，服务端 413
+  //    仍必须显式回 connection: close 并销毁 socket（旧实现回 keep-alive 且
+  //    连接保持打开 → 本断言必挂）。
+  const { server, base } = startTestServer()
+  try {
+    const bigBody = JSON.stringify({ type: "echo", input: { message: "x".repeat(1_100_000) } })
+    assert.ok(Buffer.byteLength(bigBody) > 1_000_000, "测试 body 必须超过 1MB 阈值")
+
+    // 1) 客户端显式 Connection: close
+    const big = await rawRequest(base, "/tasks", "POST", {
+      "Content-Type": "application/json",
+      Connection: "close",
+    }, bigBody)
+    assert.equal(big.statusCode, 413)
+    assert.equal((big.headers["connection"] ?? "").toLowerCase(), "close")
+
+    // 2) 全新连接上的后续请求必须正常服务（毒化被 Connection: close + destroy 阻断）
+    const small = await rawRequest(base, "/tasks", "POST", {
+      "Content-Type": "application/json",
+    }, JSON.stringify({ type: "echo", input: { message: "hi" } }))
+    assert.equal(small.statusCode, 200)
+    assert.equal(JSON.parse(small.body).error, undefined)
+
+    // 3) keep-alive 连接（客户端不发 Connection: close）：413 也必须显式
+    //    connection: close 并销毁 socket，防止连接被毒化复用
+    const agent = new http.Agent({ keepAlive: true, maxSockets: 1 })
+    try {
+      const alive = await rawRequest(base, "/tasks", "POST", {
+        "Content-Type": "application/json",
+      }, bigBody, { agent, waitForClose: true })
+      assert.equal(alive.statusCode, 413)
+      assert.equal((alive.headers["connection"] ?? "").toLowerCase(), "close")
+      assert.ok(alive.socketClosed, "413 后服务端必须主动销毁 socket，禁止 keep-alive 复用")
+    } finally {
+      agent.destroy()
+    }
   } finally {
     server.close()
   }
