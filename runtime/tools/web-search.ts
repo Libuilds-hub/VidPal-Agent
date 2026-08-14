@@ -1,12 +1,17 @@
 // runtime/tools/web-search.ts —— web_search：DuckDuckGo HTML 免费端点（零 Key）
 // 解析为纯函数便于测试；网络请求失败时抛出可读错误
 import { z } from "zod"
-import type { AgentTool, ToolResult } from "./registry"
+import type { AgentTool } from "./registry"
 
 export interface SearchResult {
   title: string
   url: string
   snippet: string
+}
+
+/** 判断 DDG 返回页是否被反爬/限流拦截（纯函数，可单测） */
+export function looksLikeAnomaly(html: string): boolean {
+  return /anomaly|challenge|captcha|If this problem persists|unusual traffic/i.test(html)
 }
 
 /** 从 DuckDuckGo html 端点响应中解析结果（纯函数，可单测） */
@@ -25,9 +30,18 @@ export function parseDuckDuckGoHtml(html: string): SearchResult[] {
     const rawUrl = titleMatch[1]
     const title = titleMatch[2].replace(/<[^>]+>/g, "").trim()
     const snippet = snippetMatch ? snippetMatch[1].replace(/<[^>]+>/g, "").trim() : ""
-    // 解码 DuckDuckGo 跳转链接中的 uddg 参数
+    // 解码 DuckDuckGo 跳转链接中的 uddg 参数；单条解码失败回退原始 URL，不中断整体解析
     const uddg = /[?&]uddg=([^&]+)/.exec(rawUrl)
-    const url = uddg ? decodeURIComponent(uddg[1]) : rawUrl.replace(/^\/\//, "https://")
+    let url: string
+    if (uddg) {
+      try {
+        url = decodeURIComponent(uddg[1])
+      } catch {
+        url = rawUrl
+      }
+    } else {
+      url = rawUrl.replace(/^\/\//, "https://")
+    }
     if (title && url.startsWith("http")) {
       results.push({ title, url, snippet })
     }
@@ -52,8 +66,16 @@ export function createWebSearchTool(): AgentTool<typeof webSearchSchema> {
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
         signal: AbortSignal.timeout(15_000),
       })
-      if (!res.ok) throw new Error(`搜索失败: HTTP ${res.status}`)
+      if (!res.ok) {
+        if (res.status === 429 || res.status >= 500) {
+          throw new Error(`搜索失败: HTTP ${res.status}（DuckDuckGo 限流或服务异常，请稍后重试）`)
+        }
+        throw new Error(`搜索失败: HTTP ${res.status}`)
+      }
       const html = await res.text()
+      if (looksLikeAnomaly(html)) {
+        throw new Error("DuckDuckGo 限流或反爬拦截，请稍后重试或更换查询词")
+      }
       const results = parseDuckDuckGoHtml(html).slice(0, args.maxResults)
       if (results.length === 0) return { summary: "（没有搜索结果）" }
       return {
