@@ -1,5 +1,6 @@
 // runtime/index.ts —— Runtime 进程入口：恢复 → worker → HTTP 服务 → 优雅退出
 import { createRuntimeDb } from "./db"
+import { ensureDevDbWAL } from "./video/db"
 import { TaskEventBus } from "./events"
 import { TaskQueue } from "./tasks/queue"
 import { echoHandler } from "./tasks/echo"
@@ -8,6 +9,9 @@ import { createRuntimeServer } from "./server"
 import { config } from "./config"
 
 const db = createRuntimeDb(config.agentDbPath)
+if (process.env.DATABASE_URL) {
+  ensureDevDbWAL(process.env.DATABASE_URL)
+}
 const bus = new TaskEventBus(db)
 const queue = new TaskQueue(db, bus, [echoHandler])
 
