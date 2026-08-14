@@ -42,13 +42,24 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
 
   function readBody(req: http.IncomingMessage): Promise<unknown> {
     return new Promise((resolve, reject) => {
-      let raw = ""
-      req.on("data", (chunk) => {
-        raw += chunk
-        if (raw.length > 1_000_000) reject(new Error("body too large"))
+      const chunks: Buffer[] = []
+      let total = 0
+      req.on("data", (chunk: Buffer) => {
+        total += chunk.length
+        if (total > 1_000_000) {
+          reject(new Error("body too large"))
+          // 暂停接收即可避免内存无限增长；连接保持打开，让 413 响应能写出去，
+          // 响应结束后 Node 会因请求体未读完而自行关闭连接
+          req.pause()
+          return
+        }
+        chunks.push(chunk)
       })
       req.on("end", () => {
         try {
+          // Buffer.concat 一次性解码：逐块 raw += chunk 会把跨 chunk 边界的
+          // 多字节 UTF-8 字符损坏成 U+FFFD
+          const raw = Buffer.concat(chunks).toString("utf-8")
           resolve(raw ? JSON.parse(raw) : {})
         } catch {
           reject(new Error("invalid JSON"))
@@ -58,15 +69,29 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
     })
   }
 
-  function sendSSE(res: http.ServerResponse, event: string, data: unknown): void {
+  /** readBody 已知错误的状态码：请求体过大 → 413，其余（非法 JSON）→ 400 */
+  function bodyErrorStatus(err: unknown): number {
+    return err instanceof Error && err.message === "body too large" ? 413 : 400
+  }
+
+  /** readBody 错误分类；未知错误返回 null，由外层全局兜底转成 500 */
+  function bodyError(err: unknown): { status: number; error: string } | null {
+    if (!(err instanceof Error)) return null
+    if (err.message !== "body too large" && err.message !== "invalid JSON") return null
+    const status = bodyErrorStatus(err)
+    return { status, error: status === 413 ? "请求体过大" : "请求体不是合法 JSON" }
+  }
+
+  function sendSSE(res: http.ServerResponse, event: string, data: unknown, id?: number): void {
     try {
+      if (id !== undefined) res.write(`id: ${id}\n`)
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
     } catch {
       // 客户端已断开（socket destroyed），忽略本次写入
     }
   }
 
-  return http.createServer(async (req, res) => {
+  async function dispatch(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     const url = new URL(req.url ?? "/", "http://localhost")
     const path = url.pathname
     const method = req.method ?? "GET"
@@ -94,8 +119,10 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
           idempotencyKey: body.idempotencyKey,
         })
         json(res, 200, result)
-      } catch {
-        json(res, 400, { error: "请求体不是合法 JSON" })
+      } catch (err) {
+        const e = bodyError(err)
+        if (!e) throw err // 未知错误交给全局兜底（500）
+        json(res, e.status, { error: e.error })
       }
       return
     }
@@ -140,14 +167,14 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
       // 回放历史事件（评审修正 D：回放阶段逐条保护，防订阅者抛错中断回放）
       try {
         for (const ev of bus.replay(taskId, Number.isFinite(after) ? after : 0)) {
-          sendSSE(res, ev.type, { ...(ev.payload as Record<string, unknown>), seq: ev.seq })
+          sendSSE(res, ev.type, { ...(ev.payload as Record<string, unknown>), seq: ev.seq }, ev.seq)
         }
       } catch {
         /* 回放失败不致命 */
       }
 
       const unsubscribe = bus.on(taskId, (ev) => {
-        sendSSE(res, ev.type, { ...(ev.payload as Record<string, unknown>), seq: ev.seq })
+        sendSSE(res, ev.type, { ...(ev.payload as Record<string, unknown>), seq: ev.seq }, ev.seq)
       })
 
       const heartbeat = setInterval(() => {
@@ -170,11 +197,19 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
       let parsed: ReturnType<typeof SessionSchema.safeParse>
       try {
         parsed = SessionSchema.safeParse(await readBody(req))
-      } catch {
-        json(res, 400, { error: "请求体不是合法 JSON" })
+      } catch (err) {
+        const e = bodyError(err)
+        if (!e) throw err // 未知错误交给全局兜底（500）
+        json(res, e.status, { error: e.error })
         return
       }
-      const title = parsed.success ? (parsed.data.title ?? "新会话") : "新会话"
+      // 合法 JSON 但 schema 校验失败（如 title 非 string、body 非对象）→ 400，
+      // 不允许静默吞掉非法入参创建垃圾会话
+      if (!parsed.success) {
+        json(res, 400, { error: "参数不合法", details: parsed.error.flatten() })
+        return
+      }
+      const title = parsed.data.title ?? "新会话"
       const id = crypto.randomUUID()
       const now = Date.now()
       db.prepare("INSERT INTO session (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)").run(
@@ -213,5 +248,20 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
     }
 
     json(res, 404, { error: "not found" })
+  }
+
+  // 全局兜底：任何路由抛错都不允许变成 unhandled rejection 崩溃进程，
+  // 统一 500 + 日志；POST /tasks、POST /sessions 内的精确 4xx 判断优先。
+  return http.createServer(async (req, res) => {
+    try {
+      await dispatch(req, res)
+    } catch (err) {
+      console.error("[runtime] 请求处理异常:", err)
+      try {
+        json(res, 500, { error: "服务器内部错误" })
+      } catch {
+        /* 响应已开始或客户端已断开 */
+      }
+    }
   })
 }

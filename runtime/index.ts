@@ -19,13 +19,21 @@ queue.startWorker()
 
 // 3. HTTP 服务
 const server = createRuntimeServer({ db, bus, queue })
+// EADDRINUSE 等启动失败给出友好提示后退出（默认行为是抛未捕获异常）
+server.on("error", (err) => {
+  console.error("[runtime] 服务启动失败:", err.message)
+  process.exit(1)
+})
 server.listen(config.port, () => {
   console.log(`[runtime] Agent Runtime 已启动: http://localhost:${config.port}`)
   console.log(`[runtime] workspace: ${config.workspace}`)
 })
 
 // 4. 优雅退出
+let shuttingDown = false
 function shutdown(): void {
+  if (shuttingDown) return // 双信号防护：重复 SIGINT/SIGTERM 不二次执行
+  shuttingDown = true
   console.log("[runtime] 正在关闭...")
   queue.stopWorker()
   server.close(() => {

@@ -58,6 +58,8 @@ test("POST /tasks → GET /tasks/:id → SSE 事件流 → done", async () => {
     assert.match(sseText, /event: task_started/)
     assert.match(sseText, /event: task_done/)
     assert.match(sseText, /event: stage/)
+    // SSE 帧应携带 id 行（spec 兼容，支持 Last-Event-ID 断线续传）
+    assert.match(sseText, /^id: \d+$/m)
   } finally {
     server.close()
   }
@@ -152,6 +154,94 @@ test("取消：POST /tasks/:id/cancel 对 pending 任务生效", async () => {
 
     const task = await (await fetch(`${base}/tasks/${created.taskId}`)).json() as { status: string }
     assert.equal(task.status, "cancelled")
+  } finally {
+    server.close()
+  }
+})
+
+test("GET /tasks/:id 对不存在的任务返回 404", async () => {
+  const { server, base } = startTestServer()
+  try {
+    const res = await fetch(`${base}/tasks/no-such-task-id`)
+    assert.equal(res.status, 404)
+    const body = (await res.json()) as { error: string }
+    assert.equal(body.error, "任务不存在")
+  } finally {
+    server.close()
+  }
+})
+
+test("多字节 body 保真：中文输入原样回显（跨 chunk 边界不产生 U+FFFD）", async () => {
+  const { server, db, base } = startTestServer()
+  try {
+    // 旧实现 readBody 用 raw += chunk 逐块解码，中文多字节字符若跨 chunk 边界
+    // 会被损坏成 U+FFFD；这里把 body 撑到 ~540KB 纯中文，保证多个 chunk 边界
+    // 必然落在中文字符内部，能稳定复现该缺陷（780KB 中文 body 曾实测损坏）。
+    const msg = "你好，世界测试编码"
+    const body = JSON.stringify({ type: "echo", input: { message: msg.repeat(20000) } })
+    const res = await fetch(`${base}/tasks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    })
+    assert.equal(res.status, 200)
+    const created = (await res.json()) as { taskId: string }
+
+    // 等任务跑完（worker 未启动，手动跑一次）
+    await new TaskQueue(db, new TaskEventBus(db), [echoHandler]).runTaskById(created.taskId)
+
+    const detail = (await (await fetch(`${base}/tasks/${created.taskId}`)).json()) as {
+      status: string
+      result: string
+    }
+    assert.equal(detail.status, "done")
+    const echoed = JSON.parse(detail.result) as string
+    assert.equal(echoed, msg.repeat(20000))
+    assert.ok(!echoed.includes("\uFFFD"), "回显内容不应包含替换字符 U+FFFD")
+  } finally {
+    server.close()
+  }
+})
+
+test("会话：POST /sessions 传入非法类型 title 返回 400", async () => {
+  const { server, base } = startTestServer()
+  try {
+    // 合法 JSON 但 schema 校验失败（title 不是 string）→ 400，不允许创建垃圾会话
+    const res = await fetch(`${base}/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: 123 }),
+    })
+    assert.equal(res.status, 400)
+    const body = (await res.json()) as { error: string }
+    assert.equal(body.error, "参数不合法")
+
+    // 非对象（"abc"）同样拒绝
+    const res2 = await fetch(`${base}/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify("abc"),
+    })
+    assert.equal(res2.status, 400)
+  } finally {
+    server.close()
+  }
+})
+
+test("DB 异常时请求返回 500 且进程存活（全局兜底，不崩溃进程）", async () => {
+  const { server, db, base } = startTestServer()
+  try {
+    // 关闭 DB 后，GET /tasks 的 db 查询会抛错；旧实现 async handler 拒绝
+    // → unhandled rejection → 进程崩溃（客户端收不到任何响应，连接挂起）
+    db.close()
+    const res = await fetch(`${base}/tasks`, { signal: AbortSignal.timeout(5000) })
+    assert.equal(res.status, 500)
+    const body = (await res.json()) as { error: string }
+    assert.equal(body.error, "服务器内部错误")
+
+    // 进程存活：不触碰 DB 的路由仍正常响应
+    const ok = await fetch(`${base}/skills`)
+    assert.equal(ok.status, 200)
   } finally {
     server.close()
   }
