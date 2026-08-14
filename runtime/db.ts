@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS task (
   updated_at       INTEGER NOT NULL
 );
 
+-- worker 认领查询索引：WHERE status='pending' AND cancel_requested=0 ORDER BY created_at
+CREATE INDEX IF NOT EXISTS idx_task_status_created
+  ON task(status, cancel_requested, created_at);
+
 CREATE TABLE IF NOT EXISTS task_event (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   task_id    TEXT NOT NULL,
