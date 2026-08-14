@@ -167,7 +167,13 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
 
     // ---- 会话（评审修正 A：对外契约统一 camelCase SessionRow）----
     if (method === "POST" && path === "/sessions") {
-      const parsed = SessionSchema.safeParse(await readBody(req))
+      let parsed: ReturnType<typeof SessionSchema.safeParse>
+      try {
+        parsed = SessionSchema.safeParse(await readBody(req))
+      } catch {
+        json(res, 400, { error: "请求体不是合法 JSON" })
+        return
+      }
       const title = parsed.success ? (parsed.data.title ?? "新会话") : "新会话"
       const id = crypto.randomUUID()
       const now = Date.now()

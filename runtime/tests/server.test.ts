@@ -113,6 +113,31 @@ test("会话：POST /sessions 创建，GET /sessions 返回 camelCase", async ()
   }
 })
 
+test("会话：POST /sessions 非法 JSON 返回 400 且进程存活", async () => {
+  const { server, base } = startTestServer()
+  try {
+    // 非法 JSON 不应触发未处理的 promise rejection 崩溃进程，而应返回 400
+    const bad = await fetch(`${base}/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{not-json",
+    })
+    assert.equal(bad.status, 400)
+    const badBody = (await bad.json()) as { error: string }
+    assert.equal(badBody.error, "请求体不是合法 JSON")
+
+    // 进程存活：后续合法请求仍返回 200
+    const ok = await fetch(`${base}/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "崩溃后新会话" }),
+    })
+    assert.equal(ok.status, 200)
+  } finally {
+    server.close()
+  }
+})
+
 test("取消：POST /tasks/:id/cancel 对 pending 任务生效", async () => {
   const { server, base } = startTestServer()
   try {
