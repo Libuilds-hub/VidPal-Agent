@@ -1,6 +1,6 @@
 // runtime/index.ts —— Runtime 进程入口：恢复 → worker → HTTP 服务 → 优雅退出
 import { createRuntimeDb } from "./db"
-import { ensureDevDbWAL } from "./video/db"
+import { ensureDevDbWAL, prisma } from "./video/db"
 import { TaskEventBus } from "./events"
 import { TaskQueue } from "./tasks/queue"
 import { echoHandler } from "./tasks/echo"
@@ -41,8 +41,11 @@ function shutdown(): void {
   console.log("[runtime] 正在关闭...")
   queue.stopWorker()
   server.close(() => {
-    db.close()
-    process.exit(0)
+    // 先断开 Prisma 连接，再关 better-sqlite3 连接，避免连接未释放
+    prisma.$disconnect().finally(() => {
+      db.close()
+      process.exit(0)
+    })
   })
   // 兜底：5 秒强制退出
   setTimeout(() => process.exit(0), 5000).unref()

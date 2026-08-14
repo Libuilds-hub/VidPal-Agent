@@ -1,7 +1,10 @@
 // runtime/video/db.ts —— Runtime 访问业务库 prisma/dev.db（唯一写方）
 import path from "path"
 import fs from "fs"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "../../lib/db"
+import { isMp4Complete } from "./yt-dlp"
+
+export { prisma }
 
 /** 从 DATABASE_URL 提取 SQLite 文件路径 */
 export function getDevDbPath(databaseUrl: string): string {
@@ -19,34 +22,18 @@ export function ensureDevDbWAL(databaseUrl: string): void {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const Database = require("better-sqlite3")
   const db = new Database(dbPath)
-  db.pragma("journal_mode = WAL")
+  // simple: true —— 取第一行第一列的标量（否则返回 [{ journal_mode: ... }] 数组）
+  const mode = db.pragma("journal_mode = WAL", { simple: true }) as string
   db.close()
+  if (mode !== "wal") {
+    console.warn("[runtime] dev.db WAL 未能启用（当前模式: " + mode + "）")
+    return
+  }
   console.log("[runtime] dev.db WAL 已启用")
 }
 
-export const prisma = new PrismaClient()
-
-/** 通用 mp4 完整性检测（moov atom 在文件头或文件尾） */
-export function isMp4Complete(filePath: string): boolean {
-  if (!fs.existsSync(filePath)) return false
-  try {
-    const fd = fs.openSync(filePath, "r")
-    try {
-      const size = fs.fstatSync(fd).size
-      const headSize = Math.min(size, 1024 * 1024)
-      const tailSize = Math.min(size, 1024 * 1024)
-      const head = Buffer.alloc(headSize)
-      fs.readSync(fd, head, 0, headSize, 0)
-      const tail = Buffer.alloc(tailSize)
-      fs.readSync(fd, tail, 0, tailSize, size - tailSize)
-      return head.includes(Buffer.from("moov")) || tail.includes(Buffer.from("moov"))
-    } finally {
-      fs.closeSync(fd)
-    }
-  } catch {
-    return false
-  }
-}
+// isMp4Complete 唯一实现位于 yt-dlp.ts（moov atom 在文件头或文件尾），此处复用并透出
+export { isMp4Complete }
 
 /** 视频 video.mp4 是否完整（供恢复/阶段检查） */
 export function isVideoFileComplete(videoId: string): boolean {
