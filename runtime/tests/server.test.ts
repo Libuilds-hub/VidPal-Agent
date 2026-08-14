@@ -419,3 +419,15 @@ test("runtime-client：取消不存在的任务返回 { ok: false } 而非抛错
     server.close()
   }
 })
+
+test("LLM 缓存清除端点返回 ok", async () => {
+  const { server, base } = startTestServer()
+  try {
+    const res = await fetch(`${base}/llm/cache/clear`, { method: "POST" })
+    assert.equal(res.status, 200)
+    const body = (await res.json()) as { ok: boolean }
+    assert.equal(body.ok, true)
+  } finally {
+    server.close()
+  }
+})

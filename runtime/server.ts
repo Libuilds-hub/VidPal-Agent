@@ -288,6 +288,14 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
       return
     }
 
+    // ---- LLM 缓存（Web 设置变更后调用，避免跨进程缓存失效）----
+    if (method === "POST" && path === "/llm/cache/clear") {
+      const { clearLLMCache } = await import("./llm")
+      clearLLMCache()
+      json(res, 200, { ok: true })
+      return
+    }
+
     // ---- 技能（占位，P3 实现）----
     if (method === "GET" && path === "/skills") {
       json(res, 200, [])

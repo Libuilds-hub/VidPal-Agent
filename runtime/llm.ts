@@ -1,4 +1,4 @@
-// lib/llm.ts
+// runtime/llm.ts
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai"
 import { prisma } from "../lib/db"
 
