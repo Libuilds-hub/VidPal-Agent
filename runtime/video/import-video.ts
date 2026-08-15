@@ -138,8 +138,11 @@ export const importVideoHandler: TaskHandler = {
       try {
         ensureLocalSource(dir, input.localPath)
       } catch (err) {
+        // 取消中的任务（ctx.signal 已 aborted）不把视频行翻成 error——状态流转交给 queue 的 cancelled；
         // 行已被删除时 markVideoError 吞掉 P2025，原始错误照常上抛
-        await markVideoError(videoId, err instanceof Error ? err.message : String(err))
+        if (!ctx.signal.aborted) {
+          await markVideoError(videoId, err instanceof Error ? err.message : String(err))
+        }
         throw err
       }
     }
@@ -207,11 +210,15 @@ export const importVideoHandler: TaskHandler = {
             }
           } catch (err) {
             // 中途失败：把视频行置为 error，避免状态卡死在 downloading/transcoding/transcribing
+            // 取消路径（ctx.signal 已 aborted，子进程 abort 抛错走这里）不翻 error——
+            // 任务状态由 queue 置 cancelled，视频行保持 downloading/transcribing 等 queue 侧处理
             // （行已被删除时 markVideoError 吞掉 P2025，原始错误照常上抛）
-            await markVideoError(
-              videoId,
-              `处理失败（${stage} 阶段）: ${err instanceof Error ? err.message : err}`
-            )
+            if (!ctx.signal.aborted) {
+              await markVideoError(
+                videoId,
+                `处理失败（${stage} 阶段）: ${err instanceof Error ? err.message : err}`
+              )
+            }
             throw err
           }
           break

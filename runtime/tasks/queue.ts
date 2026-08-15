@@ -215,13 +215,22 @@ export class TaskQueue {
         }
         // 结果已落库（setResult → done）后抛出的异常不再改写状态
         if (cur.status !== "running") return
-        if (err instanceof TaskCancelledError) {
+        // 取消判定：TaskCancelledError（协作式）、DB 取消标记、或子进程 abort 路径。
+        // execWithSignal 在 signal 中止时抛 "任务已取消"；Node 自身 abort 错误是
+        // name === "AbortError" 的 DOMException——message/name 双查，鲁棒覆盖。
+        const cancelled =
+          err instanceof TaskCancelledError ||
+          this.isCancelled(taskId) ||
+          (err instanceof Error &&
+            (err.message === "任务已取消" ||
+              err.message.includes("abort") ||
+              err.name === "AbortError"))
+        if (cancelled) {
+          // 取消（含子进程 abort 路径）→ cancelled，不是 failed
           this.markCancelled(taskId)
-          // 协作式取消：向调用方（测试/上层）抛出，worker 循环捕获后仅记录非取消异常
           throw err
-        } else {
-          this.markFailed(taskId, err instanceof Error ? err.message : String(err))
         }
+        this.markFailed(taskId, err instanceof Error ? err.message : String(err))
       }
     } finally {
       // 任务结束（任意路径）：中止信号并注销，避免控制器泄漏

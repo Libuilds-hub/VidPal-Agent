@@ -6,6 +6,7 @@ import { TaskEventBus } from "../events"
 import { TaskQueue, TaskCancelledError } from "../tasks/queue"
 import type { TaskHandler } from "../tasks/registry"
 import { echoHandler } from "../tasks/echo"
+import { execWithSignal } from "../video/exec"
 
 test("echo 任务从 pending 跑到 done，事件完整", async () => {
   const db = createRuntimeDb(":memory:")
@@ -297,5 +298,31 @@ test("取消触发 AbortSignal：handler 可通过 ctx.signal 感知取消", asy
   await assert.rejects(() => running, TaskCancelledError)
   const task = db.prepare("SELECT * FROM task WHERE id = ?").get(taskId) as Record<string, unknown>
   assert.equal(task.status, "cancelled")
+  db.close()
+})
+
+test("取消执行中的子进程：任务落 cancelled 而非 failed", async () => {
+  const db = createRuntimeDb(":memory:")
+  const bus = new TaskEventBus(db)
+  const slowExecHandler: TaskHandler = {
+    type: "slow_exec",
+    async run(ctx) {
+      // ping -n 3 最长约 2s 即自退（取消在 50ms 处抢先触发，孤儿残留窗口极短）
+      await execWithSignal(
+        process.platform === "win32" ? "ping -n 3 127.0.0.1" : "sleep 30",
+        ctx.signal,
+        { windowsHide: true }
+      )
+      ctx.setResult("done")
+    },
+  }
+  const queue = new TaskQueue(db, bus, [echoHandler, slowExecHandler])
+  const { taskId } = queue.enqueue({ type: "slow_exec", input: {} })
+  queue.claimNext()
+  const running = queue.runTaskById(taskId)
+  setTimeout(() => queue.requestCancel(taskId), 50)
+  await assert.rejects(() => running, /取消|abort|Abort/i)
+  const task = db.prepare("SELECT * FROM task WHERE id = ?").get(taskId) as Record<string, unknown>
+  assert.equal(task.status, "cancelled") // 关键断言：不是 failed
   db.close()
 })

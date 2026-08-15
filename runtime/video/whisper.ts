@@ -109,6 +109,13 @@ function formatTimestamp(seconds: number): string {
   return `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
 }
 
+/**
+ * 已知限制：transcribe 阶段（python whisper 进程）不支持子进程级取消——这里用
+ * execAsync（无 AbortSignal），取消只在阶段边界生效：任务在 transcribe 完成后经
+ * 下一阶段的 ctx.checkCancelled() 才落 cancelled，取消请求到生效之间 python 进程
+ * 会继续跑完。如需子进程级中断，需把 python 改为经 execWithSignal 启动并透传信号
+ * （对比：extractAudio 的 ffmpeg 已走 execWithSignal，支持即时中断）。
+ */
 export async function transcribeAudio(
   audioPath: string,
   modelSize: string = "base",
