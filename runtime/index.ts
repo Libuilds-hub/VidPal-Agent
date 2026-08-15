@@ -19,6 +19,7 @@ import { createGetVideoContextTool } from "./agent/tools/get-video-context"
 import { createImportVideoTool } from "./agent/tools/import-video"
 import { langchainToolsFromRegistry } from "./agent/langchain-adapter"
 import { buildAgent, systemPromptWithSkills } from "./agent/builder"
+import { getCachedAgent, setCachedAgent } from "./agent/cache"
 import { scanSkillsDir, loadSkill, SKILLS_ROOT } from "./skills/registry"
 import { getChatModel } from "./llm"
 import type { ChatServices } from "./chat"
@@ -50,13 +51,13 @@ const SYSTEM_PROMPT = `你是"视频学习助手"，一个 AI 驱动的视频学
 ${registry.list().map((t) => `- ${t.name}: ${t.description}`).join("\n")}
 工具返回的是结构化摘要；需要更多细节时使用更具体的工具或询问用户。`
 
-// Agent 缓存（按 model/provider 键控；技能在构建时固定为 default: true 集合）
-const agentCache = new Map<string, ReturnType<typeof buildAgent>>()
-
+// Agent 缓存（按 model/provider 键控；技能在构建时固定为 default: true 集合）。
+// 缓存放 runtime/agent/cache.ts：/llm/cache/clear 需要清空它（Agent 持有旧配置的
+// ChatOpenAI），但 server.ts 不能导入 index.ts（进程入口，导入即启动服务器）。
 const chat: ChatServices = {
   async getAgent(model, provider) {
     const key = `${provider ?? ""}|${model ?? ""}`
-    const cached = agentCache.get(key)
+    const cached = getCachedAgent(key)
     if (cached) return cached as never
     const llm = await getChatModel(model, provider)
     // 默认装载 default: true 的技能（当前为 video-study）
@@ -69,7 +70,7 @@ const chat: ChatServices = {
       tools: langchainToolsFromRegistry(registry),
       systemPrompt: systemPromptWithSkills(SYSTEM_PROMPT, skills),
     })
-    agentCache.set(key, agent)
+    setCachedAgent(key, agent)
     // 技能版本快照（skill_usage 表，task_id 用 chat:default 表示聊天默认集合）
     try {
       for (const s of skills) {

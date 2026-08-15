@@ -4,7 +4,10 @@ import { AIMessageChunk, ToolMessage, type BaseMessage, HumanMessage, AIMessage 
 export interface ChatServices {
   /** 构建（或取缓存）Agent；model/provider 为可选的 LLM 覆盖 */
   getAgent(model?: string, provider?: string): Promise<{
-    stream(input: { messages: BaseMessage[] }, opts: { streamMode: string; recursionLimit: number }): AsyncIterable<unknown>
+    stream(
+      input: { messages: BaseMessage[] },
+      opts: { streamMode: string; recursionLimit: number; signal?: AbortSignal }
+    ): AsyncIterable<unknown>
   }>
 }
 
@@ -53,12 +56,18 @@ export function messagesFromRequest(body: Pick<ChatRequest, "messages">): BaseMe
 export function createChatHandler(services: ChatServices) {
   return {
     services,
-    /** 执行一次聊天，返回 SSE 事件数组（测试用）或经 onEvent 推送（server 用） */
-    async run(body: ChatRequest, onEvent: (event: string, data: unknown) => void): Promise<void> {
+    /** 执行一次聊天，返回 SSE 事件数组（测试用）或经 onEvent 推送（server 用）。
+     *  signal 透传给 LangGraph stream 配置（RunnableConfig.signal）：客户端断线时
+     *  abort，ReAct 循环与 LLM 流立即停止，避免孤儿运行消耗 token。 */
+    async run(
+      body: ChatRequest,
+      onEvent: (event: string, data: unknown) => void,
+      signal?: AbortSignal
+    ): Promise<void> {
       const agent = await services.getAgent(body.model, body.provider)
       const stream = await agent.stream(
         { messages: messagesFromRequest(body) },
-        { streamMode: "messages", recursionLimit: 25 }
+        { streamMode: "messages", recursionLimit: 25, ...(signal ? { signal } : {}) }
       )
       await mapAgentStreamToSSE(stream, onEvent)
     },

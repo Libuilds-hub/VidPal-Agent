@@ -294,6 +294,11 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
     if (method === "POST" && path === "/llm/cache/clear") {
       const { clearLLMCache } = await import("./llm")
       clearLLMCache()
+      // Agent 缓存持有旧 apiKey/baseUrl/model 的 ChatOpenAI 实例，必须一并清空。
+      // 注意不能动态导入 ./index（进程入口，导入会创建 db / 启动服务器）——
+      // 缓存已独立到 ./agent/cache 这个无副作用的小模块。
+      const { clearAgentCache } = await import("./agent/cache")
+      clearAgentCache()
       json(res, 200, { ok: true })
       return
     }
@@ -304,6 +309,16 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
         json(res, 503, { error: "聊天服务未配置" })
         return
       }
+      // 客户端断线（SSE 流中途）时中止 Agent 运行：否则 ReAct 循环 + LLM 流会
+      // 一直跑到结束（孤儿工作 + token 消耗）。LangGraph 支持在 stream 配置里传
+      // signal（RunnableConfig.signal），abort 后运行循环立即停止。
+      // 注意不能用 req.on("close")：POST 带 body 时 Node 在请求体读完（消息完成）
+      // 就触发该事件（parserOnMessageComplete → stream.push(null)），会在 Agent
+      // 启动前就 abort 掉本次运行；events 路由（GET 无 body）用 req close 没问题，
+      // 因为那种请求只有 socket 关闭才触发。res 'close' 仅在响应完成或连接提前
+      // 终止时触发：断线 → abort 停止 Agent；正常收尾（run 已返回）→ abort 无副作用。
+      const controller = new AbortController()
+      res.on("close", () => controller.abort())
       try {
         const raw = (await readBody(req)) as { messages?: unknown }
         if (!Array.isArray(raw.messages)) {
@@ -321,7 +336,7 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
         })
         const send = (event: string, data: unknown) => sendSSE(res, event, data)
         try {
-          await createChatHandler(services.chat).run(raw as never, send)
+          await createChatHandler(services.chat).run(raw as never, send, controller.signal)
         } catch (err) {
           if (err instanceof LLMNotConfiguredError) {
             send("error", { message: "AI 模型未配置，请先在设置页配置 LLM API Key。", code: "NOT_CONFIGURED" })
@@ -331,8 +346,10 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
           }
         }
         res.end()
-      } catch {
-        json(res, 400, { error: "请求体不是合法 JSON" })
+      } catch (err) {
+        // 与 /tasks、/sessions 一致：readBody 已知错误（413 请求体过大 / 400 非法
+        // JSON）由 sendBodyError 处理并关闭被污染的连接；未知错误交给全局兜底（500）
+        if (!sendBodyError(req, res, err)) throw err
       }
       return
     }
