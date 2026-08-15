@@ -53,3 +53,8 @@ next-env.d.ts
 
 # Runtime 本地数据（SQLite 等，不入库）
 /data/
+
+# SQLite WAL 伴生文件
+*.db-shm
+*.db-wal
+*.db-journal
