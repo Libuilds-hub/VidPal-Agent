@@ -2,6 +2,8 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import http from "node:http"
+import fs from "fs"
+import path from "path"
 import { createRuntimeDb } from "../db"
 import { TaskEventBus } from "../events"
 import { TaskQueue } from "../tasks/queue"
@@ -441,6 +443,51 @@ test("GET /skills 返回技能索引（含 video-study）", async () => {
     const videoStudy = skills.find((s) => s.name === "video-study")
     assert.ok(videoStudy, "技能索引应包含 video-study")
     assert.equal(videoStudy!.default, true)
+  } finally {
+    server.close()
+  }
+})
+
+test("POST /skills：编码路径穿越（%2e%2e%2f）返回 404", async () => {
+  const { server, base } = startTestServer()
+  try {
+    // %2e%2e%2f = ../ ：旧实现 decode 后 loadSkill 越过 skills 根目录读到仓库根的真实文件
+    // （package.json → 200），修复后必须 404
+    const res = await fetch(`${base}/skills/%2e%2e%2fpackage.json`, { method: "POST" })
+    assert.equal(res.status, 404)
+    const body = (await res.json()) as { error: string }
+    assert.equal(body.error, "技能不存在")
+  } finally {
+    server.close()
+  }
+})
+
+test("POST /skills：畸形百分号编码返回 404 而非 500", async () => {
+  const { server, base } = startTestServer()
+  try {
+    // %e0%a4%a 是不完整 UTF-8 序列：decodeURIComponent 抛 URIError，必须转 404
+    const res = await fetch(`${base}/skills/%e0%a4%a`, { method: "POST" })
+    assert.equal(res.status, 404)
+  } finally {
+    server.close()
+  }
+})
+
+test("POST /skills/video-study 返回内容与元数据（version/description）", async () => {
+  const { server, base } = startTestServer()
+  try {
+    const res = await fetch(`${base}/skills/video-study`, { method: "POST" })
+    assert.equal(res.status, 200)
+    const body = (await res.json()) as {
+      name: string
+      content: string
+      version: string
+      description: string
+    }
+    assert.equal(body.name, "video-study")
+    assert.match(body.content, /行为规则/)
+    assert.equal(body.version, "1.0.0")
+    assert.ok(body.description.length > 0, "响应应包含 description")
   } finally {
     server.close()
   }

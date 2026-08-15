@@ -303,15 +303,31 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
       return
     }
 
-    if (method === "POST" && path.startsWith("/skills/")) {
-      const { loadSkill, SKILLS_ROOT } = await import("./skills/registry")
-      const name = path.split("/").pop()
-      const content = name ? loadSkill(SKILLS_ROOT, decodeURIComponent(name)) : null
+    const skillsMatch = path.match(/^\/skills\/([^/]+)$/)
+
+    if (method === "POST" && skillsMatch) {
+      const { loadSkill, scanSkillsDir, SKILLS_ROOT } = await import("./skills/registry")
+      let name: string
+      try {
+        name = decodeURIComponent(skillsMatch[1])
+      } catch {
+        // 畸形百分号编码（URIError）→ 当作技能不存在，不给 500
+        json(res, 404, { error: "技能不存在" })
+        return
+      }
+      const content = loadSkill(SKILLS_ROOT, name)
       if (!content) {
         json(res, 404, { error: "技能不存在" })
         return
       }
-      json(res, 200, { name, content })
+      // 元数据从索引取（索引键 = 目录名，与装载键一致）
+      const meta = scanSkillsDir().find((e) => e.name === name)
+      json(res, 200, {
+        name,
+        content,
+        version: meta?.version ?? "0.0.0",
+        description: meta?.description ?? "",
+      })
       return
     }
 
