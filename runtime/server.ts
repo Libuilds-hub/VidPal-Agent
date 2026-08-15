@@ -296,14 +296,22 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
       return
     }
 
-    // ---- 技能（占位，P3 实现）----
+    // ---- 技能 ----
     if (method === "GET" && path === "/skills") {
-      json(res, 200, [])
+      const { scanSkillsDir } = await import("./skills/registry")
+      json(res, 200, scanSkillsDir())
       return
     }
 
     if (method === "POST" && path.startsWith("/skills/")) {
-      json(res, 501, { error: "技能系统将在 P3 实现" })
+      const { loadSkill, SKILLS_ROOT } = await import("./skills/registry")
+      const name = path.split("/").pop()
+      const content = name ? loadSkill(SKILLS_ROOT, decodeURIComponent(name)) : null
+      if (!content) {
+        json(res, 404, { error: "技能不存在" })
+        return
+      }
+      json(res, 200, { name, content })
       return
     }
 

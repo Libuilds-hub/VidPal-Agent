@@ -431,3 +431,17 @@ test("LLM 缓存清除端点返回 ok", async () => {
     server.close()
   }
 })
+
+test("GET /skills 返回技能索引（含 video-study）", async () => {
+  const { server, base } = startTestServer()
+  try {
+    const res = await fetch(`${base}/skills`)
+    assert.equal(res.status, 200)
+    const skills = (await res.json()) as Array<{ name: string; version: string; default: boolean }>
+    const videoStudy = skills.find((s) => s.name === "video-study")
+    assert.ok(videoStudy, "技能索引应包含 video-study")
+    assert.equal(videoStudy!.default, true)
+  } finally {
+    server.close()
+  }
+})
