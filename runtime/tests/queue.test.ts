@@ -4,6 +4,7 @@ import assert from "node:assert/strict"
 import { createRuntimeDb } from "../db"
 import { TaskEventBus } from "../events"
 import { TaskQueue, TaskCancelledError } from "../tasks/queue"
+import type { TaskHandler } from "../tasks/registry"
 import { echoHandler } from "../tasks/echo"
 
 test("echo 任务从 pending 跑到 done，事件完整", async () => {
@@ -271,4 +272,30 @@ test("worker 循环在 DB 故障时不被击穿：claimNext 抛错被捕获、�
     logged.some((msg) => msg.includes("worker 循环异常")),
     `应捕获到 worker 循环异常日志，实际日志: ${JSON.stringify(logged)}`
   )
+})
+
+test("取消触发 AbortSignal：handler 可通过 ctx.signal 感知取消", async () => {
+  const db = createRuntimeDb(":memory:")
+  const bus = new TaskEventBus(db)
+  const abortHandler: TaskHandler = {
+    type: "abortable",
+    async run(ctx) {
+      // 挂起直到 signal abort
+      await new Promise<void>((resolve) => {
+        if (ctx.signal.aborted) return resolve()
+        ctx.signal.addEventListener("abort", () => resolve())
+      })
+      ctx.checkCancelled()
+      ctx.setResult("should-not-reach")
+    },
+  }
+  const queue = new TaskQueue(db, bus, [echoHandler, abortHandler])
+  const { taskId } = queue.enqueue({ type: "abortable", input: {} })
+  queue.claimNext()
+  const running = queue.runTaskById(taskId)
+  setTimeout(() => queue.requestCancel(taskId), 30)
+  await assert.rejects(() => running, TaskCancelledError)
+  const task = db.prepare("SELECT * FROM task WHERE id = ?").get(taskId) as Record<string, unknown>
+  assert.equal(task.status, "cancelled")
+  db.close()
 })

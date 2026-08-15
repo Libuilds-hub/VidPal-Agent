@@ -44,6 +44,8 @@ function rowToTask(row: TaskDbRow): TaskRow {
 export class TaskQueue {
   private handlers = new Map<string, TaskHandler>()
   private workerRunning = false
+  /** 运行中任务 → 取消信号控制器（requestCancel 对 running 任务 abort，子进程级中断） */
+  private controllers = new Map<string, AbortController>()
 
   constructor(
     private db: RuntimeDb,
@@ -140,6 +142,9 @@ export class TaskQueue {
     // running 只置取消标志，事件由 handler 阶段检查经 markCancelled 发出，避免重复。
     if (row.status === "pending") {
       this.bus.emit(taskId, "task_cancelled", {})
+    } else {
+      // running：同时 abort 任务信号（子进程级中断），与 DB 取消标志构成双通道取消
+      this.controllers.get(taskId)?.abort()
     }
     return res.changes > 0
   }
@@ -153,64 +158,75 @@ export class TaskQueue {
 
   /** 执行单个任务到终态（测试与 worker 共用） */
   async runTaskById(taskId: string): Promise<void> {
-    const row = this.db.prepare("SELECT * FROM task WHERE id = ?").get(taskId) as
-      | TaskDbRow
-      | undefined
-    if (!row) {
-      console.error(`[runtime] runTaskById: 任务不存在: ${taskId}`)
-      return
-    }
-    // 终态任务（done/failed/cancelled/interrupted）不重跑 handler
-    if (row.status !== "pending" && row.status !== "running") return
-
-    const handler = this.handlers.get(row.type)
-    if (!handler) {
-      this.markFailed(taskId, `未知任务类型: ${row.type}`)
-      return
-    }
-    if (this.isCancelled(taskId)) {
-      this.markCancelled(taskId)
-      return
-    }
-
-    this.bus.emit(taskId, "task_started", { type: row.type })
-
-    // 输入解析：损坏的输入直接判失败，不进入 handler
-    let input: unknown
+    // 每任务一个取消信号：requestCancel 对 running 任务 abort 它（子进程级中断）
+    const controller = new AbortController()
     try {
-      input = JSON.parse(row.input)
-    } catch {
-      this.markFailed(taskId, "任务输入损坏")
-      return
-    }
-    const ctx: TaskContext = createTaskContext(
-      taskId,
-      input,
-      this.bus,
-      () => this.isCancelled(taskId),
-      (result) => this.markDone(taskId, result)
-    )
+      const row = this.db.prepare("SELECT * FROM task WHERE id = ?").get(taskId) as
+        | TaskDbRow
+        | undefined
+      if (!row) {
+        console.error(`[runtime] runTaskById: 任务不存在: ${taskId}`)
+        return
+      }
+      // 终态任务（done/failed/cancelled/interrupted）不重跑 handler
+      if (row.status !== "pending" && row.status !== "running") return
 
-    try {
-      await handler.run(ctx)
-      // 处理器可能已通过 setResult 完成状态流转；未完成则补终态
-      const cur = this.db.prepare("SELECT status FROM task WHERE id = ?").get(taskId) as {
-        status: string
+      const handler = this.handlers.get(row.type)
+      if (!handler) {
+        this.markFailed(taskId, `未知任务类型: ${row.type}`)
+        return
       }
-      if (cur.status === "running") this.markDone(taskId, "{}")
-    } catch (err) {
-      const cur = this.db.prepare("SELECT status FROM task WHERE id = ?").get(taskId) as {
-        status: string
-      }
-      // 结果已落库（setResult → done）后抛出的异常不再改写状态
-      if (cur.status !== "running") return
-      if (err instanceof TaskCancelledError) {
+      if (this.isCancelled(taskId)) {
         this.markCancelled(taskId)
-        // 协作式取消：向调用方（测试/上层）抛出，worker 循环捕获后仅记录非取消异常
-        throw err
-      } else {
-        this.markFailed(taskId, err instanceof Error ? err.message : String(err))
+        return
       }
+
+      this.bus.emit(taskId, "task_started", { type: row.type })
+
+      // 输入解析：损坏的输入直接判失败，不进入 handler
+      let input: unknown
+      try {
+        input = JSON.parse(row.input)
+      } catch {
+        this.markFailed(taskId, "任务输入损坏")
+        return
+      }
+      // 注册取消信号：handler 的 ctx.signal 与 requestCancel 的 abort 经此控制器接通
+      this.controllers.set(taskId, controller)
+      const ctx: TaskContext = createTaskContext(
+        taskId,
+        input,
+        this.bus,
+        controller.signal,
+        () => this.isCancelled(taskId),
+        (result) => this.markDone(taskId, result)
+      )
+
+      try {
+        await handler.run(ctx)
+        // 处理器可能已通过 setResult 完成状态流转；未完成则补终态
+        const cur = this.db.prepare("SELECT status FROM task WHERE id = ?").get(taskId) as {
+          status: string
+        }
+        if (cur.status === "running") this.markDone(taskId, "{}")
+      } catch (err) {
+        const cur = this.db.prepare("SELECT status FROM task WHERE id = ?").get(taskId) as {
+          status: string
+        }
+        // 结果已落库（setResult → done）后抛出的异常不再改写状态
+        if (cur.status !== "running") return
+        if (err instanceof TaskCancelledError) {
+          this.markCancelled(taskId)
+          // 协作式取消：向调用方（测试/上层）抛出，worker 循环捕获后仅记录非取消异常
+          throw err
+        } else {
+          this.markFailed(taskId, err instanceof Error ? err.message : String(err))
+        }
+      }
+    } finally {
+      // 任务结束（任意路径）：中止信号并注销，避免控制器泄漏
+      controller.abort()
+      this.controllers.delete(taskId)
     }
   }
 

@@ -188,16 +188,16 @@ export const importVideoHandler: TaskHandler = {
           try {
             if (stage === "download") {
               // downloadVideo = yt-dlp 下载 original.mp4 + 转码 video.mp4 + 清理 original
-              await downloadVideo(input.url!, videoId)
+              await downloadVideo(input.url!, videoId, undefined, ctx.signal)
               ctx.emit("log", { message: "下载与转码完成" })
             } else if (stage === "transcode") {
               // 崩溃恢复路径：original.mp4 完整、video.mp4 缺失/损坏 → 从 original 续转码
-              const localPath = await recoverVideoFile(videoId)
+              const localPath = await recoverVideoFile(videoId, ctx.signal)
               await prisma.video.update({ where: { id: videoId }, data: { localPath } })
               ctx.emit("log", { message: "恢复转码完成" })
             } else {
               const audioPath = path.join(dir, "audio.mp3")
-              await extractAudio(videoPath, audioPath)
+              await extractAudio(videoPath, audioPath, ctx.signal)
               const transcripts = await transcribeAudio(audioPath, "base", "zh")
               ctx.emit("log", { message: `转录完成: ${transcripts.length} 段` })
               await prisma.video.update({

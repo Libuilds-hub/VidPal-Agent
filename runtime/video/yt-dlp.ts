@@ -1,33 +1,12 @@
-import { exec, type ExecOptions } from "child_process"
+import { exec } from "child_process"
 import { promisify } from "util"
 import path from "path"
 import fs from "fs"
 import { existsSync, mkdirSync, writeFileSync, unlinkSync, renameSync } from "fs"
 import { prisma } from "../../lib/db"
+import { execWithSignal } from "./exec"
 
 const execAsync = promisify(exec)
-
-// 支持 AbortSignal 的 exec 封装（取消任务时终止子进程）
-function execWithSignal(
-  command: string,
-  signal: AbortSignal | undefined,
-  options: ExecOptions = {}
-): Promise<{ stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = exec(command, { ...options, signal }, (err, stdout, stderr) => {
-      if (err) {
-        if (signal?.aborted) {
-          reject(new Error("任务已取消"))
-        } else {
-          reject(err)
-        }
-        return
-      }
-      resolve({ stdout: stdout.toString(), stderr: stderr.toString() })
-    })
-    void child
-  })
-}
 
 // ffmpeg 转码进度会持续写入 stderr，长视频转码可能超过 Node exec 默认 1MB 缓冲，
 // 一旦超限 Node 会杀掉 cmd.exe 子进程，导致转码中断且留下不完整文件。
@@ -215,11 +194,15 @@ export function isMp4Complete(filePath: string): boolean {
 
 // 转码为 H.264（因为 HEVC 在很多浏览器不支持）
 // -y 覆盖不完整的旧输出；veryfast 预设对 4K60 AV1 源显著提速，画质对转写场景足够
-async function transcodeToH264(inputPath: string, outputPath: string): Promise<void> {
+async function transcodeToH264(
+  inputPath: string,
+  outputPath: string,
+  signal?: AbortSignal
+): Promise<void> {
   const command = `"${FFMPEG_PATH}" -y -i "${inputPath}" -c:v libx264 -preset veryfast -crf 23 -c:a aac -strict experimental "${outputPath}"`
 
   try {
-    await execAsync(command, { encoding: "utf-8", maxBuffer: EXEC_MAX_BUFFER })
+    await execWithSignal(command, signal, { encoding: "utf-8", maxBuffer: EXEC_MAX_BUFFER })
   } catch (error) {
     console.error("Transcode failed:", error)
     throw error
@@ -232,7 +215,10 @@ async function transcodeToH264(inputPath: string, outputPath: string): Promise<v
  * 2. original.mp4 完整 → 重新转码生成 video.mp4 并删除 original.mp4
  * 3. 两者都不可用 → 抛错（由调用方标记为 error）
  */
-export async function recoverVideoFile(videoId: string): Promise<string> {
+export async function recoverVideoFile(
+  videoId: string,
+  signal?: AbortSignal
+): Promise<string> {
   const videoDir = await ensureVideoDir(videoId)
   const videoPath = path.join(videoDir, "video.mp4")
   const originalPath = path.join(videoDir, "original.mp4")
@@ -244,7 +230,7 @@ export async function recoverVideoFile(videoId: string): Promise<string> {
 
   if (existsSync(originalPath) && isMp4Complete(originalPath)) {
     console.log(`[recover] ${videoId}: video.mp4 不完整，从 original.mp4 重新转码...`)
-    await transcodeToH264(originalPath, videoPath)
+    await transcodeToH264(originalPath, videoPath, signal)
     unlinkSync(originalPath)
     console.log(`[recover] ${videoId}: 转码完成`)
     return `/videos/${videoId}/video.mp4`
@@ -258,7 +244,8 @@ export async function recoverVideoFile(videoId: string): Promise<string> {
 export async function downloadVideo(
   url: string,
   videoId: string,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  signal?: AbortSignal
 ): Promise<string> {
   const videoDir = await ensureVideoDir(videoId)
 
@@ -273,10 +260,10 @@ export async function downloadVideo(
   const command = `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "${tempPath}" --no-warnings ${extraArgs}${cookieArg} "${url}"`
 
   try {
-    await execAsync(command, { encoding: "utf-8", maxBuffer: EXEC_MAX_BUFFER })
+    await execWithSignal(command, signal, { encoding: "utf-8", maxBuffer: EXEC_MAX_BUFFER })
 
     // 转码为 H.264（兼容浏览器）
-    await transcodeToH264(tempPath, outputPath)
+    await transcodeToH264(tempPath, outputPath, signal)
 
     // 删除临时文件
     unlinkSync(tempPath)

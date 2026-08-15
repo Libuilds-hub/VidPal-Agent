@@ -15,12 +15,21 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  const upstream = await fetch(`${runtime.baseUrl}/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  })
+  let upstream: Response
+  try {
+    upstream = await fetch(`${runtime.baseUrl}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    })
+  } catch {
+    // Runtime 宕机时 fetch 直接 reject（连接被拒/超时）→ 返回 502 JSON，避免未捕获异常打到 Web 层
+    return new Response(JSON.stringify({ error: "Runtime 聊天不可用" }), {
+      status: 502,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
 
   if (!upstream.ok) {
     const text = await upstream.text().catch(() => "")

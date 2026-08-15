@@ -12,6 +12,8 @@ export interface TaskContext {
   taskId: string
   input: unknown
   bus: TaskEventBus
+  /** 任务取消信号（子进程级取消用：handler 传给 exec 类调用可中断子进程） */
+  signal: AbortSignal
   /** 阶段切换时调用：检查取消标记，已取消则抛 TaskCancelledError */
   checkCancelled(): void
   emit(type: "stage" | "log" | "tool_start" | "tool_result", payload: unknown): void
@@ -28,6 +30,7 @@ export function createTaskContext(
   taskId: string,
   input: unknown,
   bus: TaskEventBus,
+  signal: AbortSignal,
   isCancelled: () => boolean,
   setResult: (result: string) => void
 ): TaskContext {
@@ -35,6 +38,7 @@ export function createTaskContext(
     taskId,
     input,
     bus,
+    signal,
     checkCancelled() {
       if (isCancelled()) throw new TaskCancelledError()
     },

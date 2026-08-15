@@ -3,6 +3,7 @@ import { promisify } from "util"
 import path from "path"
 import fs from "fs"
 import { existsSync } from "fs"
+import { execWithSignal } from "./exec"
 
 const execAsync = promisify(exec)
 
@@ -143,11 +144,15 @@ export async function transcribeAudio(
   }
 }
 
-export async function extractAudio(videoPath: string, outputPath: string): Promise<void> {
+export async function extractAudio(
+  videoPath: string,
+  outputPath: string,
+  signal?: AbortSignal
+): Promise<void> {
   const command = `ffmpeg -i "${videoPath}" -vn -acodec mp3 -ar 16000 -ac 1 "${outputPath}" -y`
 
   try {
-    await execAsync(command, { maxBuffer: EXEC_MAX_BUFFER })
+    await execWithSignal(command, signal, { maxBuffer: EXEC_MAX_BUFFER })
   } catch (error) {
     console.error("Audio extraction failed:", error)
     throw new Error("Failed to extract audio from video")
