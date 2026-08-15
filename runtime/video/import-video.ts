@@ -7,6 +7,7 @@ import { prisma, isMp4Complete } from "./db"
 import { getVideoInfo, downloadVideo, downloadThumbnail, recoverVideoFile } from "./yt-dlp"
 import { extractAudio, transcribeAudio } from "./whisper"
 import { generateSummary, generateMindmap } from "./summarize"
+import { addVideoToIndex } from "../agent/tools/search-transcripts"
 import type { TaskHandler, TaskContext } from "../tasks/registry"
 
 export type StageName = "info" | "download" | "transcode" | "transcribe" | "summarize"
@@ -81,6 +82,19 @@ async function markVideoError(videoId: string, message: string): Promise<void> {
       return
     }
     console.warn(`[runtime] 视频行标记失败 (${videoId}): ${err instanceof Error ? err.message : err}`)
+  }
+}
+
+/**
+ * 视频完成 → 加入转写检索索引（search_transcripts 的 MemoryVectorStore）。
+ * store 未构建时 addVideoToIndex 为 no-op（首次构建会扫到已 done 视频）；
+ * 已构建时追加并标记 _videoIdsIndexed，不会重复。失败仅告警，不阻断主流程。
+ */
+async function indexCompletedVideo(videoId: string): Promise<void> {
+  try {
+    await addVideoToIndex(videoId)
+  } catch (err) {
+    console.warn(`[runtime] 视频加入转写索引失败 (${videoId}): ${err instanceof Error ? err.message : err}`)
   }
 }
 
@@ -222,6 +236,7 @@ export const importVideoHandler: TaskHandler = {
             where: { id: videoId },
             data: { status: "done", localPath: `/videos/${videoId}/video.mp4`, summary: JSON.stringify(summary), mindmap },
           })
+          await indexCompletedVideo(videoId)
           ctx.emit("log", { message: "摘要与思维导图完成" })
           break
         }
@@ -236,6 +251,7 @@ export const importVideoHandler: TaskHandler = {
           where: { id: videoId },
           data: { status: "done", localPath: `/videos/${videoId}/video.mp4` },
         })
+        await indexCompletedVideo(videoId)
       } catch (err) {
         // P2025：行已被删除，静默跳过兜底置 done；其余错误照常上抛
         if (!isRowMissing(err)) throw err
@@ -275,6 +291,7 @@ export const regenerateHandler: TaskHandler = {
       where: { id: videoId },
       data: { status: "done", summary: JSON.stringify(summary), mindmap },
     })
+    await indexCompletedVideo(videoId)
     ctx.setResult({ videoId, status: "done" })
   },
 }

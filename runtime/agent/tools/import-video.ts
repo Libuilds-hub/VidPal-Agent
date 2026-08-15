@@ -37,12 +37,12 @@ export function createImportVideoTool(opts: {
       const failed = results.filter((r) => "error" in r)
       return {
         summary: JSON.stringify({
-          imported: succeeded.map((r) => r.url),
+          imported: succeeded.map((r) => ({ url: r.url, taskId: r.taskId })),
           failed: failed.map((r) => ({ url: r.url, error: r.error })),
           message:
             `已开始导入 ${succeeded.length} 个视频。` +
             "后台处理中（下载→转码→转写→摘要→导图），大约需要 3-8 分钟。" +
-            "完成后可通过 get_video_context 查询状态。",
+            "完成后可通过 get_video_context 查询状态。任务 id 可用于后续查询状态。",
         }),
       }
     },

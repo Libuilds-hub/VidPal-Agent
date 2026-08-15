@@ -23,6 +23,43 @@ test("import_video 工具：直接入队（非 HTTP 回环），按 URL 识别�
   assert.equal(enqueued[0].idempotencyKey, "video:https://www.bilibili.com/video/BV1x")
 })
 
+test("import_video 工具：summary 的 imported 携带 taskId（供 get_video_context 跟进）", async () => {
+  const tool = createImportVideoTool({
+    enqueue: () => ({ taskId: "t-1" }),
+  })
+  const r = await tool.execute({ urls: ["https://www.bilibili.com/video/BV1x"] })
+  const parsed = JSON.parse(r.summary) as {
+    imported: Array<{ url: string; taskId: string }>
+  }
+  assert.equal(parsed.imported.length, 1)
+  assert.equal(parsed.imported[0].url, "https://www.bilibili.com/video/BV1x")
+  assert.equal(parsed.imported[0].taskId, "t-1")
+})
+
+test("import_video 工具：入队失败 → failed 数组含该 url，imported 只含成功项", async () => {
+  let call = 0
+  const tool = createImportVideoTool({
+    enqueue: (input) => {
+      call++
+      if (call === 2) throw new Error("队列已满")
+      return { taskId: "t-" + call }
+    },
+  })
+  const r = await tool.execute({
+    urls: ["https://www.bilibili.com/video/BV1x", "https://youtu.be/abc"],
+  })
+  const parsed = JSON.parse(r.summary) as {
+    imported: Array<{ url: string; taskId: string }>
+    failed: Array<{ url: string; error: string }>
+  }
+  assert.equal(parsed.imported.length, 1)
+  assert.equal(parsed.imported[0].taskId, "t-1")
+  assert.equal(parsed.failed.length, 1)
+  assert.equal(parsed.failed[0].url, "https://youtu.be/abc")
+  assert.equal(parsed.failed[0].error, "队列已满")
+  assert.match(r.summary, /已开始导入 1 个视频/)
+})
+
 test("工具 schema 校验：缺参数被拒", async () => {
   const tool = createGetVideoContextTool()
   const parsed = tool.inputSchema.safeParse({})
