@@ -8,6 +8,20 @@ import { importVideoHandler, regenerateHandler } from "./video/import-video"
 import { recoverInterruptedTasks } from "./recovery"
 import { createRuntimeServer } from "./server"
 import { config } from "./config"
+import { ToolRegistry } from "./tools/registry"
+import { createFsTools } from "./tools/fs-tools"
+import { createShellTool } from "./tools/shell-tool"
+import { createWebSearchTool } from "./tools/web-search"
+import { createHttpTool } from "./tools/http-tool"
+import { createSearchVideosTool } from "./agent/tools/search-videos"
+import { createSearchTranscriptsTool } from "./agent/tools/search-transcripts"
+import { createGetVideoContextTool } from "./agent/tools/get-video-context"
+import { createImportVideoTool } from "./agent/tools/import-video"
+import { langchainToolsFromRegistry } from "./agent/langchain-adapter"
+import { buildAgent, systemPromptWithSkills } from "./agent/builder"
+import { scanSkillsDir, loadSkill, SKILLS_ROOT } from "./skills/registry"
+import { getChatModel } from "./llm"
+import type { ChatServices } from "./chat"
 
 const db = createRuntimeDb(config.agentDbPath)
 if (process.env.DATABASE_URL) {
@@ -16,6 +30,61 @@ if (process.env.DATABASE_URL) {
 const bus = new TaskEventBus(db)
 const queue = new TaskQueue(db, bus, [echoHandler, importVideoHandler, regenerateHandler])
 
+// ---- 工具注册（10 个：4 文件/命令 + 2 网络 + 4 视频）----
+// 注意：createImportVideoTool 的 enqueue 依赖 queue 实例，必须放在 queue 创建之后。
+const registry = new ToolRegistry()
+for (const t of [
+  ...createFsTools(config.workspace),
+  createShellTool(config.workspace),
+  createWebSearchTool(),
+  createHttpTool(),
+  createSearchVideosTool(),
+  createSearchTranscriptsTool(),
+  createGetVideoContextTool(),
+  createImportVideoTool({ enqueue: (input) => queue.enqueue(input) }),
+]) {
+  registry.register(t)
+}
+
+const SYSTEM_PROMPT = `你是"视频学习助手"，一个 AI 驱动的视频学习平台，帮助用户搜索、分析和理解视频内容。你可以使用以下工具：
+${registry.list().map((t) => `- ${t.name}: ${t.description}`).join("\n")}
+工具返回的是结构化摘要；需要更多细节时使用更具体的工具或询问用户。`
+
+// Agent 缓存（按 model/provider 键控；技能在构建时固定为 default: true 集合）
+const agentCache = new Map<string, ReturnType<typeof buildAgent>>()
+
+const chat: ChatServices = {
+  async getAgent(model, provider) {
+    const key = `${provider ?? ""}|${model ?? ""}`
+    const cached = agentCache.get(key)
+    if (cached) return cached as never
+    const llm = await getChatModel(model, provider)
+    // 默认装载 default: true 的技能（当前为 video-study）
+    const skills = scanSkillsDir()
+      .filter((s) => s.default)
+      .map((s) => ({ name: s.name, content: loadSkill(SKILLS_ROOT, s.name) ?? "" }))
+      .filter((s) => s.content)
+    const agent = buildAgent({
+      llm,
+      tools: langchainToolsFromRegistry(registry),
+      systemPrompt: systemPromptWithSkills(SYSTEM_PROMPT, skills),
+    })
+    agentCache.set(key, agent)
+    // 技能版本快照（skill_usage 表，task_id 用 chat:default 表示聊天默认集合）
+    try {
+      for (const s of skills) {
+        const entry = scanSkillsDir().find((e) => e.name === s.name)
+        db.prepare(
+          "INSERT OR IGNORE INTO skill_usage (task_id, skill_name, version) VALUES ('chat:default', ?, ?)"
+        ).run(s.name, entry?.version ?? "0.0.0")
+      }
+    } catch (err) {
+      console.warn("[runtime] 技能快照写入失败:", err)
+    }
+    return agent as never
+  },
+}
+
 // 1. 崩溃恢复（唯一 owner：Runtime）
 recoverInterruptedTasks(db)
 
@@ -23,7 +92,7 @@ recoverInterruptedTasks(db)
 queue.startWorker()
 
 // 3. HTTP 服务
-const server = createRuntimeServer({ db, bus, queue })
+const server = createRuntimeServer({ db, bus, queue, chat })
 // EADDRINUSE 等启动失败给出友好提示后退出（默认行为是抛未捕获异常）
 server.on("error", (err) => {
   console.error("[runtime] 服务启动失败:", err.message)

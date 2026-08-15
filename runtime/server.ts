@@ -5,6 +5,7 @@ import type { RuntimeDb } from "./db"
 import type { TaskEventBus } from "./events"
 import type { TaskQueue } from "./tasks/queue"
 import type { CreateTaskRequest, SessionRow } from "./shared/types"
+import type { ChatServices } from "./chat"
 
 const CreateTaskSchema = z.object({
   type: z.string().min(1),
@@ -23,6 +24,7 @@ export interface RuntimeServices {
   db: RuntimeDb
   bus: TaskEventBus
   queue: TaskQueue
+  chat?: ChatServices
 }
 
 export function createRuntimeServer(services: RuntimeServices): http.Server {
@@ -293,6 +295,45 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
       const { clearLLMCache } = await import("./llm")
       clearLLMCache()
       json(res, 200, { ok: true })
+      return
+    }
+
+    // ---- 聊天 ----
+    if (method === "POST" && path === "/chat") {
+      if (!services.chat) {
+        json(res, 503, { error: "聊天服务未配置" })
+        return
+      }
+      try {
+        const raw = (await readBody(req)) as { messages?: unknown }
+        if (!Array.isArray(raw.messages)) {
+          json(res, 400, { error: "messages 数组是必填项" })
+          return
+        }
+        const { createChatHandler } = await import("./chat")
+        const { LLMNotConfiguredError } = await import("./llm")
+        cors(res)
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
+          "X-Accel-Buffering": "no",
+        })
+        const send = (event: string, data: unknown) => sendSSE(res, event, data)
+        try {
+          await createChatHandler(services.chat).run(raw as never, send)
+        } catch (err) {
+          if (err instanceof LLMNotConfiguredError) {
+            send("error", { message: "AI 模型未配置，请先在设置页配置 LLM API Key。", code: "NOT_CONFIGURED" })
+          } else {
+            console.error("[runtime] 聊天错误:", err)
+            send("error", { message: err instanceof Error ? err.message : "AI 服务暂不可用", code: "UNKNOWN" })
+          }
+        }
+        res.end()
+      } catch {
+        json(res, 400, { error: "请求体不是合法 JSON" })
+      }
       return
     }
 

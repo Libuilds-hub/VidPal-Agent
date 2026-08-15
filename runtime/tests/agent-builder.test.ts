@@ -7,59 +7,7 @@ import { langchainToolsFromRegistry } from "../agent/langchain-adapter"
 import { buildAgent, systemPromptWithSkills } from "../agent/builder"
 import { HumanMessage } from "@langchain/core/messages"
 import { AIMessageChunk, ToolMessage, type BaseMessage } from "@langchain/core/messages"
-import { BaseChatModel } from "@langchain/core/language_models/chat_models"
-import type { BaseLanguageModelInput } from "@langchain/core/language_models/base"
-import type { ChatResult } from "@langchain/core/outputs"
-import type { Runnable } from "@langchain/core/runnables"
-
-// 注意：@langchain/core@1.1.48 的 utils/testing 没有 FakeToolCallingChatModel
-// （只有 FakeChatModel / FakeListChatModel / FakeStreamingChatModel，且其 _generate
-// 不按调用次数推进响应队列、不支持 tool_calls 响应序列）。
-// 因此本测试文件内定义等价假模型：responses 顺序消费，第一轮返回工具调用、第二轮返回最终文本。
-
-interface FakeToolCallResponse {
-  role: "assistant"
-  content: string
-  tool_calls?: Array<{ name: string; args: Record<string, unknown> }>
-}
-
-class FakeToolCallingChatModel extends BaseChatModel {
-  responses: FakeToolCallResponse[]
-  private i = 0
-
-  constructor(params: { responses: FakeToolCallResponse[] }) {
-    super({})
-    this.responses = params.responses
-  }
-
-  _llmType(): string {
-    return "fake-tool-calling"
-  }
-
-  bindTools(): Runnable<BaseLanguageModelInput, AIMessageChunk, BaseChatModel["ParsedCallOptions"]> {
-    // createReactAgent 要求模型可 bindTools；假模型直接返回自身（响应队列不变）
-    return this
-  }
-
-  async _generate(_messages: BaseMessage[]): Promise<ChatResult> {
-    const resp = this.responses[Math.min(this.i, this.responses.length - 1)]
-    this.i += 1
-    const toolCalls = resp.tool_calls?.map((tc, idx) => ({
-      name: tc.name,
-      args: tc.args,
-      id: `call_${this.i}_${idx}`,
-      type: "tool_call" as const,
-    }))
-    return {
-      generations: [
-        {
-          message: new AIMessageChunk({ content: resp.content, tool_calls: toolCalls }),
-          text: resp.content,
-        },
-      ],
-    }
-  }
-}
+import { FakeToolCallingChatModel } from "./fakes"
 
 test("langchainToolsFromRegistry：注册表工具包装为 LangChain 工具并执行", async () => {
   const registry = new ToolRegistry()
@@ -103,16 +51,14 @@ test("buildAgent + 事件映射：工具调用全流程事件", async () => {
     },
   }
   registry.register(addTool)
-  const model = new FakeToolCallingChatModel({
-    responses: [
-      {
-        role: "assistant",
-        content: "",
-        tool_calls: [{ name: "add", args: { a: 1, b: 2 } }],
-      },
-      { role: "assistant", content: "结果是 3" },
-    ],
-  })
+  const model = new FakeToolCallingChatModel([
+    {
+      role: "assistant",
+      content: "",
+      tool_calls: [{ name: "add", args: { a: 1, b: 2 } }],
+    },
+    { role: "assistant", content: "结果是 3" },
+  ])
   const agent = buildAgent({ llm: model, tools: langchainToolsFromRegistry(registry), systemPrompt: "你是计算器助手。" })
 
   const events: Array<{ type: string; payload: Record<string, unknown> }> = []
@@ -149,4 +95,17 @@ test("buildAgent + 事件映射：工具调用全流程事件", async () => {
   assert.ok(types.includes("done"), "应发出 done")
   const toolStart = events.find((e) => e.type === "tool_start")!
   assert.equal((toolStart.payload as { name: string }).name, "add")
+
+  // 加强断言：tool_end 携带工具名与工具返回结果（summary 字符串）
+  const toolEnd = events.find((e) => e.type === "tool_end")!
+  assert.equal((toolEnd.payload as { name: string }).name, "add")
+  assert.equal((toolEnd.payload as { result: string }).result, "3")
+
+  // 加强断言：事件顺序 tool_start < tool_end < 最终 token
+  const toolStartIdx = types.indexOf("tool_start")
+  const toolEndIdx = types.indexOf("tool_end")
+  const lastTokenIdx = types.lastIndexOf("token")
+  assert.ok(toolStartIdx !== -1 && toolEndIdx !== -1 && lastTokenIdx !== -1)
+  assert.ok(toolStartIdx < toolEndIdx, "tool_start 应早于 tool_end")
+  assert.ok(toolEndIdx < lastTokenIdx, "tool_end 应早于最终 token")
 })
