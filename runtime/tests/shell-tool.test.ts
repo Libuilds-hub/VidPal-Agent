@@ -30,7 +30,9 @@ test("run_command：在 workspace 内执行并返回输出；dangerous=true", as
     const tool = createShellTool(ws)
     assert.equal(tool.dangerous, true)
 
-    const r = await tool.execute({ command: "echo hello", timeoutMs: 5000 })
+    // timeoutMs 放宽到 15000：spawn cmd.exe 在高负载机器上可能 >5s，
+    // 命令本身瞬时完成，只是放宽 spawn 延迟容限避免偶发失败
+    const r = await tool.execute({ command: "echo hello", timeoutMs: 15000 })
     assert.match(r.summary, /hello/)
   } finally {
     await rmWorkspace(ws)
