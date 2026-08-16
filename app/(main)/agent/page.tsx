@@ -112,7 +112,7 @@ export default function AgentPage() {
         )}
         {tasks.map((t) => {
           const st = statusConfig[t.status] ?? statusConfig.pending
-          const duration = t.updatedAt - t.createdAt
+          const duration = Math.max(0, t.updatedAt - t.createdAt)
           return (
             <div key={t.id} className="grid grid-cols-[1fr_90px_110px_70px_80px] items-center gap-3 border-b border-zinc-50 px-4 py-2.5 text-sm last:border-0 hover:bg-zinc-50/50">
               <div className="min-w-0">
