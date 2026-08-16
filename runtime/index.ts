@@ -93,7 +93,16 @@ recoverInterruptedTasks(db)
 queue.startWorker()
 
 // 3. HTTP 服务
-const server = createRuntimeServer({ db, bus, queue, chat })
+// toolsIndex 显式映射成 {name, description, dangerous}：zod inputSchema 内部结构不适合
+// 通过 HTTP 暴露给控制台（控制台只用 dangerous 标记做高亮），且 server 端 JSON.stringify
+// 会泄漏 zod def 结构（噪音 + 体积）。
+const server = createRuntimeServer({
+  db,
+  bus,
+  queue,
+  chat,
+  toolsIndex: registry.list().map((t) => ({ name: t.name, description: t.description, dangerous: t.dangerous })),
+})
 // EADDRINUSE 等启动失败给出友好提示后退出（默认行为是抛未捕获异常）
 server.on("error", (err) => {
   console.error("[runtime] 服务启动失败:", err.message)

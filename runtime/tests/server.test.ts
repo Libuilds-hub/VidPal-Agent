@@ -4,21 +4,37 @@ import assert from "node:assert/strict"
 import http from "node:http"
 import fs from "fs"
 import path from "path"
+import { z } from "zod"
 import { createRuntimeDb } from "../db"
 import { TaskEventBus } from "../events"
 import { TaskQueue } from "../tasks/queue"
 import { echoHandler } from "../tasks/echo"
 import { createRuntimeServer } from "../server"
+import { ToolRegistry } from "../tools/registry"
+import type { AgentTool } from "../tools/registry"
 import type { AddressInfo } from "node:net"
 
 function startTestServer() {
   const db = createRuntimeDb(":memory:")
   const bus = new TaskEventBus(db)
   const queue = new TaskQueue(db, bus, [echoHandler])
-  const server = createRuntimeServer({ db, bus, queue })
+  // 注册一个含 run_command 的注册表，让 /tools 端点返回该工具（用于 D1 GET /tools 测试）
+  const registry = new ToolRegistry()
+  const runCommand: AgentTool<z.ZodTypeAny> = {
+    name: "run_command",
+    description: "execute a command",
+    inputSchema: z.object({ command: z.string() }),
+    dangerous: true,
+    async execute(args) {
+      const { command } = args as { command: string }
+      return { summary: command }
+    },
+  }
+  registry.register(runCommand)
+  const server = createRuntimeServer({ db, bus, queue, toolsIndex: registry.list() })
   server.listen(0)
   const port = (server.address() as AddressInfo).port
-  return { server, db, port, base: `http://127.0.0.1:${port}` }
+  return { server, db, bus, queue, port, base: `http://127.0.0.1:${port}` }
 }
 
 /** 裸 node:http 客户端：可精确控制 Connection 语义（fetch 无法做到），
@@ -488,6 +504,94 @@ test("POST /skills/video-study 返回内容与元数据（version/description）
     assert.match(body.content, /行为规则/)
     assert.equal(body.version, "1.0.0")
     assert.ok(body.description.length > 0, "响应应包含 description")
+  } finally {
+    server.close()
+  }
+})
+
+// ---- D1：控制台支撑端点 ----
+
+test("GET /tasks?type= 按类型过滤", async () => {
+  const { server, base } = startTestServer()
+  try {
+    const post = (body: string) =>
+      fetch(`${base}/tasks`, { method: "POST", headers: { "Content-Type": "application/json" }, body })
+    await post(JSON.stringify({ type: "echo", input: {}, idempotencyKey: "f1" }))
+    await post(JSON.stringify({ type: "echo", input: {}, idempotencyKey: "f2" }))
+    await post(JSON.stringify({ type: "import_video", input: { url: "https://x" }, idempotencyKey: "f3" }))
+
+    const all = (await (await fetch(`${base}/tasks`)).json()) as Array<{ type: string }>
+    assert.equal(all.length, 3)
+    const echoes = (await (await fetch(`${base}/tasks?type=echo`)).json()) as Array<{ type: string }>
+    assert.equal(echoes.length, 2)
+    assert.ok(echoes.every((t) => t.type === "echo"))
+  } finally {
+    server.close()
+  }
+})
+
+test("POST /tasks/:id/retry：终态任务重建新任务", async () => {
+  const { server, db, base } = startTestServer()
+  try {
+    const created = (await (await fetch(`${base}/tasks`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "echo", input: { message: "重试我" }, idempotencyKey: "r1" }),
+    })).json()) as { taskId: string }
+    await new TaskQueue(db, new TaskEventBus(db), [echoHandler]).runTaskById(created.taskId)
+
+    const retryRes = await fetch(`${base}/tasks/${created.taskId}/retry`, { method: "POST" })
+    assert.equal(retryRes.status, 200)
+    const retried = (await retryRes.json()) as { taskId: string; reused: boolean }
+    assert.equal(retried.reused, false)
+    assert.notEqual(retried.taskId, created.taskId)
+
+    const detail = (await (await fetch(`${base}/tasks/${retried.taskId}`)).json()) as { status: string; input: string }
+    assert.equal(detail.status, "pending")
+    assert.match(detail.input, /重试我/)
+  } finally {
+    server.close()
+  }
+})
+
+test("POST /tasks/:id/retry：运行中任务拒绝重试", async () => {
+  const { server, base } = startTestServer()
+  try {
+    const created = (await (await fetch(`${base}/tasks`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "echo", input: {} }),
+    })).json()) as { taskId: string }
+    const res = await fetch(`${base}/tasks/${created.taskId}/retry`, { method: "POST" })
+    assert.equal(res.status, 400)
+  } finally {
+    server.close()
+  }
+})
+
+test("GET /tools 返回工具索引（含 dangerous 标记）", async () => {
+  const { server, base } = startTestServer()
+  try {
+    // startTestServer 已注册含 run_command 的注册表（inputSchema: z.object({ command })）
+    const res = await fetch(`${base}/tools`)
+    assert.equal(res.status, 200)
+    const tools = (await res.json()) as Array<{ name: string; dangerous: boolean }>
+    const shell = tools.find((t) => t.name === "run_command")
+    assert.ok(shell, "工具索引应包含 run_command")
+    assert.equal(shell!.dangerous, true)
+  } finally {
+    server.close()
+  }
+})
+
+test("GET /skills/:name 返回技能内容", async () => {
+  const { server, base } = startTestServer()
+  try {
+    const res = await fetch(`${base}/skills/video-study`)
+    assert.equal(res.status, 200)
+    const body = (await res.json()) as { name: string; content: string }
+    assert.equal(body.name, "video-study")
+    assert.match(body.content, /行为规则/)
+    const missing = await fetch(`${base}/skills/nope`)
+    assert.equal(missing.status, 404)
   } finally {
     server.close()
   }

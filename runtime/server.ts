@@ -25,6 +25,8 @@ export interface RuntimeServices {
   bus: TaskEventBus
   queue: TaskQueue
   chat?: ChatServices
+  /** 工具索引（GET /tools 输出），未传则端点返回空数组 */
+  toolsIndex?: Array<{ name: string; description: string; dangerous: boolean }>
 }
 
 export function createRuntimeServer(services: RuntimeServices): http.Server {
@@ -167,12 +169,14 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
 
     if (method === "GET" && path === "/tasks") {
       const sessionId = url.searchParams.get("sessionId") ?? undefined
-      json(res, 200, queue.listTasks(sessionId))
+      const type = url.searchParams.get("type") ?? undefined
+      json(res, 200, queue.listTasks(sessionId, type))
       return
     }
 
     const taskMatch = path.match(/^\/tasks\/([^/]+)$/)
     const cancelMatch = path.match(/^\/tasks\/([^/]+)\/cancel$/)
+    const retryMatch = path.match(/^\/tasks\/([^/]+)\/retry$/)
     const eventsMatch = path.match(/^\/tasks\/([^/]+)\/events$/)
 
     if (method === "GET" && taskMatch) {
@@ -188,6 +192,16 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
     if (method === "POST" && cancelMatch) {
       const ok = queue.requestCancel(cancelMatch[1])
       json(res, ok ? 200 : 404, { ok })
+      return
+    }
+
+    if (method === "POST" && retryMatch) {
+      const result = queue.retryTask(retryMatch[1])
+      if (!result) {
+        json(res, 400, { error: "任务不存在或仍在运行中，无法重试" })
+        return
+      }
+      json(res, 200, { taskId: result.taskId, reused: false, status: "pending" })
       return
     }
 
@@ -363,7 +377,7 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
 
     const skillsMatch = path.match(/^\/skills\/([^/]+)$/)
 
-    if (method === "POST" && skillsMatch) {
+    if ((method === "GET" || method === "POST") && skillsMatch) {
       const { loadSkill, scanSkillsDir, SKILLS_ROOT } = await import("./skills/registry")
       let name: string
       try {
@@ -386,6 +400,12 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
         version: meta?.version ?? "0.0.0",
         description: meta?.description ?? "",
       })
+      return
+    }
+
+    // ---- 工具索引（控制台 dangerous 高亮用）----
+    if (method === "GET" && path === "/tools") {
+      json(res, 200, services.toolsIndex ?? [])
       return
     }
 

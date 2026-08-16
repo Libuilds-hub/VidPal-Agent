@@ -117,13 +117,44 @@ export class TaskQueue {
     return row ? rowToTask(row) : null
   }
 
-  listTasks(sessionId?: string): TaskRow[] {
-    const rows = (sessionId
-      ? this.db
-          .prepare("SELECT * FROM task WHERE session_id = ? ORDER BY created_at DESC")
-          .all(sessionId)
-      : this.db.prepare("SELECT * FROM task ORDER BY created_at DESC").all()) as TaskDbRow[]
+  listTasks(sessionId?: string, type?: string): TaskRow[] {
+    let sql = "SELECT * FROM task"
+    const conds: string[] = []
+    const params: Array<string> = []
+    if (sessionId) {
+      conds.push("session_id = ?")
+      params.push(sessionId)
+    }
+    if (type) {
+      conds.push("type = ?")
+      params.push(type)
+    }
+    if (conds.length > 0) sql += " WHERE " + conds.join(" AND ")
+    sql += " ORDER BY created_at DESC"
+    const rows = (
+      params.length > 0
+        ? this.db.prepare(sql).all(...params)
+        : this.db.prepare(sql).all()
+    ) as TaskDbRow[]
     return rows.map(rowToTask)
+  }
+
+  /** 重试终态任务：用原输入新建任务（不带幂等键，避免被旧任务挡住） */
+  retryTask(taskId: string): { taskId: string } | null {
+    const row = this.db
+      .prepare("SELECT * FROM task WHERE id = ?")
+      .get(taskId) as TaskDbRow | undefined
+    if (!row) return null
+    if (row.status === "pending" || row.status === "running") return null
+    const newId = crypto.randomUUID()
+    const now = Date.now()
+    this.db
+      .prepare(
+        `INSERT INTO task (id, type, session_id, status, stage, input, idempotency_key, created_at, updated_at)
+         VALUES (?, ?, ?, 'pending', 'init', ?, NULL, ?, ?)`
+      )
+      .run(newId, row.type, row.session_id, row.input, now, now)
+    return { taskId: newId }
   }
 
   requestCancel(taskId: string): boolean {
