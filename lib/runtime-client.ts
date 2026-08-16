@@ -53,8 +53,11 @@ export function createRuntimeClient(baseUrl: string = DEFAULT_URL) {
     getTask(taskId: string): Promise<TaskRow> {
       return request(`/tasks/${encodeURIComponent(taskId)}`)
     },
-    listTasks(sessionId?: string): Promise<TaskRow[]> {
-      return request(`/tasks${sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ""}`)
+    listTasks(sessionId?: string, type?: string): Promise<TaskRow[]> {
+      const params: string[] = []
+      if (sessionId) params.push(`sessionId=${encodeURIComponent(sessionId)}`)
+      if (type) params.push(`type=${encodeURIComponent(type)}`)
+      return request(`/tasks${params.length > 0 ? "?" + params.join("&") : ""}`)
     },
     cancelTask(taskId: string): Promise<{ ok: boolean }> {
       return request(
@@ -62,6 +65,18 @@ export function createRuntimeClient(baseUrl: string = DEFAULT_URL) {
         { method: "POST" },
         { allow: [404] }
       )
+    },
+    retryTask(taskId: string): Promise<{ taskId: string; reused: boolean; status: string }> {
+      return request(`/tasks/${encodeURIComponent(taskId)}/retry`, { method: "POST" })
+    },
+    listTools(): Promise<Array<{ name: string; description: string; dangerous: boolean }>> {
+      return request("/tools")
+    },
+    listSkills(): Promise<Array<{ name: string; description: string; version: string; default: boolean }>> {
+      return request("/skills")
+    },
+    getSkill(name: string): Promise<{ name: string; content: string; version: string; description: string }> {
+      return request(`/skills/${encodeURIComponent(name)}`)
     },
     createSession(title?: string): Promise<{ id: string; title: string }> {
       return request("/sessions", { method: "POST", body: JSON.stringify({ title }) })

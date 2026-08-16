@@ -573,10 +573,11 @@ test("GET /tools 返回工具索引（含 dangerous 标记）", async () => {
     // startTestServer 已注册含 run_command 的注册表（inputSchema: z.object({ command })）
     const res = await fetch(`${base}/tools`)
     assert.equal(res.status, 200)
-    const tools = (await res.json()) as Array<{ name: string; dangerous: boolean }>
+    const tools = (await res.json()) as Array<{ name: string; description: string; dangerous: boolean }>
     const shell = tools.find((t) => t.name === "run_command")
     assert.ok(shell, "工具索引应包含 run_command")
     assert.equal(shell!.dangerous, true)
+    assert.equal(shell!.description, "execute a command")  // 锁住 description 字段，防止未来误删
   } finally {
     server.close()
   }
