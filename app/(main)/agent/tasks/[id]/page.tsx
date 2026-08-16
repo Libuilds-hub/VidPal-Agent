@@ -37,14 +37,21 @@ export default function TaskDetailPage() {
   const [dangerousTools, setDangerousTools] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [retrying, setRetrying] = useState(false)
+  const [canceling, setCanceling] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
   // 工具索引（dangerous 高亮用）
   useEffect(() => {
+    let alive = true
     runtime
       .listTools()
-      .then((tools) => setDangerousTools(new Set(tools.filter((t) => t.dangerous).map((t) => t.name))))
+      .then((tools) => {
+        if (alive) setDangerousTools(new Set(tools.filter((t) => t.dangerous).map((t) => t.name)))
+      })
       .catch(() => {})
+    return () => {
+      alive = false
+    }
   }, [])
 
   // 任务元数据轮询（状态变化低频，2.5s 足够）
@@ -89,10 +96,13 @@ export default function TaskDetailPage() {
   }, [timeline.length])
 
   const cancel = async () => {
+    setCanceling(true)
     try {
       await runtime.cancelTask(taskId)
     } catch (e) {
       setError(e instanceof Error ? e.message : "取消失败")
+    } finally {
+      setCanceling(false)
     }
   }
 
@@ -176,9 +186,10 @@ export default function TaskDetailPage() {
           {(task?.status === "pending" || task?.status === "running") && (
             <button
               onClick={cancel}
-              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:border-rose-200 hover:text-rose-500"
+              disabled={canceling}
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:border-rose-200 hover:text-rose-500 disabled:opacity-50"
             >
-              取消任务
+              {canceling ? "取消中…" : "取消任务"}
             </button>
           )}
           {task?.status === "failed" && (

@@ -25,6 +25,7 @@ export default function SkillsPage() {
   }, [])
 
   const toggle = async (name: string) => {
+    setError(null)
     if (expanded === name) {
       setExpanded(null)
       return
@@ -51,7 +52,7 @@ export default function SkillsPage() {
         {skills.length === 0 && <p className="py-10 text-center text-sm text-zinc-400">暂无技能</p>}
         {skills.map((s) => (
           <div key={s.name} className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
-            <button onClick={() => toggle(s.name)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-zinc-50/60">
+            <button onClick={() => toggle(s.name)} aria-expanded={expanded === s.name} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-zinc-50/60">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-sm font-bold">{s.name}</span>

@@ -20,6 +20,7 @@ import {
   FolderHeartIcon,
   History as HistoryIcon,
   MessageSquarePlusIcon,
+  BotIcon,
 } from "lucide-react"
 import { VidPalLogo } from "@/components/vidpal-logo"
 
@@ -35,6 +36,7 @@ const navGroups = [
     items: [
       { title: "新对话", url: "/ai-assistant/new-chat", icon: MessageSquarePlusIcon },
       { title: "历史对话", url: "/ai-assistant/history", icon: HistoryIcon },
+      { title: "Agent 控制台", url: "/agent", icon: BotIcon },
     ],
   },
   {

@@ -23,6 +23,7 @@ export default function MainLayout({
     if (path.startsWith("/ai-assistant/new-chat")) return "新对话"
     if (path.startsWith("/ai-assistant/history")) return "历史对话"
     if (path.startsWith("/ai-assistant")) return "聊天对话"
+    if (path.startsWith("/agent")) return "Agent 控制台"
     if (path.startsWith("/knowledge-graph")) return "知识图谱"
     if (path.startsWith("/videos")) return "视频库"
     if (path.startsWith("/collections")) return "合集"
