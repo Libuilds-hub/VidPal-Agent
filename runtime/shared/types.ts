@@ -60,3 +60,16 @@ export interface CreateTaskResponse {
   reused: boolean
   status: TaskStatus
 }
+
+/** 已安装技能索引（GET /skills 输出；也用于安装/上传/卸载的返回） */
+export interface SkillIndexEntry {
+  name: string
+  description: string
+  version: string
+  default: boolean
+}
+
+/** 精选技能（GET /skills/catalog 输出）：在 SkillIndexEntry 基础上标注是否已安装 */
+export interface SkillCatalogEntry extends SkillIndexEntry {
+  preinstalled: boolean
+}

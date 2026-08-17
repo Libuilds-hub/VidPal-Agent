@@ -1,13 +1,9 @@
 // runtime/skills/registry.ts —— 技能系统：扫描 skills/*/SKILL.md（frontmatter）+ 按名装载
 import fs from "fs"
 import path from "path"
+import type { SkillIndexEntry } from "../shared/types"
 
-export interface SkillIndexEntry {
-  name: string
-  description: string
-  version: string
-  default: boolean
-}
+export type { SkillIndexEntry }
 
 export const SKILLS_ROOT = path.join(process.cwd(), "skills")
 
@@ -15,7 +11,7 @@ export const SKILLS_ROOT = path.join(process.cwd(), "skills")
 const MAX_SKILL_BYTES = 10 * 1024 * 1024
 
 /** 合法技能名白名单：首字符字母/数字，其余字母/数字/._-（拒绝 ..、/、\ 等穿越手段） */
-const SAFE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+export const SAFE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 
 interface Frontmatter {
   name?: string
