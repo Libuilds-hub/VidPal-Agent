@@ -6,6 +6,7 @@ import type { TaskEventBus } from "./events"
 import type { TaskQueue } from "./tasks/queue"
 import type { CreateTaskRequest, SessionRow } from "./shared/types"
 import type { ChatServices } from "./chat"
+import { SKILLS_ROOT } from "./skills/registry"
 
 const CreateTaskSchema = z.object({
   type: z.string().min(1),
@@ -27,14 +28,17 @@ export interface RuntimeServices {
   chat?: ChatServices
   /** 工具索引（GET /tools 输出），未传则端点返回空数组 */
   toolsIndex?: Array<{ name: string; description: string; dangerous: boolean }>
+  /** 技能目录根（测试注入 tmp；默认项目 skills/） */
+  skillsRoot?: string
 }
 
 export function createRuntimeServer(services: RuntimeServices): http.Server {
   const { db, bus, queue } = services
+  const skillsRoot = services.skillsRoot ?? SKILLS_ROOT
 
   function cors(res: http.ServerResponse): void {
     res.setHeader("Access-Control-Allow-Origin", "*")
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Last-Event-ID")
   }
 
@@ -71,6 +75,25 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
           reject(new Error("invalid JSON"))
         }
       })
+      req.on("error", reject)
+    })
+  }
+
+  /** 原始二进制 body（技能 ZIP 上传用）；超限拒绝并 pause（与 readBody 相同的 413 路径） */
+  function readRawBody(req: http.IncomingMessage, limit: number): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = []
+      let total = 0
+      req.on("data", (chunk: Buffer) => {
+        total += chunk.length
+        if (total > limit) {
+          reject(new Error("body too large"))
+          req.pause()
+          return
+        }
+        chunks.push(chunk)
+      })
+      req.on("end", () => resolve(Buffer.concat(chunks)))
       req.on("error", reject)
     })
   }
@@ -371,14 +394,58 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
     // ---- 技能 ----
     if (method === "GET" && path === "/skills") {
       const { scanSkillsDir } = await import("./skills/registry")
-      json(res, 200, scanSkillsDir())
+      json(res, 200, scanSkillsDir(skillsRoot))
+      return
+    }
+
+    // ---- 技能管理（设置页：精选安装 / ZIP 上传 / 卸载）----
+    // 注意：三个精确路径分支必须在此、在 skillsMatch 正则分支之前
+    if (method === "GET" && path === "/skills/catalog") {
+      const { catalogSkills } = await import("./skills/install")
+      json(res, 200, catalogSkills(skillsRoot))
+      return
+    }
+
+    if (method === "POST" && path === "/skills/install") {
+      try {
+        const parsed = z.object({ name: z.string().min(1) }).safeParse(await readBody(req))
+        if (!parsed.success) {
+          json(res, 400, { error: "参数不合法" })
+          return
+        }
+        const { installCuratedSkill, SkillError } = await import("./skills/install")
+        try {
+          json(res, 200, installCuratedSkill(skillsRoot, parsed.data.name))
+        } catch (err) {
+          if (err instanceof SkillError) json(res, err.status, { error: err.message })
+          else throw err
+        }
+      } catch (err) {
+        if (!sendBodyError(req, res, err)) throw err
+      }
+      return
+    }
+
+    if (method === "POST" && path === "/skills/upload") {
+      try {
+        const { uploadSkillZip, SkillError, MAX_ZIP_BYTES } = await import("./skills/install")
+        const buf = await readRawBody(req, MAX_ZIP_BYTES)
+        try {
+          json(res, 200, await uploadSkillZip(skillsRoot, buf))
+        } catch (err) {
+          if (err instanceof SkillError) json(res, err.status, { error: err.message })
+          else throw err
+        }
+      } catch (err) {
+        if (!sendBodyError(req, res, err)) throw err
+      }
       return
     }
 
     const skillsMatch = path.match(/^\/skills\/([^/]+)$/)
 
     if ((method === "GET" || method === "POST") && skillsMatch) {
-      const { loadSkill, scanSkillsDir, SKILLS_ROOT } = await import("./skills/registry")
+      const { loadSkill, scanSkillsDir } = await import("./skills/registry")
       let name: string
       try {
         name = decodeURIComponent(skillsMatch[1])
@@ -387,19 +454,38 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
         json(res, 404, { error: "技能不存在" })
         return
       }
-      const content = loadSkill(SKILLS_ROOT, name)
+      const content = loadSkill(skillsRoot, name)
       if (!content) {
         json(res, 404, { error: "技能不存在" })
         return
       }
       // 元数据从索引取（索引键 = 目录名，与装载键一致）
-      const meta = scanSkillsDir().find((e) => e.name === name)
+      const meta = scanSkillsDir(skillsRoot).find((e) => e.name === name)
       json(res, 200, {
         name,
         content,
         version: meta?.version ?? "0.0.0",
         description: meta?.description ?? "",
       })
+      return
+    }
+
+    if (method === "DELETE" && skillsMatch) {
+      let name: string
+      try {
+        name = decodeURIComponent(skillsMatch[1])
+      } catch {
+        json(res, 404, { error: "技能不存在" })
+        return
+      }
+      const { deleteSkill, SkillError } = await import("./skills/install")
+      try {
+        deleteSkill(skillsRoot, name)
+        json(res, 200, { ok: true })
+      } catch (err) {
+        if (err instanceof SkillError) json(res, err.status, { error: err.message })
+        else throw err
+      }
       return
     }
 

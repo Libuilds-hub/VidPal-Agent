@@ -3,13 +3,16 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import http from "node:http"
 import fs from "fs"
+import os from "os"
 import path from "path"
 import { z } from "zod"
+import yazl from "yazl"
 import { createRuntimeDb } from "../db"
 import { TaskEventBus } from "../events"
 import { TaskQueue } from "../tasks/queue"
 import { echoHandler } from "../tasks/echo"
 import { createRuntimeServer } from "../server"
+import { SKILLS_ROOT } from "../skills/registry"
 import { ToolRegistry } from "../tools/registry"
 import type { AgentTool } from "../tools/registry"
 import type { AddressInfo } from "node:net"
@@ -595,5 +598,91 @@ test("GET /skills/:name 返回技能内容", async () => {
     assert.equal(missing.status, 404)
   } finally {
     server.close()
+  }
+})
+
+function makeZip(files: Record<string, string>): Promise<Buffer> {
+  const zip = new yazl.ZipFile()
+  for (const [name, content] of Object.entries(files)) zip.addBuffer(Buffer.from(content), name)
+  zip.end()
+  const chunks: Buffer[] = []
+  return new Promise((resolve, reject) => {
+    zip.outputStream.on("data", (c: Buffer) => chunks.push(c))
+    zip.outputStream.on("end", () => resolve(Buffer.concat(chunks)))
+    zip.outputStream.on("error", reject)
+  })
+}
+
+/** 技能管理集成测试专用服务：独立 tmp skillsRoot（预置 video-study），不污染真实 skills/ */
+function startSkillsTestServer() {
+  const db = createRuntimeDb(":memory:")
+  const bus = new TaskEventBus(db)
+  const queue = new TaskQueue(db, bus, [echoHandler])
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "skills-server-"))
+  fs.mkdirSync(path.join(root, "video-study"), { recursive: true })
+  fs.copyFileSync(path.join(SKILLS_ROOT, "video-study", "SKILL.md"), path.join(root, "video-study", "SKILL.md"))
+  const server = createRuntimeServer({ db, bus, queue, skillsRoot: root })
+  server.listen(0)
+  const port = (server.address() as AddressInfo).port
+  return { server, root, base: `http://127.0.0.1:${port}` }
+}
+
+test("技能管理：catalog / install / upload / delete 全流程", async () => {
+  const { server, root, base } = startSkillsTestServer()
+  try {
+    // catalog：预置 video-study 已安装
+    const catalog = (await (await fetch(`${base}/skills/catalog`)).json()) as Array<{ name: string; preinstalled: boolean }>
+    assert.ok(catalog.some((s) => s.name === "video-study" && s.preinstalled))
+    const target = catalog.find((s) => s.name !== "video-study")!
+
+    // 精选安装
+    const installRes = await fetch(`${base}/skills/install`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: target.name }),
+    })
+    assert.equal(installRes.status, 200)
+    assert.equal((await installRes.json()).name, target.name)
+    assert.ok(fs.existsSync(path.join(root, target.name, "SKILL.md")))
+
+    // 重复安装 409
+    const dupRes = await fetch(`${base}/skills/install`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: target.name }),
+    })
+    assert.equal(dupRes.status, 409)
+
+    // ZIP 上传
+    const zip = await makeZip({ "t-skill/SKILL.md": "---\nname: t-skill\ndescription: t\n---\n# t" })
+    const uploadRes = await fetch(`${base}/skills/upload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/zip" },
+      body: new Uint8Array(zip),
+    })
+    assert.equal(uploadRes.status, 200)
+    assert.equal((await uploadRes.json()).name, "t-skill")
+
+    // 非法上传（超深路径，深度 > 8）400——yazl 无法构造 ../ 形态，真实 zip-slip
+    // 已由 skills-install.test.ts 的手写 ZIP 用例覆盖
+    const evilZip = await makeZip({ "a/b/c/d/e/f/g/h/i/SKILL.md": "---\nname: x\n---\n# x" })
+    const evilRes = await fetch(`${base}/skills/upload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/zip" },
+      body: new Uint8Array(evilZip),
+    })
+    assert.equal(evilRes.status, 400)
+
+    // 卸载 + 404
+    const delRes = await fetch(`${base}/skills/t-skill`, { method: "DELETE" })
+    assert.equal(delRes.status, 200)
+    assert.equal((await fetch(`${base}/skills/t-skill`, { method: "DELETE" })).status, 404)
+
+    // GET /skills 反映变更
+    const list = (await (await fetch(`${base}/skills`)).json()) as Array<{ name: string }>
+    assert.ok(!list.some((s) => s.name === "t-skill"))
+  } finally {
+    server.close()
+    fs.rmSync(root, { recursive: true, force: true })
   }
 })
