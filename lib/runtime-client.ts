@@ -5,6 +5,8 @@ import type {
   TaskRow,
   TaskEvent,
   SessionRow,
+  SkillIndexEntry,
+  SkillCatalogEntry,
 } from "@/runtime/shared/types"
 
 const DEFAULT_URL = process.env.NEXT_PUBLIC_RUNTIME_URL || "http://localhost:3100"
@@ -77,6 +79,22 @@ export function createRuntimeClient(baseUrl: string = DEFAULT_URL) {
     },
     getSkill(name: string): Promise<{ name: string; content: string; version: string; description: string }> {
       return request(`/skills/${encodeURIComponent(name)}`)
+    },
+    getSkillCatalog(): Promise<SkillCatalogEntry[]> {
+      return request("/skills/catalog")
+    },
+    installSkill(name: string): Promise<SkillIndexEntry> {
+      return request("/skills/install", { method: "POST", body: JSON.stringify({ name }) })
+    },
+    async uploadSkillZip(file: File): Promise<SkillIndexEntry> {
+      return request("/skills/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/zip" },
+        body: await file.arrayBuffer(),
+      })
+    },
+    deleteSkill(name: string): Promise<{ ok: boolean }> {
+      return request(`/skills/${encodeURIComponent(name)}`, { method: "DELETE" })
     },
     createSession(title?: string): Promise<{ id: string; title: string }> {
       return request("/sessions", { method: "POST", body: JSON.stringify({ title }) })

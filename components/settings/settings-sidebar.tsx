@@ -22,6 +22,7 @@ import {
   SparklesIcon,
   Key,
   Plug,
+  Blocks,
   HelpCircleIcon,
   RefreshCw,
   ArrowLeft,
@@ -42,6 +43,7 @@ const sidebarGroups = [
     items: [
       { id: "llm", label: "AI 供应商", icon: BotIcon, href: "/settings/llm" },
       { id: "ai", label: "AI & Agent", icon: SparklesIcon, href: "/settings/ai" },
+      { id: "skills", label: "技能管理", icon: Blocks, href: "/settings/skills" },
       { id: "cookies", label: "Cookie 配置", icon: Key, href: "/settings/cookies" },
       { id: "integrations", label: "集成合作", icon: Plug, href: "/settings/integrations" },
     ],
