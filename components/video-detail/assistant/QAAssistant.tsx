@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { Sender, Bubble, Think, Actions } from "@ant-design/x"
 import { useXChat, XRequest } from "@ant-design/x-sdk"
 import XMarkdown from "@ant-design/x-markdown"
-import { ShancnChatProvider } from "@/lib/chat-provider"
+import { StudyAgentChatProvider } from "@/lib/chat-provider"
 import type { ChatMessage, ChatInput } from "@/lib/chat-provider"
 import { RobotOutlined, ThunderboltOutlined, FileTextOutlined, HighlightOutlined, TranslationOutlined, UnorderedListOutlined, PaperClipOutlined, RedoOutlined, EditOutlined } from "@ant-design/icons"
 import { App, Button, Dropdown, Flex, Input, Pagination } from "antd"
@@ -63,9 +63,9 @@ interface ConversationMeta {
 function QAAssistantInner() {
   const { message } = App.useApp()
 
-  const providerRef = useRef<ShancnChatProvider | null>(null)
+  const providerRef = useRef<StudyAgentChatProvider | null>(null)
   if (!providerRef.current) {
-    providerRef.current = new ShancnChatProvider({
+    providerRef.current = new StudyAgentChatProvider({
       request: XRequest<ChatInput>('/api/chat', { manual: true }),
     })
   }

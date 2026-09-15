@@ -75,7 +75,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     if (p.baseUrl.includes("openrouter.ai")) {
       headers["HTTP-Referer"] = "http://localhost:3000"
-      headers["X-Title"] = "Video Shancn"
+      headers["X-Title"] = "Video Study Agent"
     }
 
     const response = await fetch(`${p.baseUrl}/chat/completions`, {

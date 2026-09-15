@@ -8,6 +8,7 @@ import {
   MessageSquareIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { readStored, writeStored } from "@/lib/storage"
 
 type Message = {
   id: string
@@ -40,7 +41,7 @@ export default function ChatHistoryPage() {
   const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
-    const localChats = localStorage.getItem("video-shancn-chats")
+    const localChats = readStored("chats")
     if (localChats) {
       try {
         setConversations(JSON.parse(localChats))
@@ -56,14 +57,14 @@ export default function ChatHistoryPage() {
     if (confirm("确定要删除这条对话记录吗？")) {
       const updated = conversations.filter((c) => c.id !== id)
       setConversations(updated)
-      localStorage.setItem("video-shancn-chats", JSON.stringify(updated))
+      writeStored("chats", JSON.stringify(updated))
     }
   }
 
   const handleClearAll = () => {
     if (confirm("确定要清空所有的历史对话记录吗？此操作无法撤销。")) {
       setConversations([])
-      localStorage.setItem("video-shancn-chats", JSON.stringify([]))
+      writeStored("chats", JSON.stringify([]))
     }
   }
 

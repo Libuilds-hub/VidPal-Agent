@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
         if (provider.baseUrl.includes("openrouter.ai")) {
           headers["HTTP-Referer"] = "http://localhost:3000"
-          headers["X-Title"] = "Video Shancn"
+          headers["X-Title"] = "Video Study Agent"
         }
 
         // Hitting standard /models endpoint

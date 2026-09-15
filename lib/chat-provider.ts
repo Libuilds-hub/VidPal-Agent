@@ -14,7 +14,7 @@ export interface ChatInput {
   provider?: string
 }
 
-export class ShancnChatProvider extends AbstractChatProvider<
+export class StudyAgentChatProvider extends AbstractChatProvider<
   ChatMessage,
   ChatInput,
   SSEOutput

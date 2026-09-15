@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { Bubble, Sender, SenderProps, Think, CodeHighlighter, Mermaid, Actions, Attachments } from '@ant-design/x'
 import { useXChat, XRequest } from '@ant-design/x-sdk'
 import XMarkdown, { type ComponentProps } from '@ant-design/x-markdown'
-import { ShancnChatProvider } from '@/lib/chat-provider'
+import { StudyAgentChatProvider } from '@/lib/chat-provider'
 import type { ChatMessage, ChatInput } from '@/lib/chat-provider'
+import { readStored, writeStored } from '@/lib/storage'
 import {
   AntDesignOutlined,
   AudioFilled,
@@ -188,9 +189,9 @@ let cachedProviders: any[] | null = null
 
 export default function ChatView({ initialConversationId, defaultMessages }: ChatViewProps) {
   const router = useRouter()
-  const providerRef = useRef<ShancnChatProvider | null>(null)
+  const providerRef = useRef<StudyAgentChatProvider | null>(null)
   if (!providerRef.current) {
-    providerRef.current = new ShancnChatProvider({
+    providerRef.current = new StudyAgentChatProvider({
       request: XRequest<ChatInput>('/api/chat', { manual: true }),
     })
   }
@@ -266,7 +267,7 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
   }, [])
   const [selectedModel, setSelectedModel] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('video-shancn-selected-model') || ''
+      return readStored('selectedModel') || ''
     }
     return ''
   })
@@ -316,7 +317,7 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
           setModelOptions(opts)
 
           // Prioritize loading saved selected model from localStorage
-          const savedSelectedModel = localStorage.getItem('video-shancn-selected-model')
+          const savedSelectedModel = readStored('selectedModel')
           if (savedSelectedModel && opts[savedSelectedModel]) {
             setSelectedModel(savedSelectedModel)
           } else {
@@ -699,7 +700,7 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
     }
 
     try {
-      const raw = localStorage.getItem('video-shancn-chats')
+      const raw = readStored('chats')
       const existing = raw ? JSON.parse(raw) : []
       const idx = existing.findIndex((c: { id: string }) => c.id === conversation.id)
       if (idx >= 0) {
@@ -707,7 +708,7 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
       } else {
         existing.unshift(conversation)
       }
-      localStorage.setItem('video-shancn-chats', JSON.stringify(existing))
+      writeStored('chats', JSON.stringify(existing))
     } catch {
     }
   }, [messages])
@@ -947,7 +948,7 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
                     selectedKeys: [selectedModel],
                     onClick: ({ key }) => {
                       setSelectedModel(key)
-                      localStorage.setItem('video-shancn-selected-model', key)
+                      writeStored('selectedModel', key)
                       setModelSearchQuery('')
                     },
                     items: filteredModelItems,
@@ -1082,10 +1083,10 @@ export default function ChatView({ initialConversationId, defaultMessages }: Cha
             }
 
             try {
-              const raw = localStorage.getItem('video-shancn-chats')
+              const raw = readStored('chats')
               const existing = raw ? JSON.parse(raw) : []
               existing.unshift(conversation)
-              localStorage.setItem('video-shancn-chats', JSON.stringify(existing))
+              writeStored('chats', JSON.stringify(existing))
             } catch {}
 
             router.replace(`/ai-assistant/${convId}`)

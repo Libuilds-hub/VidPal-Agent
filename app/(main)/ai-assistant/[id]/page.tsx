@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import ChatView from '@/components/chat/chat-view'
+import { readStored } from '@/lib/storage'
 
 type StoredMessage = {
   id: string
@@ -30,7 +31,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('video-shancn-chats')
+      const raw = readStored("chats")
       if (raw) {
         const all: Conversation[] = JSON.parse(raw)
         const found = all.find((c) => c.id === id)

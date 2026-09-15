@@ -70,7 +70,7 @@ export async function GET() {
               }
               if (provider.baseUrl.includes("openrouter.ai")) {
                 headers["HTTP-Referer"] = "http://localhost:3000"
-                headers["X-Title"] = "Video Shancn"
+                headers["X-Title"] = "Video Study Agent"
               }
 
               const cleanBaseUrl = provider.baseUrl.replace(/\/$/, "")
