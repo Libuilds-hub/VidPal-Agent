@@ -41,8 +41,10 @@ test("isMp4Complete：moov 位于文件头/尾均视为完整，缺失或不存�
 // 用临时构造的 fixture，不依赖仓库内已提交的媒体文件
 // （public/videos/ 不入库，否则全新 clone 上此测试必然失败）
 test("isVideoFileComplete：按 videoId 解析 public/videos/<id>/video.mp4", () => {
+  const videosRoot = path.join(process.cwd(), "public", "videos")
+  const rootExistedBefore = fs.existsSync(videosRoot)
   const id = `test-moov-${Date.now()}`
-  const dir = path.join(process.cwd(), "public", "videos", id)
+  const dir = path.join(videosRoot, id)
   try {
     fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(path.join(dir, "video.mp4"), Buffer.from("ftyp....moov....mdat"))
@@ -50,6 +52,15 @@ test("isVideoFileComplete：按 videoId 解析 public/videos/<id>/video.mp4", ()
     assert.equal(isVideoFileComplete("definitely-not-exist"), false)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
+    // 若 public/videos 是本用例创建的，结束后一并清掉，避免留下空目录
+    // （用 rmdirSync 而非 rmSync：目录非空则失败，不会误删别人的文件）
+    if (!rootExistedBefore) {
+      try {
+        fs.rmdirSync(videosRoot)
+      } catch {
+        /* 非空则保留 */
+      }
+    }
   }
 })
 
