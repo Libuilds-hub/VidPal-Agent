@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { clearRuntimeLlmCache } from "@/lib/runtime-client"
+import { toPublicProvider, maskKey } from "@/lib/provider-serializer"
 
-// GET — get full provider (with unmasked key for editing)
+// GET — get one provider（apiKey 脱敏，明文 Key 绝不出服务端）
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const p = await prisma.llmProvider.findUnique({ where: { id } })
   if (!p) return NextResponse.json({ error: "供应商不存在" }, { status: 404 })
-  return NextResponse.json(p)
+  return NextResponse.json(toPublicProvider(p))
 }
 
 // PUT — update a provider
@@ -18,6 +19,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const existing = await prisma.llmProvider.findUnique({ where: { id } })
   if (!existing) return NextResponse.json({ error: "供应商不存在" }, { status: 404 })
 
+  // 防回写：若调用方把脱敏值原样传回，视为「不修改 Key」，
+  // 否则会把真实密钥覆盖成掩码字符串。
+  const nextApiKey =
+    typeof apiKey === "string" && apiKey.length > 0 && apiKey !== maskKey(existing.apiKey)
+      ? apiKey
+      : existing.apiKey
+
   if (isDefault) {
     await prisma.llmProvider.updateMany({ data: { isDefault: false } })
   }
@@ -26,7 +34,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     where: { id },
     data: {
       name: name ?? existing.name,
-      apiKey: apiKey ?? existing.apiKey,
+      apiKey: nextApiKey,
       baseUrl: baseUrl ?? existing.baseUrl,
       models: models ?? existing.models,
       isDefault: isDefault !== undefined ? isDefault : existing.isDefault,
@@ -39,7 +47,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   // 写操作后通知 Runtime 清除 LLM 缓存（fire-and-forget：不阻塞响应、Runtime 不可用也静默）
   void clearRuntimeLlmCache()
 
-  return NextResponse.json(updated)
+  return NextResponse.json(toPublicProvider(updated))
 }
 
 // DELETE — delete a provider

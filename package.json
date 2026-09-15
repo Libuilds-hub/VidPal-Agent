@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbo",
+    "dev": "next dev --turbo -H 127.0.0.1",
     "dev:runtime": "tsx watch runtime/index.ts",
-    "dev:web": "next dev --turbo",
+    "dev:web": "next dev --turbo -H 127.0.0.1",
     "dev:all": "concurrently -k -n runtime,web -c blue,green \"npm:dev:runtime\" \"npm:dev:web\"",
     "test:runtime": "node --import tsx --test \"runtime/tests/*.test.ts\"",
     "build": "next build",
-    "start": "next start"
+    "start": "next start -H 127.0.0.1"
   },
   "dependencies": {
     "@ant-design/nextjs-registry": "^1.3.0",

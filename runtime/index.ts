@@ -102,14 +102,19 @@ const server = createRuntimeServer({
   queue,
   chat,
   toolsIndex: registry.list().map((t) => ({ name: t.name, description: t.description, dangerous: t.dangerous })),
+  // 仅放行本地 Web 控制台跨域访问（此前是无条件 ACAO: *）
+  allowedOrigins: [config.webOrigin],
 })
 // EADDRINUSE 等启动失败给出友好提示后退出（默认行为是抛未捕获异常）
 server.on("error", (err) => {
   console.error("[runtime] 服务启动失败:", err.message)
   process.exit(1)
 })
-server.listen(config.port, () => {
-  console.log(`[runtime] Agent Runtime 已启动: http://localhost:${config.port}`)
+// 只监听回环地址：本服务无鉴权且 Agent 持有 shell / 文件读写工具，
+// 监听 0.0.0.0 会让同局域网内任何主机直接获得本机命令执行能力。
+const host = process.env.RUNTIME_HOST || "127.0.0.1"
+server.listen(config.port, host, () => {
+  console.log(`[runtime] Agent Runtime 已启动: http://${host}:${config.port}`)
   console.log(`[runtime] workspace: ${config.workspace}`)
 })
 

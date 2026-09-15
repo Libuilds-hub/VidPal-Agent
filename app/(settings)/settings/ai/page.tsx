@@ -14,6 +14,8 @@ export default function AiAgentPage() {
   const [hermesKey, setHermesKey] = useState("")
   const [claudeCodeEnabled, setClaudeCodeEnabled] = useState(false)
   const [claudeCodeKey, setClaudeCodeKey] = useState("")
+  // 服务端只回传「是否已配置」，明文 Key 不下发到浏览器；输入框留空表示不修改
+  const [keySet, setKeySet] = useState({ openclaw: false, hermes: false, claudeCode: false })
 
   useEffect(() => {
     async function load() {
@@ -21,11 +23,14 @@ export default function AiAgentPage() {
         const res = await fetch("/api/settings")
         const data = await res.json()
         if (data.openclawEnabled) setOpenclawEnabled(data.openclawEnabled === "true")
-        if (data.openclawKey) setOpenclawKey(data.openclawKey)
         if (data.hermesEnabled) setHermesEnabled(data.hermesEnabled === "true")
-        if (data.hermesKey) setHermesKey(data.hermesKey)
         if (data.claudeCodeEnabled) setClaudeCodeEnabled(data.claudeCodeEnabled === "true")
-        if (data.claudeCodeKey) setClaudeCodeKey(data.claudeCodeKey)
+        const sec = data.__secrets || {}
+        setKeySet({
+          openclaw: !!sec.openclawKey?.set,
+          hermes: !!sec.hermesKey?.set,
+          claudeCode: !!sec.claudeCodeKey?.set,
+        })
       } catch { /* silent */ }
       finally { setLoading(false) }
     }
@@ -33,6 +38,8 @@ export default function AiAgentPage() {
   }, [])
 
   async function saveAgentSetting(key: string, value: string | boolean) {
+    // 密钥留空 = 保持原值，避免把已保存的 Key 覆盖成空字符串
+    if (typeof value === "string" && value === "") return
     try {
       await fetch("/api/settings", {
         method: "POST",
@@ -41,6 +48,9 @@ export default function AiAgentPage() {
       })
     } catch { /* silent */ }
   }
+
+  const keyPlaceholder = (configured: boolean) =>
+    configured ? "已保存（如需更换请输入新 Key）" : "sk-..."
 
   if (loading) {
     return (
@@ -74,7 +84,7 @@ export default function AiAgentPage() {
               {openclawEnabled && (
                 <div className="mt-3.5 pt-3.5 border-t border-dashed border-border/25">
                   <SettingRow label="API Key" description="Openclaw 服务连接密钥">
-                    <Input type="password" value={openclawKey} onChange={(e) => { setOpenclawKey(e.target.value) }} onBlur={() => saveAgentSetting("openclawKey", openclawKey)} placeholder="sk-..." className="w-[240px] h-8 text-[12px]" />
+                    <Input type="password" value={openclawKey} onChange={(e) => { setOpenclawKey(e.target.value) }} onBlur={() => { saveAgentSetting("openclawKey", openclawKey); setKeySet((p) => ({ ...p, openclaw: p.openclaw || !!openclawKey })); setOpenclawKey("") }} placeholder={keyPlaceholder(keySet.openclaw)} className="w-[240px] h-8 text-[12px]" />
                   </SettingRow>
                 </div>
               )}
@@ -92,7 +102,7 @@ export default function AiAgentPage() {
               {hermesEnabled && (
                 <div className="mt-3.5 pt-3.5 border-t border-dashed border-border/25">
                   <SettingRow label="API Key" description="Hermes Agent 连接密钥">
-                    <Input type="password" value={hermesKey} onChange={(e) => { setHermesKey(e.target.value) }} onBlur={() => saveAgentSetting("hermesKey", hermesKey)} placeholder="sk-..." className="w-[240px] h-8 text-[12px]" />
+                    <Input type="password" value={hermesKey} onChange={(e) => { setHermesKey(e.target.value) }} onBlur={() => { saveAgentSetting("hermesKey", hermesKey); setKeySet((p) => ({ ...p, hermes: p.hermes || !!hermesKey })); setHermesKey("") }} placeholder={keyPlaceholder(keySet.hermes)} className="w-[240px] h-8 text-[12px]" />
                   </SettingRow>
                 </div>
               )}
@@ -110,7 +120,7 @@ export default function AiAgentPage() {
               {claudeCodeEnabled && (
                 <div className="mt-3.5 pt-3.5 border-t border-dashed border-border/25">
                   <SettingRow label="API Key" description="Claude Code 连接密钥">
-                    <Input type="password" value={claudeCodeKey} onChange={(e) => { setClaudeCodeKey(e.target.value) }} onBlur={() => saveAgentSetting("claudeCodeKey", claudeCodeKey)} placeholder="sk-..." className="w-[240px] h-8 text-[12px]" />
+                    <Input type="password" value={claudeCodeKey} onChange={(e) => { setClaudeCodeKey(e.target.value) }} onBlur={() => { saveAgentSetting("claudeCodeKey", claudeCodeKey); setKeySet((p) => ({ ...p, claudeCode: p.claudeCode || !!claudeCodeKey })); setClaudeCodeKey("") }} placeholder={keyPlaceholder(keySet.claudeCode)} className="w-[240px] h-8 text-[12px]" />
                   </SettingRow>
                 </div>
               )}

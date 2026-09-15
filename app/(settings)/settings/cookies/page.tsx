@@ -6,15 +6,25 @@ import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 import { SettingRow, StatusBanner } from "@/components/settings/settings-ui"
 import { Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react"
 
+// 服务端只返回「是否已配置 + 脱敏预览」，明文 Cookie 不会下发到浏览器。
+// 因此输入框始终为空，用户重新粘贴才会覆盖已保存的值；留空表示不修改。
+function maskPreview(value: string): string {
+  if (!value) return ""
+  if (value.length <= 10) return "********"
+  return `${value.slice(0, 4)}********${value.slice(-4)}`
+}
+
 export default function CookiesPage() {
   const [loading, setLoading] = useState(true)
   const [bilibiliCookie, setBilibiliCookie] = useState("")
   const [youtubeCookie, setYoutubeCookie] = useState("")
+  const [saved, setSaved] = useState({ bilibili: false, youtube: false })
+  const [previews, setPreviews] = useState({ bilibili: "", youtube: "" })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [showBilibili, setShowBilibili] = useState(false)
   const [showYoutube, setShowYoutube] = useState(false)
-  // 记录最近一次已持久化的值，用于自动保存时跳过未变更的情况
+  // 记录最近一次已持久化的「输入框内容」，用于自动保存时跳过未变更的情况
   const lastSavedRef = useRef({ bilibili: "", youtube: "" })
   const loadedRef = useRef(false)
 
@@ -23,12 +33,16 @@ export default function CookiesPage() {
       try {
         const res = await fetch("/api/settings")
         const data = await res.json()
-        if (data.bilibiliCookie) setBilibiliCookie(data.bilibiliCookie)
-        if (data.youtubeCookie) setYoutubeCookie(data.youtubeCookie)
-        lastSavedRef.current = {
-          bilibili: data.bilibiliCookie || "",
-          youtube: data.youtubeCookie || "",
-        }
+        const sec = data.__secrets || {}
+        setSaved({
+          bilibili: !!sec.bilibiliCookie?.set,
+          youtube: !!sec.youtubeCookie?.set,
+        })
+        setPreviews({
+          bilibili: sec.bilibiliCookie?.preview || "",
+          youtube: sec.youtubeCookie?.preview || "",
+        })
+        lastSavedRef.current = { bilibili: "", youtube: "" }
       } catch { /* silent */ }
       finally {
         loadedRef.current = true
@@ -39,18 +53,31 @@ export default function CookiesPage() {
   }, [])
 
   async function saveCookies(bili: string, yt: string, silent = false) {
-    if (saving) return
+    // 只提交用户实际粘贴过的项，避免用空值清掉另一端已保存的 Cookie
+    const settings: Record<string, string> = {}
+    if (bili) settings.bilibiliCookie = bili
+    if (yt) settings.youtubeCookie = yt
+    if (Object.keys(settings).length === 0) return true
+
     setSaving(true)
     if (!silent) setMessage(null)
     try {
       const res = await fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings: { bilibiliCookie: bili, youtubeCookie: yt } }),
+        body: JSON.stringify({ settings }),
       })
       const data = await res.json()
       if (res.ok) {
         lastSavedRef.current = { bilibili: bili, youtube: yt }
+        setSaved((prev) => ({
+          bilibili: prev.bilibili || !!bili,
+          youtube: prev.youtube || !!yt,
+        }))
+        setPreviews((prev) => ({
+          bilibili: bili ? maskPreview(bili) : prev.bilibili,
+          youtube: yt ? maskPreview(yt) : prev.youtube,
+        }))
         if (!silent) setMessage({ type: "success", text: "Cookie 已保存" })
         return true
       } else {
@@ -111,7 +138,7 @@ export default function CookiesPage() {
     </div>
   )
 
-  const hasSavedBilibili = bilibiliCookie.length > 0
+  const hasSavedBilibili = saved.bilibili
 
   return (
     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin bg-background/35">
@@ -126,10 +153,16 @@ export default function CookiesPage() {
           <div className="rounded-xl border border-border/40 bg-card/45 px-5 py-1.5 shadow-xs">
             <SettingRow
               label="Bilibili Cookie"
-              description="登录 bilibili.com 后从浏览器复制的 Cookie（需包含 SESSDATA），可解决 HTTP 412 风控拦截"
+              description="登录 bilibili.com 后从浏览器复制的 Cookie（需包含 SESSDATA），可解决 HTTP 412 风控拦截。已保存的值不会回显，重新粘贴可覆盖。"
             >
               <div className="flex items-center gap-2">
-                {renderCookieInput(bilibiliCookie, setBilibiliCookie, showBilibili, setShowBilibili, "粘贴 Bilibili Cookie")}
+                {renderCookieInput(
+                  bilibiliCookie,
+                  setBilibiliCookie,
+                  showBilibili,
+                  setShowBilibili,
+                  previews.bilibili ? `已保存 ${previews.bilibili}` : "粘贴 Bilibili Cookie"
+                )}
                 {hasSavedBilibili && !saving && (
                   <span className="flex items-center gap-1 text-[11px] text-emerald-600 shrink-0">
                     <CheckCircle2 className="h-3 w-3" /> 已保存
@@ -137,10 +170,16 @@ export default function CookiesPage() {
                 )}
               </div>
             </SettingRow>
-            <SettingRow label="YouTube Cookie" description="YouTube 加密视频和高码率下载所需的 Cookie">
+            <SettingRow label="YouTube Cookie" description="YouTube 加密视频和高码率下载所需的 Cookie。已保存的值不会回显，重新粘贴可覆盖。">
               <div className="flex items-center gap-2">
-                {renderCookieInput(youtubeCookie, setYoutubeCookie, showYoutube, setShowYoutube, "粘贴 YouTube Cookie")}
-                {youtubeCookie.length > 0 && !saving && (
+                {renderCookieInput(
+                  youtubeCookie,
+                  setYoutubeCookie,
+                  showYoutube,
+                  setShowYoutube,
+                  previews.youtube ? `已保存 ${previews.youtube}` : "粘贴 YouTube Cookie"
+                )}
+                {saved.youtube && !saving && (
                   <span className="flex items-center gap-1 text-[11px] text-emerald-600 shrink-0">
                     <CheckCircle2 className="h-3 w-3" /> 已保存
                   </span>

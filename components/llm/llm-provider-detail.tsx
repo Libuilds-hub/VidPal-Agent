@@ -8,7 +8,10 @@ import { getProviderIcon, getProviderHeader, getProviderAvatar } from "./provide
 interface Provider {
   id: string
   name: string
+  /** 脱敏后的 Key（服务端不再回传明文）；真值判断仍可用于「是否已配置」 */
   apiKey: string
+  /** 是否已在服务端配置明文 Key */
+  hasApiKey?: boolean
   baseUrl: string
   models: string
   isDefault: boolean
@@ -85,16 +88,15 @@ export default function LlmProviderDetail({
   const [showKey, setShowKey] = useState(false)
   const [testModel, setTestModel] = useState(parseModels(p.models)[0] || "")
   const [enabled, setEnabled] = useState(p.enabled !== false)
-  const [localKey, setLocalKey] = useState(p.apiKey || "")
+  // 输入框只承载「用户新输入的 Key」；已保存的 Key 不回显（服务端只回传脱敏值）。
+  const [localKey, setLocalKey] = useState("")
   const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     setEnabled(p.enabled !== false)
   }, [p.enabled])
 
-  useEffect(() => {
-    setLocalKey(p.apiKey || "")
-  }, [p.apiKey])
+  const keyConfigured = p.hasApiKey ?? Boolean(p.apiKey)
   const [enabledModels, setEnabledModels] = useState<Record<string, boolean>>({})
   const [openRouterModels, setOpenRouterModels] = useState<any[]>(() => {
     if (typeof window !== "undefined") {
@@ -447,13 +449,15 @@ export default function LlmProviderDetail({
           <div className="flex justify-between items-start py-3.5 border-b border-dashed border-border gap-4">
             <div className="flex-1 min-w-[180px]">
               <div className="text-sm  mb-1">API Key</div>
-              <p className="text-xs text-muted-foreground leading-relaxed">请填写你的 API Key</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {keyConfigured ? "已保存（不会回显）；输入新值可覆盖。" : "请填写你的 API Key"}
+              </p>
             </div>
             <div className="flex-[0_1_400px] w-full flex justify-end">
               <div className="relative w-full">
                 <Input
                   type={showKey ? "text" : "password"}
-                  placeholder="API Key"
+                  placeholder={keyConfigured ? "已保存（输入新 Key 以更换）" : "API Key"}
                   value={localKey}
                   onChange={(e) => {
                     setLocalKey(e.target.value)

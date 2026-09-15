@@ -9,7 +9,10 @@ import LlmProviderDetail from "@/components/llm/llm-provider-detail"
 interface Provider {
   id: string
   name: string
+  /** 脱敏后的 Key（服务端不再回传明文）；真值判断仍可用于「是否已配置」 */
   apiKey: string
+  /** 是否已在服务端配置明文 Key */
+  hasApiKey?: boolean
   baseUrl: string
   models: string
   isDefault: boolean
@@ -397,8 +400,9 @@ export default function LlmProviderManager() {
                 const typedKey = editKeys[provider.id]
                 if (isTemplate || typedKey) {
                   // If it's a template, or if they have typed a new key in the input, test using the typed key!
+                  // 注意：provider.apiKey 是脱敏值，绝不能回传给服务端；只用用户新输入的 Key。
                   return handleTest(provider.id, {
-                    apiKey: typedKey || provider.apiKey,
+                    apiKey: typedKey || "",
                     baseUrl: templateProvider?.baseUrl || provider.baseUrl,
                     model: modelName || provider.models.split(",")[0]?.trim() || "gpt-3.5-turbo",
                   })

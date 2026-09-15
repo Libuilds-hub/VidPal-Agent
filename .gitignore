@@ -38,6 +38,13 @@ yarn-error.log*
 /scratch/
 /test-screenshots/
 
+# 本地数据库（含 API Key、站点 Cookie 等明文凭证，绝不入库）
+/prisma/*.db
+/prisma/*.db-shm
+/prisma/*.db-wal
+/prisma/*.db-journal
+/prisma/migrations/**/*.db
+
 # vercel
 .vercel
 

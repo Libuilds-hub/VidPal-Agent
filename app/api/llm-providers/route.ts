@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { clearRuntimeLlmCache } from "@/lib/runtime-client"
+import { toPublicProvider, publicProviders } from "@/lib/provider-serializer"
 
-// GET — list all providers (return unmasked keys)
+// GET — list all providers（apiKey 一律脱敏后返回；明文 Key 绝不出服务端）
 export async function GET() {
   const providers = await prisma.llmProvider.findMany({
     orderBy: { createdAt: "asc" },
@@ -32,9 +33,9 @@ export async function GET() {
         }
       })
       // Reload providers after update
-      return NextResponse.json(await prisma.llmProvider.findMany({
+      return NextResponse.json(publicProviders(await prisma.llmProvider.findMany({
         orderBy: { createdAt: "asc" }
-      }))
+      })))
     }
   }
 
@@ -126,7 +127,7 @@ export async function GET() {
     })()
   }
 
-  return NextResponse.json(providers, {
+  return NextResponse.json(publicProviders(providers), {
     headers: {
       "X-Last-Model-Sync-Time": lastSyncSetting?.value || ""
     }
@@ -161,10 +162,5 @@ export async function POST(req: NextRequest) {
   // 写操作后通知 Runtime 清除 LLM 缓存（fire-and-forget：不阻塞响应、Runtime 不可用也静默）
   void clearRuntimeLlmCache()
 
-  return NextResponse.json(provider)
-}
-
-function maskKey(key: string): string {
-  if (!key || key.length <= 8) return "****"
-  return key.slice(0, 4) + "****" + key.slice(-4)
+  return NextResponse.json(toPublicProvider(provider))
 }

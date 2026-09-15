@@ -8,7 +8,10 @@ import { getProviderIcon, getProviderDescription } from "./provider-icons"
 interface Provider {
   id: string
   name: string
+  /** 脱敏后的 Key（服务端不再回传明文） */
   apiKey: string
+  /** 是否已在服务端配置明文 Key */
+  hasApiKey?: boolean
   baseUrl: string
   models: string
   isDefault: boolean
@@ -144,7 +147,7 @@ export default function LlmProviderCard({
             <label className="text-[12px] text-muted-foreground w-14 shrink-0">API Key</label>
             <Input
               type="password"
-              placeholder={p.apiKey}
+              placeholder={(p.hasApiKey ?? Boolean(p.apiKey)) ? "已保存（输入新 Key 以更换）" : "API Key"}
               value={editKey}
               onChange={(e) => onEditKeyChange(e.target.value)}
               className="h-7 text-[13px] flex-1"

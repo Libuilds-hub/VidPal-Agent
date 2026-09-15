@@ -30,20 +30,44 @@ export interface RuntimeServices {
   toolsIndex?: Array<{ name: string; description: string; dangerous: boolean }>
   /** 技能目录根（测试注入 tmp；默认项目 skills/） */
   skillsRoot?: string
+  /** 允许跨域访问本服务的 Web 控制台 Origin 白名单；默认仅本地 3000 端口 */
+  allowedOrigins?: string[]
 }
+
+/** localhost / 127.0.0.1 视为同一来源，避免因写法不同被白名单漏掉。 */
+function originVariants(origin: string): string[] {
+  const trimmed = origin.replace(/\/+$/, "")
+  if (trimmed.includes("//localhost")) return [trimmed, trimmed.replace("//localhost", "//127.0.0.1")]
+  if (trimmed.includes("//127.0.0.1")) return [trimmed, trimmed.replace("//127.0.0.1", "//localhost")]
+  return [trimmed]
+}
+
+export const DEFAULT_ALLOWED_ORIGINS = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+]
 
 export function createRuntimeServer(services: RuntimeServices): http.Server {
   const { db, bus, queue } = services
   const skillsRoot = services.skillsRoot ?? SKILLS_ROOT
+  const allowedOrigins = new Set(
+    (services.allowedOrigins ?? DEFAULT_ALLOWED_ORIGINS).flatMap(originVariants),
+  )
 
-  function cors(res: http.ServerResponse): void {
-    res.setHeader("Access-Control-Allow-Origin", "*")
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Last-Event-ID")
+  function applyCors(req: http.IncomingMessage, res: http.ServerResponse): void {
+    // 只放行本地 Web 控制台。此前是 `*`：任意网页都能跨域读取本机 Runtime 的响应，
+    // 而本服务无鉴权且 Agent 持有 run_command / 文件读写工具 —— 等价于把本机交给
+    // 浏览器里打开的任何一个页面。这里回显白名单内的具体 Origin，未知来源不下发 CORS 头。
+    const origin = req.headers.origin
+    if (origin && allowedOrigins.has(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin)
+      res.setHeader("Vary", "Origin")
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Last-Event-ID")
+    }
   }
 
   function json(res: http.ServerResponse, status: number, data: unknown): void {
-    cors(res)
     res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" })
     res.end(JSON.stringify(data))
   }
@@ -120,7 +144,7 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
     const e = bodyError(err)
     if (!e) return false
     if (e.status === 413) {
-      cors(res)
+      applyCors(req, res)
       res.setHeader("Connection", "close")
       res.writeHead(413, { "Content-Type": "application/json; charset=utf-8" })
       // 响应冲刷完成后关闭连接。注意不能直接 destroy：请求体残留未读数据
@@ -161,8 +185,10 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
     const path = url.pathname
     const method = req.method ?? "GET"
 
+    // 统一在此下发 CORS 头：json() / SSE / 404 / 500 等所有出口都会继承。
+    applyCors(req, res)
+
     if (method === "OPTIONS") {
-      cors(res)
       res.writeHead(204)
       res.end()
       return
@@ -231,7 +257,6 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
     if (method === "GET" && eventsMatch) {
       const taskId = eventsMatch[1]
       const after = Number(url.searchParams.get("after") ?? req.headers["last-event-id"] ?? 0)
-      cors(res)
       res.writeHead(200, {
         "Content-Type": "text/event-stream; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
@@ -364,7 +389,6 @@ export function createRuntimeServer(services: RuntimeServices): http.Server {
         }
         const { createChatHandler } = await import("./chat")
         const { LLMNotConfiguredError } = await import("./llm")
-        cors(res)
         res.writeHead(200, {
           "Content-Type": "text/event-stream; charset=utf-8",
           "Cache-Control": "no-cache, no-transform",
