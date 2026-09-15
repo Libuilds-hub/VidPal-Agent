@@ -5,17 +5,52 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import Database from "better-sqlite3"
-import { getDevDbPath, ensureDevDbWAL, isVideoFileComplete } from "../video/db"
+import { getDevDbPath, ensureDevDbWAL, isVideoFileComplete, isMp4Complete } from "../video/db"
 
 test("getDevDbPath 从 DATABASE_URL 提取 sqlite 文件路径", () => {
-  const p = getDevDbPath("file:D:/Data/code/video-shancn/prisma/dev.db")
-  assert.equal(p, "D:/Data/code/video-shancn/prisma/dev.db")
+  const p = getDevDbPath("file:D:/projects/demo-app/prisma/dev.db")
+  assert.equal(p, "D:/projects/demo-app/prisma/dev.db")
   assert.throws(() => getDevDbPath("postgres://x"), /仅支持 SQLite/)
 })
 
-test("isVideoFileComplete：moov 检测（用仓库内已提交的完整视频）", () => {
-  assert.equal(isVideoFileComplete("cmsshlcpi0005tuww24b0c7ut"), true)
-  assert.equal(isVideoFileComplete("definitely-not-exist"), false)
+test("isMp4Complete：moov 位于文件头/尾均视为完整，缺失或不存在则否", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mp4-moov-"))
+  try {
+    // 完整 mp4：moov atom 在文件头
+    const head = path.join(dir, "head.mp4")
+    fs.writeFileSync(head, Buffer.concat([Buffer.from("ftypmoovfree"), Buffer.alloc(32)]))
+    assert.equal(isMp4Complete(head), true)
+
+    // 完整 mp4：moov atom 在文件尾（常见于流式写入）
+    const tail = path.join(dir, "tail.mp4")
+    fs.writeFileSync(tail, Buffer.concat([Buffer.alloc(32), Buffer.from("mdatmoov")]))
+    assert.equal(isMp4Complete(tail), true)
+
+    // 转码中断：没有 moov atom
+    const broken = path.join(dir, "broken.mp4")
+    fs.writeFileSync(broken, Buffer.from("ftypmdatpartial"))
+    assert.equal(isMp4Complete(broken), false)
+
+    // 文件不存在：不抛错，返回 false
+    assert.equal(isMp4Complete(path.join(dir, "absent.mp4")), false)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// 用临时构造的 fixture，不依赖仓库内已提交的媒体文件
+// （public/videos/ 不入库，否则全新 clone 上此测试必然失败）
+test("isVideoFileComplete：按 videoId 解析 public/videos/<id>/video.mp4", () => {
+  const id = `test-moov-${Date.now()}`
+  const dir = path.join(process.cwd(), "public", "videos", id)
+  try {
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, "video.mp4"), Buffer.from("ftyp....moov....mdat"))
+    assert.equal(isVideoFileComplete(id), true)
+    assert.equal(isVideoFileComplete("definitely-not-exist"), false)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test("ensureDevDbWAL：将新建的 sqlite 文件切换为 WAL 模式", () => {
