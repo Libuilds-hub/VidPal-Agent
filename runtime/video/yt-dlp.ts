@@ -76,7 +76,10 @@ function rawCookiesToNetscape(raw: string): string {
   return lines.join("\n")
 }
 
-// 从数据库同步 Bilibili Cookie 到 cookies.txt（仅当设置中存在时写入）
+// 从数据库同步 Bilibili Cookie 到 cookies.txt
+// 设置中有值 → 写入；设置被清空 → 删除残留文件。
+// 后者很重要：cookies.txt 是明文凭证，若只写不删，用户清空设置后
+// 旧 Cookie 仍会留在磁盘上并被 yt-dlp 继续使用（clearCookie 无人调用）。
 async function syncBilibiliCookie(): Promise<void> {
   try {
     const setting = await prisma.setting.findUnique({
@@ -85,6 +88,8 @@ async function syncBilibiliCookie(): Promise<void> {
     const raw = setting?.value?.trim()
     if (raw) {
       writeFileSync(COOKIES_FILE, rawCookiesToNetscape(raw), "utf-8")
+    } else if (existsSync(COOKIES_FILE)) {
+      unlinkSync(COOKIES_FILE)
     }
   } catch (err) {
     console.error("Failed to sync bilibili cookie:", err)
