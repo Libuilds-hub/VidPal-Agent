@@ -15,7 +15,8 @@ const EXEC_MAX_BUFFER = 128 * 1024 * 1024
 
 const VIDEOS_DIR = path.join(process.cwd(), "public", "videos")
 const COOKIES_FILE = path.join(process.cwd(), "cookies.txt")
-const FFMPEG_PATH = "D:\\python3.10\\Scripts\\ffmpeg.exe"
+// ffmpeg 可执行文件路径：默认走 PATH；需要指定绝对路径时用 FFMPEG_PATH 覆盖
+const FFMPEG_PATH = process.env.FFMPEG_PATH || "ffmpeg"
 
 const BILIBILI_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"

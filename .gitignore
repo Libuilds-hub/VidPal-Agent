@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# 但示例文件要入库，供他人参考有哪些变量
+!.env.example
 
 # 敏感/临时文件
 /cookies.txt
