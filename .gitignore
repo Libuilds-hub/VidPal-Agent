@@ -38,6 +38,9 @@ yarn-error.log*
 /scratch/
 /test-screenshots/
 
+# 用户媒体产物（下载/转码后的视频、音频、封面）——本地保留，不入库
+/public/videos/
+
 # 本地数据库（含 API Key、站点 Cookie 等明文凭证，绝不入库）
 /prisma/*.db
 /prisma/*.db-shm
