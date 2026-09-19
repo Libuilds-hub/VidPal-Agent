@@ -109,7 +109,7 @@ AI 驱动的视频学习平台。它做的不是「帮你找到更多视频」�
 ## 快速开始
 
 ```bash
-git clone https://github.com/Libuilds-hub/video-study-agent.git
+git clone https://github.com/Libuilds-hub/VidPal-Agent.git
 cd video-study-agent
 
 npm install
