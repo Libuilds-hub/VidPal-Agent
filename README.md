@@ -8,6 +8,32 @@ AI 驱动的视频学习平台。它做的不是「帮你找到更多视频」�
 
 ---
 
+## 界面预览
+
+![video-study-agent 界面演示](assets/demo/video-study-agent-demo.gif)
+
+完整演示视频（37 秒 · 1440×900，依次经过仪表盘、视频库、视频详情、思维导图、知识图谱、Agent 控制台与设置中心）：[`assets/demo/video-study-agent-demo.mp4`](assets/demo/video-study-agent-demo.mp4)
+
+下表都是本地跑起来之后的真实截图（1440×900，数据来自实际导入的视频）：
+
+| 仪表盘 | 视频库 |
+|---|---|
+| ![仪表盘](assets/screenshots/01-dashboard.png) | ![视频库](assets/screenshots/02-videos.png) |
+| **导入视频**<br>粘贴 B站 / YouTube 链接，或上传本地文件 | **合集**<br>把视频组织成学习路径 |
+| ![导入视频](assets/screenshots/03-video-import.png) | ![合集](assets/screenshots/07-collections.png) |
+| **视频速览**<br>播放器 + 带时间轴的转写文稿 + AI 摘要 | **思维导图**<br>由摘要生成的结构化脑图 |
+| ![视频详情](assets/screenshots/04-video-detail.png) | ![思维导图](assets/screenshots/05-video-mindmap.png) |
+| **问答助手**<br>针对单个视频提问，回答基于转写文稿 | **知识图谱**<br>视频与知识点之间的关系网络 |
+| ![问答助手](assets/screenshots/06-video-qa.png) | ![知识图谱](assets/screenshots/08-knowledge-graph.png) |
+| **Agent 控制台**<br>导入 / 转写任务的实时状态 | **AI 助手**<br>ReAct Agent 对话与工具调用 |
+| ![Agent 控制台](assets/screenshots/09-agent-console.png) | ![AI 助手](assets/screenshots/10-ai-chat.png) |
+| **AI 供应商**<br>多供应商、模型列表与连通性检查 | **技能管理**<br>可插拔技能与在线安装 |
+| ![AI 供应商设置](assets/screenshots/11-settings-llm.png) | ![技能管理](assets/screenshots/12-settings-skills.png) |
+
+截图与演示视频的生成方式见 [`assets/README.md`](assets/README.md)。
+
+---
+
 ## 功能
 
 | 模块 | 说明 |
@@ -164,6 +190,7 @@ runtime/             Agent Runtime 进程
 scripts/
   transcribe.py      转写脚本（首次使用时自动生成）
 skills/              可插拔技能（每个技能一个 SKILL.md）
+assets/              README 引用的界面截图与演示视频
 data/                Runtime 本地数据库（不入库）
 public/videos/       下载与转码产物（不入库）
 ```
