@@ -4,11 +4,11 @@
 用真实数据（已导入并转写的视频）实际截取 / 录制的，没有做设计稿替换。
 
 ```
-screenshots/   12 张页面截图，1440×900
+screenshots/                 12 张页面截图，1440×900
 demo/
-  video-study-agent-demo.gif   16 秒核心流程循环（README 首屏内联播放）
-  video-study-agent-demo.mp4   37 秒完整演示，1440×900 / H.264
-  poster.jpg                   封面帧
+  vidpal-agent-demo.gif      16 秒核心流程循环（README 首屏内联播放）
+  vidpal-agent-demo.mp4      37 秒完整演示，1440×900 / H.264
+  poster.jpg                 封面帧
 ```
 
 ## 怎么重新生成

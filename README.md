@@ -1,18 +1,20 @@
-# video-study-agent
+# VidPal-Agent
 
 > 把看过的视频，变成你自己的知识结构。
 
-AI 驱动的视频学习平台。它做的不是「帮你找到更多视频」，而是把散落在 B站 / YouTube 的视频**下载 → 转写 → 摘要 → 关联**，沉淀成可检索、可视化的个人知识资产。
+**VidPal** 是一个 AI 驱动的视频学习平台。它做的不是「帮你找到更多视频」，而是把散落在 B站 / YouTube 的视频**下载 → 转写 → 摘要 → 关联**，沉淀成可检索、可视化的个人知识资产。
 
 搜索 → 导入 → 转写 → 摘要 → 思维导图 → 跨视频检索 → 知识图谱
+
+<sub>仓库名与项目名是 `VidPal-Agent`，界面里的品牌名是 `VidPal`，两者指同一个项目。</sub>
 
 ---
 
 ## 界面预览
 
-![video-study-agent 界面演示](assets/demo/video-study-agent-demo.gif)
+![VidPal-Agent 界面演示](assets/demo/vidpal-agent-demo.gif)
 
-完整演示视频（37 秒 · 1440×900，依次经过仪表盘、视频库、视频详情、思维导图、知识图谱、Agent 控制台与设置中心）：[`assets/demo/video-study-agent-demo.mp4`](assets/demo/video-study-agent-demo.mp4)
+完整演示视频（37 秒 · 1440×900，依次经过仪表盘、视频库、视频详情、思维导图、知识图谱、Agent 控制台与设置中心）：[`assets/demo/vidpal-agent-demo.mp4`](assets/demo/vidpal-agent-demo.mp4)
 
 下表都是本地跑起来之后的真实截图（1440×900，数据来自实际导入的视频）：
 
@@ -110,7 +112,7 @@ AI 驱动的视频学习平台。它做的不是「帮你找到更多视频」�
 
 ```bash
 git clone https://github.com/Libuilds-hub/VidPal-Agent.git
-cd video-study-agent
+cd VidPal-Agent
 
 npm install
 
